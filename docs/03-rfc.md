@@ -901,18 +901,140 @@ Spring Boot 4.1.2, la misma versión que usa la API.
 
 ## 7. Errores y validación
 
-_Pendiente._ El formato estándar (Problem Details, RFC 9457), el catálogo de errores con un ejemplo de cada uno
-(GEN-6), y por qué un `REJECTED` no es un error.
+### 7.1 El formato
+
+Todos los errores usan Problem Details (RFC 9457), con `Content-Type: application/problem+json`. Spring lo trae, y se
+prende con `spring.mvc.problemdetails.enabled: true` (por defecto viene apagado). A los campos estándar se suman dos:
+`requestId`, el id del pedido que también está en los logs (sección 8), y `errors`, la lista de campos con problemas
+en un 400.
+
+```json
+{
+  "type": "/problems/validation-error",
+  "title": "El pedido no es válido",
+  "status": 400,
+  "detail": "Una orden LIMIT necesita precio límite.",
+  "instance": "/users/1/orders",
+  "requestId": "4b7e9c2a-1f3d-4e8a-9b6c-0d2e5f7a8c91",
+  "errors": [ { "field": "price", "message": "Una orden LIMIT necesita precio límite." } ]
+}
+```
+
+- **`type`** identifica el error y no cambia: el cliente decide con él, no con el texto. Es una dirección relativa
+  (`/problems/...`), que el RFC 9457 permite. Lo que significa cada una está en el catálogo de abajo.
+- **`detail`** explica, en español, qué está mal y cómo arreglarlo (GEN-6).
+- **Un 500 no cuenta nada interno:** ni la consulta, ni la clase, ni el stack trace. Solo el `requestId`, para
+  buscarlo en los logs.
+
+### 7.2 Dónde se valida
+
+Siguen los dos tipos de error de la sección 2:
+
+- **El controller valida la forma** con Bean Validation: que estén los datos, con valores válidos y en rango, y que
+  la combinación tenga sentido (sección 6.2). Si falla, `validation-error`, con un elemento en `errors` por campo.
+- **El service valida contra los datos:** que el activo exista y no sea ARS, y que por monto se pueda calcular la
+  cantidad. Si falla, `invalid-order`. Pasa antes de grabar, así que no se graba nada (A-6).
+
+### 7.3 El catálogo
+
+| Código | `type` | Cuándo | Ejemplo de `detail` |
+|---|---|---|---|
+| 400 | `validation-error` | falta un dato, un valor no es válido o la combinación no tiene sentido; también un texto de búsqueda vacío o largo, un cursor que no se puede leer, un JSON mal armado o un campo desconocido | "Mandá la cantidad o el monto, no los dos." |
+| 400 | `invalid-order` | el activo no existe o es ARS; por monto, la cantidad da 0 o no entra en `size`; por monto y a mercado, el activo no cotiza | "Con $500 no alcanza para una acción de PAMP ($925,85)." |
+| 404 | `user-not-found` | el usuario de la dirección no existe | "No existe el usuario 99." |
+| 404 | `order-not-found` | la orden no existe, o es de otro usuario: la respuesta es la misma, para no confirmar órdenes ajenas (CAN-4) | "No existe la orden 999." |
+| 409 | `order-not-cancellable` | la orden ya no está `NEW`. Trae el estado actual en `currentStatus` (CAN-3) | "La orden 3 ya está CANCELLED: solo se cancela una orden NEW." |
+| 422 | `client-order-id-reused` | el identificador ya se usó con otro contenido (R-2) | "Ese identificador ya se usó en otra orden. Para una orden nueva, generá uno nuevo." |
+| 503 | `user-busy` | el envío no consiguió el turno del usuario en 2 segundos. Trae el encabezado `Retry-After: 1` | "Tu cuenta está procesando otra orden. Intentá de nuevo." |
+| 500 | `internal-error` | cualquier error inesperado | "Ocurrió un error inesperado." |
+
+### 7.4 Un `REJECTED` no es un error
+
+Una orden rechazada existe: se grabó, rechazada, y responde 201 con la orden, igual que una `FILLED` o una `NEW` (A-6,
+decisión 2). El motivo viaja en la orden, con el código de la sección 3.3 y un texto:
+
+| `rejectionReason` | `rejectionMessage` |
+|---|---|
+| `INSUFFICIENT_CASH` | "No alcanzan los pesos disponibles para esta orden." |
+| `INSUFFICIENT_SHARES` | "No alcanzan las acciones disponibles para esta venta." |
+| `NO_MARKET_PRICE` | "El activo no cotiza." |
+
+La diferencia importa para el cliente: un error dice "corregí el pedido"; un rechazo dice "el pedido estaba bien, pero
+tu cuenta o el mercado no lo dejaron".
 
 ## 8. Observabilidad
 
-_Pendiente._ Logs con el id de cada pedido y sin email (GEN-5); métricas de negocio y técnicas, y cómo se muestran
-(GEN-4); el objetivo de tiempo de respuesta, medido con volumen (GEN-8).
+### 8.1 Logs
+
+- **En JSON, uno por línea,** con el formato ECS que trae Spring Boot (`logging.structured.format.console: ecs`). Se
+  pueden filtrar por campo sin parsear texto.
+- **Cada pedido tiene un id.** Si el cliente manda `X-Request-Id`, se usa ese; si no, la API genera un UUID. Un filtro
+  lo pone en el contexto de los logs (MDC), así sale en cada línea de ese pedido, y vuelve en el encabezado de la
+  respuesta y en los errores (`requestId`, sección 7).
+- **Qué se registra:** una línea por orden procesada, con el usuario, el número de orden, el identificador, el lado,
+  el tipo, el estado y el motivo; las cancelaciones; los errores 4xx, sin stack trace; y los 5xx, con stack trace.
+- **Sin email** (GEN-5): la API nunca lo lee. La consulta de usuarios trae solo el id, así que no lo puede registrar
+  por error. Un test lo verifica (caso 5 de GEN).
+
+### 8.2 Métricas
+
+Con Micrometer, que viene con Spring Boot, expuestas para Prometheus en `/actuator/prometheus`.
+
+| Métrica | Etiquetas | Para qué |
+|---|---|---|
+| `orders_created_total` | lado, tipo, estado y motivo del rechazo | cuántas órdenes se ejecutan, quedan pendientes o se rechazan, y por qué (GEN-4) |
+| `orders_cancelled_total` | — | cuántas órdenes se cancelan |
+| `orders_replayed_total` | — | cuántos reintentos devolvieron una orden existente (R-2) |
+| `orders_turn_wait_seconds` | — | cuánto espera un envío el turno del usuario (sección 5.2): si crece, hay órdenes del mismo usuario chocando |
+| `http_server_requests_seconds` | dirección, método, código y resultado | cuánto tarda y cuántos errores da cada función (GEN-4). Lo mide Spring solo, con histograma para calcular el percentil 95 |
+
+Las etiquetas toman pocos valores (2 lados × 2 tipos × 3 estados × 4 motivos, incluido "ninguno"), así que no
+multiplican las series. El usuario y la orden no van como etiqueta: tendrían un valor por usuario.
+
+### 8.3 Cómo se ven: Prometheus y Grafana en el mismo `docker compose`
+
+- **Prometheus** lee `/actuator/prometheus` cada 15 segundos.
+- **Grafana** arranca con la fuente de datos y un tablero ya cargados desde archivos del repo: al levantar el compose,
+  el tablero está listo, sin configurar nada a mano. Muestra las órdenes por estado, tipo y lado, los rechazos por
+  motivo, la latencia (percentil 95) y los errores por función, y la espera del turno.
+- **En producción con New Relic,** se cambia el registro de Micrometer (`micrometer-registry-new-relic`, con la clave
+  y la cuenta por variables de entorno). Las métricas y su código no cambian.
+- **Alternativas:** New Relic de verdad, con una cuenta gratuita, obligaría a quien evalúa a tener una cuenta y una
+  clave para verlo; un tablero simulado mostraría números inventados. Prometheus y Grafana muestran las métricas
+  reales de la API corriendo en la máquina de quien evalúa.
+
+### 8.4 El objetivo de tiempo de respuesta (GEN-8)
+
+**Percentil 95 por debajo de 100 ms en las cinco funciones,** con la API y la base locales, 2 millones de órdenes en
+la tabla (el juego de datos de la sección 3.5) y usuarios de hasta 10.000 órdenes. En la base, la consulta más cara del
+usuario pesado tarda 1,2 ms (sección 3.5); el resto del margen es para Java, el JSON y la red. Se mide en la fase 6
+con k6, una herramienta de carga que corre en Docker y no entra en el código de la API. El usuario extremo queda fuera
+del objetivo, como límite documentado (A-4): su portfolio lee unas 850.000 órdenes.
 
 ## 9. Seguridad
 
-_Pendiente._ Sin autenticación y cómo se agregaría (S-5); validación en el borde; consultas parametrizadas; secretos
-por variables de entorno.
+- **Sin autenticación,** porque el enunciado dice que no hace falta (S-5). La consecuencia está documentada:
+  cualquiera puede ver el portfolio de otro usuario o mandar órdenes en su nombre cambiando el número. **Cómo se
+  agregaría:** con Spring Security como servidor de recursos OAuth2, el usuario sale del token y no de la dirección
+  (`/users/{userId}` pasa a `/me`). Las consultas ya filtran siempre por usuario, así que no habría que cambiarlas.
+- **Validación en el borde:** el pedido se valida antes de llegar a la lógica (secciones 6.2 y 7.2), con topes para
+  cada número y sin aceptar campos desconocidos (`spring.jackson.deserialization.fail-on-unknown-properties: true`).
+- **SQL siempre con parámetros:** `JdbcClient` con parámetros con nombre. Ninguna consulta se arma pegando texto que
+  viene del pedido.
+- **Secretos por variables de entorno,** nunca en el repo: `.env` está ignorado por git. La API recibe la dirección
+  de la base en formato JDBC, con el usuario y la clave en variables aparte (`SPRING_DATASOURCE_URL`, `_USERNAME` y
+  `_PASSWORD`). La URL de Neon viene en otro formato (`postgresql://usuario:clave@host/base`), con la clave adentro:
+  separarla evita que una dirección con la clave termine en un log o en un mensaje de error.
+- **Actuator expone solo `health` y `prometheus`.** Los otros endpoints, como `env` o `heapdump`, pueden mostrar
+  configuración o memoria con secretos.
+- **Datos personales:** la API no lee el email (sección 8.1), y ninguna respuesta lo trae.
+- **El contenedor de la API corre sin permisos de administrador** (un usuario sin privilegios dentro de la imagen),
+  y la imagen no lleva secretos.
+- **La base:** en producción, las migraciones las corre un usuario de la base y la API usa otro, que solo lee y escribe
+  datos (sección 3.6). La URL de Neon es la de su dueño, y cualquiera que la tenga puede modificarla (R-5): por eso
+  Neon solo se lee mientras se desarrolla.
+- **Fuera de alcance, documentado:** límite de pedidos por cliente (rate limiting), HTTPS (en producción lo pone el
+  balanceador delante de la API) y CORS, porque no hay un frontend en otro dominio.
 
 ## 10. Estrategia de tests
 
@@ -960,6 +1082,12 @@ de cómo se levanta todo.
 | El identificador va en el cuerpo (`clientOrderId`), no en un encabezado | es un dato de la orden, como el `ClOrdID` de FIX | sección 6.5 |
 | Los números configurables: 20 resultados, 50 caracteres, páginas de 20 (máximo 100), turno de 2 segundos | cada uno con su porqué | sección 6.6 |
 | Se publica la especificación OpenAPI con springdoc-openapi (necesita ADR) | quien evalúa recorre la API desde el navegador, y la especificación sale del código | sección 6.7 |
+| Errores en Problem Details con `type` fijo, `requestId` y lista de campos; catálogo de 8 tipos, con textos en español | el cliente decide por el `type`, la persona lee el `detail`, y un 500 no muestra nada interno | sección 7 |
+| Logs en JSON (ECS) con el id de cada pedido; la API nunca lee el email | se filtran por campo, y el email no se puede registrar por error | sección 8.1 |
+| Cinco métricas: órdenes creadas por lado, tipo, estado y motivo; cancelaciones; reintentos; espera del turno; y las de HTTP | responden GEN-4 sin etiquetas que multipliquen las series | sección 8.2 |
+| Prometheus y Grafana en el compose, con el tablero cargado desde el repo; New Relic, documentado como el cambio de registro | quien evalúa ve las métricas reales sin crear cuentas | sección 8.3 |
+| Objetivo: percentil 95 por debajo de 100 ms, con 2 millones de órdenes y usuarios de hasta 10.000, medido con k6 en la fase 6 | la consulta más cara del usuario pesado tarda 1,2 ms en la base | sección 8.4 |
+| La base se configura en formato JDBC con usuario y clave aparte; Actuator expone solo `health` y `prometheus`; sin campos desconocidos | la clave no viaja dentro de una URL, y los endpoints con configuración no quedan abiertos | sección 9 |
 
 **ADR**
 
