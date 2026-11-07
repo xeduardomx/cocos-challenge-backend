@@ -1,7 +1,8 @@
 # 01 — Registro de decisiones del análisis
 
-> Se completa a medida que se revisa [`01-analisis.md`](01-analisis.md) punto por punto. Al terminar la revisión,
-> el análisis se reescribe incorporando estas decisiones. Cada decisión lleva su porqué.
+> Se completó revisando el borrador de [`01-analisis.md`](01-analisis.md) punto por punto. El análisis ya se
+> reescribió con estas decisiones: el análisis es el resumen y este registro, el detalle. Cada decisión lleva su
+> porqué.
 
 ## Glosario
 
@@ -414,8 +415,9 @@ pagar 0,6 centavos, así que es una cuenta, no un precio operado. La base lo gua
      vuelve a positivo, el promedio arranca de nuevo desde esa compra.
   4. **Campos que el enunciado no pide pero explican los números:** último precio, PPC y variación diaria. Los
      obligatorios son cantidad, valor y rendimiento total.
-  5. **Casos borde:** posición ≤ 0, rendimiento vacío. El costo cero queda imposible con la restricción de precio > 0
-     del esquema, y eso resuelve el riesgo de dividir por cero (R-4).
+  5. **Casos borde:** posición ≤ 0, PPC y rendimiento vacíos (con −10 no hay acciones compradas a ningún precio). El
+     costo cero queda imposible con la restricción de precio > 0 del esquema, y eso resuelve el riesgo de dividir por
+     cero (R-4).
   6. **Tests:** METR da −8,20 %; PAMP, −0,45 % (no −0,18 %); compra 10 a $100, compra 10 a $200 y venta 5 da un PPC de
      $150.
 - **Fuentes:**
@@ -992,8 +994,8 @@ decisión y es la base del alcance del PRD.
 | Toda orden nueva trae un identificador único por usuario; repetirlo con el mismo contenido devuelve la orden original, y con otro contenido da error | R-2 |
 
 **Cambios al modelo de datos:** ninguno aplicado todavía. Los candidatos se juntan en "Pendientes acumulados para el
-bloque del esquema" (abajo), y cada uno se decide y justifica en el RFC (fase 3). Se aplican con migraciones, solo en la copia local
-(ver "Base de Neon").
+bloque del esquema" (abajo), y cada uno se decide y justifica en el RFC (fase 3). Se aplican con migraciones, solo en
+la copia local (ver "Base de Neon").
 
 **Lo que evaluamos y dejamos afuera, a propósito**
 
@@ -1025,10 +1027,11 @@ bloque del esquema" (abajo), y cada uno se decide y justifica en el RFC (fase 3)
 6. ~~**Repaso rápido de riesgos (R-1 a R-5) y supuestos (S-1 a S-5)**~~ Cerrado: R-2 con identificador de orden
    obligatorio; el resto, resuelto en otras decisiones o confirmado (ver "Riesgos y supuestos del análisis: repaso").
 7. **Repaso final de dudas sobre los conceptos.** Pospuesto a pedido del autor: se hace más adelante.
-8. **Reescritura de `01-analisis.md`** con estas decisiones, y recálculo de los números de referencia del usuario 1.
-   Incluye el inventario de arriba, y saca o corrige lo que estas decisiones dejaron viejo: la sección de preguntas
-   para Cocos (no se envían), "LIMIT sobre PGR → `NEW`" (D-2 la cambió a `REJECTED`) y "1 letra → 400" (A-5 la
-   permite). ← **siguiente**
+8. ~~**Reescritura de `01-analisis.md`**~~ Hecha el 2026-11-06: resumen de todas las decisiones con el resumen del
+   inventario, y números de referencia del usuario 1 recalculados en la copia local (con escenarios nuevos de envío,
+   cancelación, listado y búsqueda). Se sacaron las preguntas para Cocos y el supuesto S-3, y se corrigieron
+   "LIMIT sobre PGR → `NEW`" (D-2: `REJECTED`) y "1 letra → 400" (A-5: se permite).
+9. **Aprobación de la fase 1** por el autor, y PR de `docs/phase-1-analysis` a `develop`. ← **siguiente**
 
 ### Ideas anotadas para fases siguientes
 
