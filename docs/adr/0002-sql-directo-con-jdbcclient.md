@@ -7,7 +7,8 @@
 Las consultas de la API ya se conocen, y su SQL se verificó en el análisis (anexo de
 [`01-analisis.md`](../01-analisis.md)):
 
-- **Portfolio:** sumas por acción con condiciones por lado y estado, más el último precio de cada acción (D-3).
+- **Portfolio:** las órdenes `FILLED` y `NEW` del usuario, en orden, más el último precio de cada acción (D-3; RFC,
+  secciones 4.1 y 4.2).
 - **Búsqueda:** `unaccent`, palabra por palabra, con un orden propio (A-5).
 - **Listado:** paginación por cursor sobre la fecha y el id (A-7).
 - **Envío:** procesar de a una las órdenes del usuario y verificar lo disponible, en una transacción (R-1).
@@ -23,8 +24,8 @@ las conexiones, los parámetros y las transacciones, y convierte cada fila en un
 
 - A favor:
   - El SQL que corre es el que se lee y el que se probó.
-  - Se usa Postgres entero: funciones propias como `unaccent` o `DISTINCT ON`, comparaciones de filas para el cursor,
-    bloqueos.
+  - Se usa Postgres entero: funciones propias como `unaccent`, `LATERAL` para el último precio, comparaciones de
+    filas para el cursor, bloqueos.
   - Nada pasa por atrás: no hay caché, ni carga diferida, ni grabado automático al confirmar.
 - En contra: el SQL se escribe a mano, y una columna mal escrita aparece al correr, no al compilar. Se cubre con un
   test de integración por consulta, contra Postgres real (RFC, principio 5).
@@ -50,8 +51,8 @@ modificaciones de cada objeto.
 compila.
 
 - A favor: esa es su ventaja real sobre A, que el compilador valida el SQL.
-- En contra: hay que generar el código desde el esquema en cada build, con una base levantada o leyendo las
-  migraciones. Para unas 10 consultas no se justifica, y es una herramienta más para aprender.
+- En contra: hay que generar el código desde el esquema, con una base levantada o leyendo las migraciones, y
+  regenerarlo cada vez que cambia. Para unas 10 consultas no se justifica, y es una herramienta más para aprender.
 
 ## Decisión
 

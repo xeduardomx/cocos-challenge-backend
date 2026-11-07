@@ -1,5 +1,6 @@
 -- Vuelta a los datos originales antes de cada test (RFC, sección 10).
--- Corre en una copia local descartable, nunca en Neon, con database.sql y 03-esquema.sql ya aplicados.
+-- Corre en una copia local descartable, nunca en Neon, con database.sql y 03-esquema.sql ya aplicados y sin los datos
+-- de 03-indices.sql.
 
 \set ON_ERROR_STOP 1
 \pset footer off

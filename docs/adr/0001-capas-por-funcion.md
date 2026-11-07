@@ -56,8 +56,8 @@ otra forma.
 ## Consecuencias
 
 - Las dependencias van en un solo sentido: controller → service → repository. Los cálculos no dependen de nada.
-- Se prueba en dos niveles: los cálculos, con tests unitarios; los services y los repositories, contra Postgres real
-  (RFC, sección 10).
+- Se prueba en tres niveles: los cálculos, con tests unitarios; los services y los repositories, contra Postgres
+  real; y las cinco funciones de punta a punta, por HTTP (RFC, sección 10).
 - **Cuándo revisarla:** si la API tuviera que mandar órdenes a un mercado real (por ejemplo, a BYMA). Ese sí es un
   sistema externo que se va a querer simular en los tests y poder cambiar: ahí conviene un puerto para el mercado. Se
   agrega ese puerto, no toda la arquitectura.

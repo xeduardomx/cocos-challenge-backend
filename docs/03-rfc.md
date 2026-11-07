@@ -16,8 +16,8 @@ medidos. Lo central:
 - **La plata y las acciones nunca se gastan dos veces.** Cada envío toma el turno de su usuario, un lock sobre su
   fila, y cada orden trae un identificador que convierte un reintento en la misma orden. Probado en la copia local:
   sin turno, dos ventas simultáneas reproducen la orden 11 (sección 5).
-- **La cuenta se calcula desde las órdenes, en un solo lugar y en Java,** con un solo índice nuevo: 1,2 ms en la base
-  para un usuario de 10.000 órdenes, con 2 millones en la tabla (secciones 3.5 y 4).
+- **La cuenta se calcula desde las órdenes, en un solo lugar y en Java,** con un solo índice nuevo para las consultas:
+  1,2 ms en la base para un usuario de 10.000 órdenes, con 2 millones en la tabla (secciones 3.5 y 4).
 - **La base no acepta datos imposibles:** reglas que miran una fila, verificadas contra los datos de hoy, y tres
   columnas nuevas en `orders`. Los cambios se aplican con Flyway, por el mismo camino en la copia local y en Neon
   (sección 3).
@@ -53,7 +53,7 @@ está en el PRD. Esta sección junta lo que condiciona el cómo y los criterios 
 | **Neon se trata como producción** | "Base de Neon" | la API y los tests corren contra una copia local en Postgres 18, la misma versión mayor que Neon; los tests nunca tocan Neon. La dirección de la base se configura, y si a Neon se le aplican las migraciones se decide en la fase 8 |
 | **Sin autenticación** | el enunciado (S-5) | el número de usuario viaja en cada pedido; en producción saldría de la sesión |
 | **No se simula el mercado** | el enunciado | una orden a mercado se resuelve en el momento, al último precio; una límite aceptada queda pendiente hasta que el usuario la cancela. No hay horario de mercado ni vencimientos |
-| **Hoy hay 11 órdenes, pero el diseño tiene que aguantar volumen** | "Esquema: se mejora", A-4, A-7, GEN-8 | cada consulta se piensa para mucho volumen y se mide, como en el análisis, con un millón de órdenes |
+| **Hoy hay 11 órdenes, pero el diseño tiene que aguantar volumen** | "Esquema: se mejora", A-4, A-7, GEN-8 | cada consulta se piensa para mucho volumen y se mide con 2 millones de órdenes (sección 3.5), como en el análisis |
 | **Test funcional del envío** | el enunciado, GEN-3 | el envío se prueba de punta a punta contra una base real, con los casos del PRD |
 
 **Principios**
@@ -157,11 +157,12 @@ Cada repository escribe su SQL con `JdbcClient`, que viene con Spring: Spring ma
 las transacciones, y convierte cada fila en un record. Las transacciones se marcan en los services. El SQL verificado
 en el análisis es el punto de partida.
 
-**Por qué no JPA.** Las consultas importantes de esta API (sumas con condiciones, `unaccent`, el cursor, los
-bloqueos) terminarían en SQL nativo igual, y JPA agrega comportamiento escondido justo en el camino más delicado. Por
-ejemplo, cancelar en un solo paso (A-7) es un `UPDATE ... WHERE status = 'NEW'`; con JPA, lo habitual es leer la
-orden, cambiarla en memoria y grabarla al confirmar. jOOQ validaría el SQL al compilar, pero obliga a generar código
-en cada build: para unas 10 consultas no se justifica.
+**Por qué no JPA.** Las consultas importantes de esta API (`unaccent` en la búsqueda, el cursor del listado, el
+último precio con `LATERAL`, el turno con `FOR UPDATE`) terminarían en SQL nativo igual, y JPA agrega comportamiento
+escondido justo en el camino más delicado. Por ejemplo, cancelar en un solo paso (A-7) es un
+`UPDATE ... WHERE status = 'NEW'`; con JPA, lo habitual es leer la orden, cambiarla en memoria y grabarla al
+confirmar. jOOQ validaría el SQL al compilar, pero obliga a generar código desde el esquema y a regenerarlo cada vez
+que cambia: para unas 10 consultas no se justifica.
 
 **Recorrido de un pedido**
 
@@ -177,8 +178,8 @@ El envío de una orden es el recorrido más completo:
    2. se fija si el identificador de la orden ya existe: si es un reintento con el mismo contenido, devuelve la orden
       original, y con otro contenido, da error (sección 5);
    3. le pide la cuenta del usuario a `account` y el activo con su último precio a `instruments`;
-   4. si con esos datos no se puede armar la orden (el activo no existe o es ARS, o por monto la cantidad da 0), da
-      error y no graba nada (A-6). Si se puede, los cálculos deciden el resultado: `FILLED`, `NEW` o `REJECTED`, con
+   4. si con esos datos no se puede armar la orden (el activo no existe o es ARS; por monto, la cantidad da 0 o no
+      entra en `size`; o por monto y a mercado, el activo no cotiza), da error y no graba nada (A-6). Si se puede, los cálculos deciden el resultado: `FILLED`, `NEW` o `REJECTED`, con
       su motivo;
    5. graba la orden.
 4. **Los repositories** ejecutan cada paso en SQL, dentro de esa misma transacción.
@@ -195,11 +196,14 @@ El modelo de Cocos se mantiene: las cuatro tablas, sus columnas y sus nombres (C
 
 - **reglas,** para que la base no acepte datos imposibles (principio 3);
 - **tres columnas nuevas** en `orders`, para el identificador de la orden y el motivo del rechazo (R-2, A-6);
-- **un índice,** con su medición antes y después (principio 5).
+- **un índice nuevo para las consultas,** con su medición antes y después (principio 5). Las reglas de unicidad crean
+  los suyos.
 
 Todo se probó en la copia local (Postgres 18.6, con `database.sql`). La forma exacta está en
 [`mediciones/03-esquema.sql`](mediciones/03-esquema.sql), el borrador verificado del que sale la migración de la
-fase 5. Cómo se aplican las migraciones, y qué pasa con Neon, es la parte 2 de esta sección (3.6).
+fase 5. Cómo se aplican las migraciones, y qué pasa con Neon, está en la sección 3.6. Lo que esta sección marca como
+probado tiene su script y su salida en [`mediciones/`](mediciones/); las trampas y Flyway, en
+[`03-pruebas-resultados.md`](mediciones/03-pruebas-resultados.md).
 
 ### 3.1 El modelo, con los cambios
 
@@ -276,7 +280,7 @@ en la base (D-1).
 | Regla | Por qué no va en la base |
 |---|---|
 | No vender más de lo que se tiene | depende de la suma de muchas filas, y BMA ya está en −10 (D-1) |
-| Toda orden nueva trae identificador | las 11 viejas no lo tienen, y `NOT VALID` no sirve: Postgres vuelve a verificar la regla cuando se modifica una fila vieja, así que cancelar la orden 7 fallaría (probado). La API responde 400 si falta (R-2) |
+| Toda orden nueva trae identificador | las 11 viejas no lo tienen, y `NOT VALID` no sirve: Postgres vuelve a verificar la regla cuando se modifica una fila vieja, así que cancelar la orden 7 fallaría (probado en la copia local). La API responde 400 si falta (R-2) |
 | Toda `REJECTED` tiene motivo | la orden 6, vieja, no lo tiene. Lo asegura la API, con un test |
 | Solo se cancela una orden `NEW` | compara la fila antes y después del cambio. Va en el `UPDATE` de la cancelación, que solo cambia la orden si sigue `NEW` (A-7) |
 | Depósitos y retiros solo sobre ARS, y ARS no se compra ni se vende | hay que mirar otra tabla (D-9, A-6) |
@@ -318,18 +322,19 @@ Siguen la convención de las columnas de Cocos: se escriben `clientOrderId` y Po
 - **Pasa a fecha y hora con zona** (`timestamptz`), leyendo las fechas existentes como hora argentina (D-10). La
   conversión nombra la zona (`AT TIME ZONE 'America/Argentina/Buenos_Aires'`), y la orden 2 sigue a las 12:31 de
   Buenos Aires. Con la conversión simple, la base usaría la zona de la sesión, que en Neon es GMT, y la orden 2
-  quedaría a las 9:31, con el mercado cerrado (probado).
+  quedaría a las 9:31, con el mercado cerrado (probado en la copia local).
 - **La pone la base al grabar la orden, con `clock_timestamp()`.** Es un solo reloj aunque haya varias instancias de
   la API. Y como la orden se graba dentro del turno del usuario (sección 5), el orden por fecha es el orden en que se
   procesaron sus órdenes, del que depende el PPC (A-2). `now()`, lo más común, no sirve: es la hora en que empezó la
-  transacción, antes de esperar el turno (probado: quedó fija mientras pasaban 1,5 segundos). Esto precisa D-10, que
+  transacción, antes de esperar el turno (probado en la copia local: quedó fija mientras pasaban 1,5 segundos). Esto precisa D-10, que
   decía "el momento en que se recibe": es el momento en que se graba, milisegundos después.
 - **Guarda microsegundos.** La respuesta del envío y el cursor del listado usan la fecha tal como quedó grabada
   (sección 6), así no se pierde precisión al pasar de página (A-7).
 
 ### 3.5 Índices
 
-**Cómo se midió.** En la copia local, con este esquema y 2.010.011 órdenes inventadas:
+**Cómo se midió.** En la copia local, con este esquema y 2.010.011 órdenes: las 11 de Cocos y 2.010.000 inventadas,
+repartidas así:
 
 - 10.000 usuarios típicos, de 100 órdenes cada uno;
 - uno pesado, de 10.000;
@@ -340,7 +345,7 @@ datos en memoria: sirven como orden de magnitud. Los scripts están en [`medicio
 completa de la corrida, en [`mediciones/03-resultados.md`](mediciones/03-resultados.md); y al final de esta parte
 está cómo repetirla.
 
-**Hoy, sin índices, cualquier consulta lee las 2 millones de órdenes:** tarda entre 33 y 55 ms aunque el usuario
+**Hoy, sin índices, cualquier consulta lee las 2 millones de órdenes:** tarda entre 33 y 54 ms aunque el usuario
 tenga 100, y el tiempo crece con la tabla. Con un índice por **(usuario, fecha, id)**:
 
 | Consulta | Típico (100) | Pesado (10.000) | Extremo (1.000.000) |
@@ -361,13 +366,15 @@ tenga 100, y el tiempo crece con la tabla. Con un índice por **(usuario, fecha,
 - **El portfolio es la consulta más cara de cada usuario, y ningún índice lo baja de ahí.** El del extremo lee unas
   850.000 órdenes ejecutadas y pendientes. Es el límite conocido de calcular desde las órdenes (A-4), y la salida es
   la foto a una fecha, documentada como evolución posible.
+- **El índice cuesta en las altas:** en una carga masiva de 100.000 órdenes, cada una pasa de 12 a 19 microsegundos
+  con él.
 
 **Alternativas medidas.** A-7 había decidido un índice por (usuario, estado, fecha, id) para el filtro por estado.
 Se descarta, igual que las otras dos opciones:
 
 | Alternativa | Qué mejora | Qué cuesta |
 |---|---|---|
-| Sumar (usuario, estado, fecha, id), el de A-7 | pendientes del extremo: 131 → 0,006 ms | es el índice más grande: 95 MB, contra 78 del de fecha, en una tabla de 342. Cada alta pasa de 19 a 25 microsegundos, un 30 % más |
+| Sumar (usuario, estado, fecha, id), el de A-7 | pendientes del extremo: 131 → 0,006 ms | es el índice más grande: 95 MB, contra 78 del de fecha, en una tabla de 342. En la carga masiva, cada alta pasa de 19 a 25 microsegundos, un 30 % más |
 | Usar solo (usuario, estado, fecha, id), sin el de fecha | lo mismo | el listado sin filtro del extremo vuelve a 83 ms |
 | Sumar un índice parcial, que guarda solo las pendientes | pendientes del extremo: 131 → 0,005 ms, con 2 MB y casi sin costo en las altas (20 microsegundos, contra 19) | solo se usa si la consulta lleva `'NEW'` escrito en el SQL. Cuando una consulta se repite mucho, Postgres puede pasar a un plan general, que no sabe qué estado se pide, y ese plan no lo usa (probado: 128 ms) |
 
@@ -381,11 +388,12 @@ de leer todo el historial y las pendientes pasan a ser la consulta más lenta. A
 
 - **`marketdata`:** el índice viene con la regla "una fila por acción y fecha". Con 10 años de precios diarios
   (164.430 filas), el último precio de 20 acciones, buscado acción por acción, tarda 0,06 ms con el índice y 91 ms
-  sin él. Con `DISTINCT ON` sobre toda la tabla, como en el anexo del análisis, tarda 88 ms aunque el índice exista:
-  la consulta tiene que buscarlo acción por acción (sección 4).
+  sin él. Para usar el índice, la consulta tiene que buscar acción por acción: la sección 4.2 compara las formas de
+  escribirla.
 - **Búsqueda:** sin índice, como anticipaba A-5. Tarda 0,06 ms con los 65 activos y entre 11 y 17 ms con un catálogo
   inventado de 10.000. Si el catálogo creciera tanto, la mejora sería un índice de trigramas (`pg_trgm`) sobre el
-  ticker y el nombre sin acentos. Queda como evolución posible.
+  ticker y el nombre sin acentos. `unaccent` no puede ir directo en un índice, porque Postgres no la marca como
+  inmutable: haría falta una función propia que la envuelva. Queda como evolución posible.
 - **`orders.instrumentid`:** sin índice. Postgres no crea solo los índices de las claves foráneas, y este solo
   serviría para borrar activos o para buscar las órdenes de un activo entre todos los usuarios, y la API no hace
   ninguna de las dos cosas. Con 2 millones de órdenes, borrar un activo tarda 73 ms, porque revisa todas.
@@ -406,16 +414,26 @@ docker exec -i cocos-medicion-pg18 psql -U postgres -X < docs/mediciones/03-prec
 docker stop cocos-medicion-pg18
 ```
 
+Las demás pruebas corren cada una en una copia nueva, sin los datos de `03-indices.sql`:
+
+- `03-trampas.sh` y `03-flyway.sh`, con las tres primeras líneas de arriba, o sea solo con `database.sql`.
+  `03-flyway.sh` le aplica `03-esquema.sql` como la versión 2;
+- `04-consultas.sql`, `05-turno.sh` y `10-volver-a-los-originales.sql`, con las cuatro primeras, que también aplican
+  `03-esquema.sql`.
+
+Los `.sql` se pasan a `psql` como arriba, y los `.sh` se corren directo, por ejemplo `./docs/mediciones/05-turno.sh`.
+
 ### 3.6 Migraciones y Neon
 
-**La herramienta: Flyway** ([ADR 0006](adr/0006-migraciones-con-flyway.md)). Viene integrada con Spring Boot: con `spring-boot-starter-flyway` y el módulo
-`flyway-database-postgresql`, Spring Boot 4.1.2 trae Flyway 12.4.0. Cada migración es un archivo SQL numerado
-(`V2__....sql`) que se lee tal cual: el mismo SQL de [`mediciones/03-esquema.sql`](mediciones/03-esquema.sql). Flyway
-anota en una tabla propia, `flyway_schema_history`, qué migraciones se aplicaron, y detecta si alguna se editó
+**La herramienta: Flyway** ([ADR 0006](adr/0006-migraciones-con-flyway.md)). Viene integrada con Spring Boot: con
+`spring-boot-starter-flyway` y el módulo `flyway-database-postgresql`, Spring Boot 4.1.2 trae Flyway 12.4.0. Cada
+migración es un archivo SQL numerado (`V2__....sql`) que se lee tal cual, y sale del SQL probado en
+[`mediciones/03-esquema.sql`](mediciones/03-esquema.sql). Flyway anota en una tabla propia, `flyway_schema_history`, qué migraciones se aplicaron, y detecta si alguna se editó
 después.
 
-- **Liquibase** también serviría, pero los cambios se escriben en XML o YAML y trae más de lo que hace falta acá (por
-  ejemplo, deshacer migraciones o soportar varios motores de base).
+- **Liquibase** también serviría. Acepta cambios en SQL, XML o YAML, y su fuerte es describir un cambio una vez para
+  cualquier motor de base y poder deshacerlo (en Flyway, deshacer es de la edición paga). Acá hay un solo motor, y los
+  cambios van siempre hacia adelante.
 - **Scripts a mano, sin herramienta,** no dejan registro de qué se aplicó: el pase a Neon dependería de acordarse.
 
 **Cómo se arranca sobre una base con datos y sin historial.** `database.sql` es la versión 1, y nuestras migraciones
@@ -432,17 +450,17 @@ se prueba todos los días.
   instalar las extensiones que Neon soporta, y `unaccent` es una; no dice explícitamente qué rol puede. Se confirma
   en la fase 8, al migrar: si no pudiera, la migración falla y se deshace entera (ver "Todo o nada").
 - **Una base vacía, sin `database.sql`, no se puede migrar:** la versión 2 falla porque las tablas no existen, y se
-  deshace (probado). Copiar `database.sql` como versión 1 lo resolvería, pero la copia local seguiría otro camino que
+  deshace (probado en la copia local). Copiar `database.sql` como versión 1 lo resolvería, pero la copia local seguiría otro camino que
   Neon.
 
 **Todo o nada.** Postgres deshace entera una migración que falla. Se probó con una regla que los datos rompen: no
 quedó ni la columna que la migración había agregado antes ni una entrada en el historial. Pero con varias migraciones
-pendientes, Flyway las aplica de a una: si falla la cuarta, la segunda y la tercera quedan aplicadas (probado). Con
-`group`, todas las pendientes van en una sola transacción, y Neon recibe todos los cambios o ninguno (probado). Se
-activa.
+pendientes, Flyway las aplica de a una: si falla la cuarta, la segunda y la tercera quedan aplicadas. Con `group`, todas las
+pendientes van en una sola transacción, así que Neon recibiría todos los cambios o ninguno. Las dos cosas se probaron
+en la copia local. Se activa.
 
-**La API migra sola solo cuando se le pide.** Flyway arranca apagado por defecto (`spring.flyway.enabled: false`). El
-`docker compose` de la copia local lo prende, y los tests también. Si alguien apunta la API a Neon, no lo migra por
+**La API migra sola solo cuando se le pide.** Spring Boot prende Flyway por defecto; acá se apaga
+(`spring.flyway.enabled: false`), y lo prenden el `docker compose` de la copia local y los tests. Si alguien apunta la API a Neon, no lo migra por
 accidente: a Neon se le aplican las migraciones a propósito, una vez, en la fase 8, como un pase a producción, con el
 mismo Flyway y las mismas migraciones. Antes se verifica en solo lectura que Neon sigue igual a `database.sql`, como
 en el análisis. La alternativa, migrar siempre al arrancar, es lo más común y lo más simple, pero convierte "probar la
@@ -475,12 +493,14 @@ Una sola consulta trae las órdenes `FILLED` y `NEW` del usuario, en orden crono
 id: D-10), con lo que los cálculos necesitan: activo, lado, estado, cantidad y precio. Es la consulta medida en la
 sección 3.5: 1,2 ms para el usuario pesado. Con esas filas, `account`, en Java puro, calcula en una sola pasada:
 
-- **los pesos de la cuenta:** depósitos y ventas suman, retiros y compras restan, todo como `size × price` (D-9);
+- **los pesos de la cuenta,** con las órdenes `FILLED`: depósitos y ventas suman, retiros y compras restan, todo como
+  `size × price` (POR-1, D-9);
 - **las reservas:** las compras pendientes reservan pesos, y las ventas pendientes, acciones (A-1);
 - **lo disponible:** pesos menos reservas, y acciones menos ventas pendientes;
 - **las posiciones:** compras menos ventas ejecutadas, por activo;
 - **el PPC, en orden:** cada compra lo actualiza y las ventas no lo cambian. Con la posición en 0 o negativa queda
-  vacío, y la compra siguiente lo hace arrancar de nuevo (A-2).
+  vacío, y cada compra hecha así lo vuelve a arrancar desde su precio: se muestra recién cuando la posición vuelve a
+  ser positiva (A-2, POR-5).
 
 Con los últimos precios (4.2) salen el valor de cada posición, el rendimiento, la variación diaria y el valor total.
 El portfolio y el envío usan el mismo cálculo (principio 4); el envío lo corre dentro del turno del usuario
@@ -520,7 +540,8 @@ Por cada acción, el índice de la regla "una fila por acción y fecha" va direc
 
 La usan el portfolio (los activos con posición), la búsqueda (los resultados) y el envío (un activo), y vive en
 `instruments`. Una acción sin filas en `marketdata` no tiene cotización (D-2, D-3): la consulta no devuelve nada para
-ella, el envío la rechaza y la búsqueda la muestra con el precio vacío.
+ella. El envío la graba `REJECTED` (`NO_MARKET_PRICE`), salvo una orden por monto a mercado, que da error 400
+porque no hay precio para calcular la cantidad (ENV-6). La búsqueda la muestra con el precio vacío.
 
 ### 4.3 La búsqueda
 
@@ -536,7 +557,9 @@ Una consulta, con las reglas de A-5:
   llegar a la base (BUS-6, sección 6).
 - **Cada resultado lleva su último precio** y su variación diaria (4.2).
 
-Tarda 0,06 ms con los 65 activos y entre 11 y 17 ms con 10.000 (sección 3.5).
+Se midió con la versión de verificación del análisis, que ordena con `LIKE`: 0,06 ms con los 65 activos y entre 11 y
+17 ms con 10.000 (sección 3.5). Cambiar `LIKE` por `starts_with` y `strpos` no cambia cuántas filas lee: sin índice,
+las dos recorren todo el catálogo.
 
 ### 4.4 El listado
 
@@ -561,14 +584,14 @@ limit :pageSize + 1
 - **Lo exacto no se redondea:** pesos, reservas, valores y montos son sumas y productos de precios con 2 decimales
   por cantidades enteras, así que dan resultados exactos, con 2 decimales.
 - **La cantidad por monto se corta hacia abajo** (`RoundingMode.DOWN`): monto ÷ precio, sin fracciones (A-6).
-- **El PPC, el rendimiento y la variación diaria** son divisiones. Se calculan con 34 dígitos (`DECIMAL128`) y se
-  redondean una sola vez, al final, a 2 decimales, con `HALF_UP`: la mitad redondea hacia arriba (100,005 → 100,01).
-  El rendimiento usa el PPC sin redondear.
+- **El PPC, el rendimiento y la variación diaria** son divisiones. Se calculan con 34 dígitos (`DECIMAL128`, que
+  redondea en el dígito 34 con `HALF_EVEN`) y se redondean a 2 decimales una sola vez, al final, con `HALF_UP`: la
+  mitad redondea hacia arriba (100,005 → 100,01). El rendimiento usa el PPC sin redondear a 2 decimales.
 - **Por qué `HALF_UP` y no `HALF_EVEN`** (el "redondeo del banquero", que en la mitad va al par: 100,005 → 100,00).
   `HALF_EVEN` evita un sesgo cuando se suman muchos números ya redondeados. Acá solo se redondea el número final que
   se muestra, y nunca se suma un número redondeado. `HALF_UP` es además lo que cualquiera calcula a mano. Verificado:
-  los 9 números del PRD que salen de una división (PPC, rendimientos y variaciones diarias) dan igual con los dos
-  modos, porque ninguno cae justo en la mitad.
+  los números del PRD que salen de una división (los PPC, rendimientos y variaciones diarias de los casos 2 a 7
+  de POR) dan igual con los dos modos, porque ninguno cae justo en la mitad.
 - **Lo que manda el usuario nunca se redondea:** un precio o un monto con más de 2 decimales da 400 (D-4).
 
 ## 5. Órdenes simultáneas y reintentos
@@ -681,8 +704,9 @@ sequenceDiagram
 
 **Dos pedidos simultáneos con el mismo identificador** (el caso 20 del envío): el segundo espera su turno y encuentra
 la orden del primero (prueba E: una sola orden). Sin el turno, lo frena la regla de unicidad (prueba D: error de
-clave duplicada, una sola orden). Esa regla queda como red: si la API alguna vez recibe ese error, lo trata como un
-reintento y vuelve al paso 1.
+clave duplicada, una sola orden). Esa regla queda como red: si la API alguna vez recibe ese error, deshace la transacción
+(Postgres no acepta más comandos en una transacción que tuvo un error) y vuelve a empezar desde el paso 1, como un
+reintento.
 
 **La huella** es el SHA-256 de una forma fija del pedido: `v1`, el activo, el lado, el tipo, la cantidad, el monto y el
 precio límite, separados por `|`. Lo que no viene queda vacío, y los números se escriben sin ceros de más, así
@@ -734,6 +758,8 @@ returning ...
   forma que rompe a los clientes, se agrega entonces.
 
 ### 6.2 Pedidos y respuestas, con el usuario 1
+
+Cada ejemplo parte de los datos originales (sección 10.2), así que la orden nueva siempre es la 12.
 
 **Portfolio** (casos 1 y 2 de POR). Las posiciones van ordenadas por ticker.
 
@@ -803,8 +829,8 @@ POST /users/1/orders
 }
 ```
 
-**`amount` es siempre el monto en pesos de la orden,** cantidad × precio, como en `size × price` (D-9). En una orden
-por monto muestra lo que de verdad se usa: con $10.000 en PAMP salen 10 acciones y `amount` es 9258.50, así se ve que
+**`amount` es siempre el monto en pesos de la orden,** cantidad × precio, como en `size × price` (D-9). Si el precio
+está vacío, como en una `REJECTED` a mercado sobre PGR, `amount` también. En una orden por monto muestra lo que de verdad se usa: con $10.000 en PAMP salen 10 acciones y `amount` es 9258.50, así se ve que
 sobran $741,50. En un depósito o un retiro, `amount` es lo transferido, y `quantity` y `price` van en `null`, para que
 no aparezca "1.000.000 acciones a $1" (LIS-5).
 
@@ -816,7 +842,7 @@ decisión 2):
 
 ```json
 {
-  "id": 13, "clientOrderId": "9b4e2f71-0c3d-4a8b-b5e6-7f1a2c3d4e5f", "instrumentId": 47, "ticker": "PAMP",
+  "id": 12, "clientOrderId": "9b4e2f71-0c3d-4a8b-b5e6-7f1a2c3d4e5f", "instrumentId": 47, "ticker": "PAMP",
   "side": "BUY", "type": "MARKET", "quantity": 756, "price": 925.85, "amount": 699942.60,
   "status": "REJECTED", "rejectionReason": "INSUFFICIENT_CASH",
   "rejectionMessage": "No alcanzan los pesos disponibles para esta orden.",
@@ -824,7 +850,8 @@ decisión 2):
 }
 ```
 
-**Reintento** (caso 15): el mismo pedido, con el mismo identificador, responde 200 con la misma orden, idéntica.
+**Reintento** (caso 15): el mismo pedido, con el mismo identificador, responde 200 con la orden original, en su estado
+actual: una límite que después se canceló vuelve `CANCELLED`.
 
 **Listado** de las pendientes (caso 1 de LIS):
 
@@ -929,9 +956,9 @@ Spring Boot 4.1.2, la misma versión que usa la API.
 ### 7.1 El formato
 
 Todos los errores usan Problem Details (RFC 9457), con `Content-Type: application/problem+json`. Spring lo trae, y se
-prende con `spring.mvc.problemdetails.enabled: true` (por defecto viene apagado). A los campos estándar se suman dos:
-`requestId`, el id del pedido que también está en los logs (sección 8), y `errors`, la lista de campos con problemas
-en un 400.
+prende con `spring.mvc.problemdetails.enabled: true` (por defecto viene apagado). A los campos estándar se suman tres:
+`requestId`, el id del pedido que también está en los logs (sección 8); `errors`, la lista de campos con problemas,
+en un 400; y `currentStatus`, el estado actual de la orden, en un 409.
 
 ```json
 {
@@ -946,14 +973,15 @@ en un 400.
 ```
 
 - **`type`** identifica el error y no cambia: el cliente decide con él, no con el texto. Es una dirección relativa
-  (`/problems/...`), que el RFC 9457 permite. Lo que significa cada una está en el catálogo de abajo.
+  (`/problems/...`): el RFC 9457 la permite, aunque recomienda una absoluta cuando se puede, y la API no tiene un
+  dominio propio. Lo que significa cada una está en el catálogo de abajo.
 - **`detail`** explica, en español, qué está mal y cómo arreglarlo (GEN-6).
 - **Un 500 no cuenta nada interno:** ni la consulta, ni la clase, ni el stack trace. Solo el `requestId`, para
   buscarlo en los logs.
 
 ### 7.2 Dónde se valida
 
-Siguen los dos tipos de error de la sección 2:
+Siguen los dos tipos de error del recorrido de un pedido (sección 2, pasos 2 y 3):
 
 - **El controller valida la forma** con Bean Validation: que estén los datos, con valores válidos y en rango, y que
   la combinación tenga sentido (sección 6.2). Si falla, `validation-error`, con un elemento en `errors` por campo.
@@ -964,14 +992,18 @@ Siguen los dos tipos de error de la sección 2:
 
 | Código | `type` | Cuándo | Ejemplo de `detail` |
 |---|---|---|---|
-| 400 | `validation-error` | falta un dato, un valor no es válido o la combinación no tiene sentido; también un texto de búsqueda vacío o largo, un cursor que no se puede leer, un JSON mal armado o un campo desconocido | "Mandá la cantidad o el monto, no los dos." |
-| 400 | `invalid-order` | el activo no existe o es ARS; por monto, la cantidad da 0 o no entra en `size`; por monto y a mercado, el activo no cotiza | "Con $500 no alcanza para una acción de PAMP ($925,85)." |
-| 404 | `user-not-found` | el usuario de la dirección no existe | "No existe el usuario 99." |
-| 404 | `order-not-found` | la orden no existe, o es de otro usuario: la respuesta es la misma, para no confirmar órdenes ajenas (CAN-4) | "No existe la orden 999." |
-| 409 | `order-not-cancellable` | la orden ya no está `NEW`. Trae el estado actual en `currentStatus` (CAN-3) | "La orden 3 ya está CANCELLED: solo se cancela una orden NEW." |
-| 422 | `client-order-id-reused` | el identificador ya se usó con otro contenido (R-2) | "Ese identificador ya se usó en otra orden. Para una orden nueva, generá uno nuevo." |
-| 503 | `user-busy` | el envío no consiguió el turno del usuario en 2 segundos. Trae el encabezado `Retry-After: 1` | "Tu cuenta está procesando otra orden. Intentá de nuevo." |
-| 500 | `internal-error` | cualquier error inesperado | "Ocurrió un error inesperado." |
+| 400 | `/problems/validation-error` | falta un dato, un valor no es válido o la combinación no tiene sentido; también un texto de búsqueda vacío o largo, un cursor que no se puede leer, un JSON mal armado o un campo desconocido | "Mandá la cantidad o el monto, no los dos." |
+| 400 | `/problems/invalid-order` | el activo no existe o es ARS; por monto, la cantidad da 0 o no entra en `size`; por monto y a mercado, el activo no cotiza | "Con $500 no alcanza para una acción de PAMP ($925,85)." |
+| 404 | `/problems/user-not-found` | el usuario de la dirección no existe | "No existe el usuario 99." |
+| 404 | `/problems/order-not-found` | la orden no existe, o es de otro usuario: la respuesta es la misma, para no confirmar órdenes ajenas (CAN-4) | "No existe la orden 999." |
+| 409 | `/problems/order-not-cancellable` | la orden ya no está `NEW`. Trae el estado actual en `currentStatus` (CAN-3) | "La orden 3 ya está CANCELLED: solo se cancela una orden NEW." |
+| 422 | `/problems/client-order-id-reused` | el identificador ya se usó con otro contenido (R-2) | "Ese identificador ya se usó en otra orden. Para una orden nueva, generá uno nuevo." |
+| 503 | `/problems/user-busy` | el envío no consiguió el turno del usuario en 2 segundos. Trae el encabezado `Retry-After: 1` | "Tu cuenta está procesando otra orden. Intentá de nuevo." |
+| 500 | `/problems/internal-error` | cualquier error inesperado | "Ocurrió un error inesperado." |
+| 404, 405, 406 y 415 | `about:blank` | los errores de HTTP que resuelve Spring antes de llegar a la API: una dirección que no existe, un método no permitido, un formato de respuesta que no puede dar o uno de pedido que no acepta | lo arma Spring |
+
+Un error que no pasa por Spring MVC, por ejemplo dentro de un filtro, sale por la página de error de Spring Boot, con
+otro formato. Por eso el único filtro, el que pone el id del pedido, no hace nada que pueda fallar.
 
 ### 7.4 Un `REJECTED` no es un error
 
@@ -1011,7 +1043,7 @@ Con Micrometer, que viene con Spring Boot, expuestas para Prometheus en `/actuat
 | `orders_cancelled_total` | — | cuántas órdenes se cancelan |
 | `orders_replayed_total` | — | cuántos reintentos devolvieron una orden existente (R-2) |
 | `orders_turn_wait_seconds` | — | cuánto espera un envío el turno del usuario (sección 5.2): si crece, hay órdenes del mismo usuario chocando |
-| `http_server_requests_seconds` | dirección, método, código y resultado | cuánto tarda y cuántos errores da cada función (GEN-4). Lo mide Spring solo, con histograma para calcular el percentil 95 |
+| `http_server_requests_seconds` | dirección, método, código y resultado | cuánto tarda y cuántos errores da cada función (GEN-4). Lo mide Spring solo. El histograma, que hace falta para calcular el percentil 95, se prende con `management.metrics.distribution.percentiles-histogram.http.server.requests: true` |
 
 Las etiquetas toman pocos valores (2 lados × 2 tipos × 3 estados × 4 motivos, incluido "ninguno"), así que no
 multiplican las series. El usuario y la orden no van como etiqueta: tendrían un valor por usuario.
@@ -1045,7 +1077,10 @@ del objetivo, como límite documentado (A-4): su portfolio lee unas 850.000 órd
   agregaría:** con Spring Security como servidor de recursos OAuth2, el usuario sale del token y no de la dirección
   (`/users/{userId}` pasa a `/me`). Las consultas ya filtran siempre por usuario, así que no habría que cambiarlas.
 - **Validación en el borde:** el pedido se valida antes de llegar a la lógica (secciones 6.2 y 7.2), con topes para
-  cada número y sin aceptar campos desconocidos (`spring.jackson.deserialization.fail-on-unknown-properties: true`).
+  cada número (el monto, por la cantidad que da). Jackson 3, el que trae Spring Boot 4, acepta por defecto campos
+  desconocidos y convierte un `2.5` en `2` sin avisar si el campo es entero. Se apagan las dos cosas:
+  `spring.jackson.deserialization.fail-on-unknown-properties: true` y `accept-float-as-int: false`. Así, 2,5 acciones
+  dan 400 (caso 14 del envío), en lugar de comprar 2 (principio 2).
 - **SQL siempre con parámetros:** `JdbcClient` con parámetros con nombre. Ninguna consulta se arma pegando texto que
   viene del pedido.
 - **Secretos por variables de entorno,** nunca en el repo: `.env` está ignorado por git. La API recibe la dirección
@@ -1071,7 +1106,7 @@ Primero el test que falla, después el código (`CLAUDE.md`). Los casos del PRD 
 
 | Nivel | Qué prueba | Con qué | Por ejemplo |
 |---|---|---|---|
-| Unitarios | los cálculos en Java puro: la cuenta, el PPC, la cantidad por monto, el redondeo, la huella y el cursor | JUnit 5 y AssertJ, sin Spring ni base: milisegundos | PPC $150 (caso 5 de POR); $9.258,50 en PAMP dan 10 acciones (caso 4 del envío); `10000` y `10000.00` dan la misma huella |
+| Unitarios | los cálculos en Java puro: la cuenta, el PPC, la cantidad por monto, el redondeo, la huella y el cursor | JUnit 6 (el que trae Spring Boot 4.1.2) y AssertJ, sin Spring ni base: milisegundos | PPC $150 (caso 5 de POR); $9.258,50 en PAMP dan 10 acciones (caso 4 del envío); `10000` y `10000.00` dan la misma huella |
 | Integración | cada consulta y cada migración, contra Postgres 18 real | Testcontainers, con `database.sql` y las migraciones: el mismo camino que Neon (sección 3.6) | el último precio sale por fecha y no por orden de carga (caso 8 de POR); la búsqueda; el cursor con microsegundos (caso 4 de LIS) |
 | Funcionales | las cinco funciones de punta a punta, por HTTP, con la API levantada | Spring Boot sobre la base de Testcontainers y un cliente HTTP | los casos del PRD: los 20 del envío, que son el test funcional que pide el enunciado (GEN-3), y los de portfolio, búsqueda, cancelación y listado |
 
@@ -1171,8 +1206,9 @@ flowchart LR
 - **La API:** un `Dockerfile` en dos etapas, que compila con `maven:3.9-eclipse-temurin-25` y corre con
   `eclipse-temurin:25-jre`, con un usuario sin privilegios (sección 9). Quien evalúa solo necesita Docker (GEN-2).
 - **Postgres** carga `database.sql` cuando se crea la base (carpeta `docker-entrypoint-initdb.d`), y la API migra al
-  arrancar (sección 3.6). Sus datos viven en memoria (`tmpfs`): cada `docker compose up` arranca de los datos
-  originales, y los casos del PRD se pueden repetir a mano.
+  arrancar (sección 3.6). Sus datos viven en memoria: un `tmpfs` en `/var/lib/postgresql`, donde la imagen de
+  Postgres 18 los guarda (la ruta cambió respecto de versiones anteriores). Cada `docker compose up` arranca de los
+  datos originales, y los casos del PRD se pueden repetir a mano.
 - **La API espera a que Postgres esté listo de verdad.** El chequeo de salud pregunta por red
   (`pg_isready -h 127.0.0.1`): al crear la base, la imagen levanta un servidor provisorio que solo escucha localmente
   mientras carga `database.sql`, y un chequeo sin red lo daría por listo antes de tiempo. Se encontró al armar las
@@ -1200,8 +1236,8 @@ En `postman/`, con la colección y un entorno local (la dirección de la API). R
 4. una compra límite, que queda `NEW`;
 5. el listado de las pendientes;
 6. la cancelación de esa compra;
-7. un reintento con el mismo identificador, que devuelve la misma orden (200);
-8. el mismo identificador con otro contenido (422);
+7. un reintento de la compra del paso 3, con el mismo identificador, que devuelve la misma orden (200);
+8. el identificador del paso 3 con otro contenido (422);
 9. una compra de $700.000, que queda `REJECTED`.
 
 Cada paso que necesita un identificador nuevo lo genera con `{{$guid}}`, y cada paso verifica su respuesta con tests
@@ -1238,9 +1274,9 @@ Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Gra
 | Tres columnas nuevas en `orders`: el identificador (UUID), la huella del pedido y el motivo del rechazo como código, con la convención de nombres de Cocos | el identificador lo genera la app y tiene largo fijo; la huella no copia datos de la orden; el código sirve para el texto y para la métrica | sección 3.3 |
 | No se guarda cuándo cambió el estado de una orden | el PRD no lo muestra, y auditar pediría un historial | sección 3.3 |
 | La hora de una orden la pone la base al grabarla, con `clock_timestamp()` | un solo reloj, tomado dentro del turno del usuario. `now()` es la hora en que empezó la transacción | sección 3.4 |
-| Un solo índice nuevo, por (usuario, fecha, id). Cambia la decisión 7 de A-7 | medido con 2 millones de órdenes: el filtro por estado nunca cuesta más que el portfolio del mismo usuario, y el índice de A-7 suma 95 MB y encarece cada alta un 30 % | sección 3.5 |
+| Un solo índice nuevo para las consultas, por (usuario, fecha, id), además de los que crean las reglas de unicidad. Cambia la decisión 7 de A-7 | medido con 2 millones de órdenes: el filtro por estado nunca cuesta más que el portfolio del mismo usuario, y el índice de A-7 suma 95 MB y encarece las altas un 30 % | sección 3.5 |
 | Migraciones con Flyway; `database.sql` es la versión 1, y la copia local se arma igual que Neon: con los datos y sin historial | el camino que va a recorrer Neon es el que se prueba todos los días (probado con Flyway 12.4.0) | sección 3.6, ADR 0006 |
-| Todas las migraciones pendientes en una sola transacción (`group`) | Neon recibe todos los cambios o ninguno (probado: sin `group`, una falla deja aplicadas las anteriores) | sección 3.6 |
+| Todas las migraciones pendientes en una sola transacción (`group`) | Neon recibiría todos los cambios o ninguno (probado en la copia local: sin `group`, una falla deja aplicadas las anteriores) | sección 3.6 |
 | La API migra sola solo cuando se le pide: en la copia local y en los tests; a Neon, a propósito, en la fase 8 | apuntar la API a Neon no lo migra por accidente | sección 3.6 |
 | La base trae las órdenes del usuario y `account` calcula todo en Java | el PPC depende del orden de las órdenes; partir el cálculo lo pondría en dos lugares | sección 4.1, ADR 0003 |
 | El último precio se busca acción por acción | 0,05 ms, contra 26 y 80 ms de las otras formas (medido) | sección 4.2 |
@@ -1261,7 +1297,7 @@ Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Gra
 | Cinco métricas: órdenes creadas por lado, tipo, estado y motivo; cancelaciones; reintentos; espera del turno; y las de HTTP | responden GEN-4 sin etiquetas que multipliquen las series | sección 8.2 |
 | Prometheus y Grafana en el compose, con el tablero cargado desde el repo; New Relic, documentado como el cambio de registro | quien evalúa ve las métricas reales sin crear cuentas | sección 8.3, ADR 0007 |
 | Objetivo: percentil 95 por debajo de 100 ms, con 2 millones de órdenes y usuarios de hasta 10.000, medido con k6 en la fase 6 | la consulta más cara del usuario pesado tarda 1,2 ms en la base | sección 8.4 |
-| La base se configura en formato JDBC con usuario y clave aparte; Actuator expone solo `health` y `prometheus`; sin campos desconocidos | la clave no viaja dentro de una URL, y los endpoints con configuración no quedan abiertos | sección 9 |
+| La base se configura en formato JDBC con usuario y clave aparte; Actuator expone solo `health` y `prometheus`; sin campos desconocidos ni cantidades decimales convertidas en enteras | la clave no viaja dentro de una URL, los endpoints con configuración no quedan abiertos, y 2,5 acciones no se compran como 2 | sección 9 |
 | Tres niveles de test: unitarios, de integración contra Postgres real y funcionales por HTTP con los casos del PRD | cada nivel prueba lo suyo: los cálculos solos, el SQL contra la base real, y el recorrido completo | sección 10.1 |
 | Antes de cada test, la base vuelve a los datos originales desde una foto (4 ms); los datos propios van encima | resuelve el choque con D-8.4: los casos del PRD corren tal cual y cada test controla sus datos | sección 10.2 |
 | Los casos simultáneos inyectan una pausa desde el test, sin tocar el código de la API | el test falla siempre sin el turno, no solo por casualidad | sección 10.3 |

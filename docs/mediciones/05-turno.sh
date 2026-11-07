@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Pruebas de órdenes simultáneas (RFC, sección 5), en una copia local descartable, nunca en Neon.
-# Requiere el contenedor cocos-medicion-pg18 con database.sql y 03-esquema.sql ya aplicados (ver RFC, sección 3.5).
+# Requiere el contenedor cocos-medicion-pg18 en una copia nueva, con database.sql y 03-esquema.sql y sin los datos de
+# 03-indices.sql: el usuario de prueba tiene que recibir el id 5 (ver RFC, sección 3.5).
 #
 # Cada prueba manda dos pedidos casi a la vez, el segundo 0,3 segundos después del primero. Cada pedido lee la cuenta,
 # espera 1 segundo (lo que tardaría la API en calcular) y graba. Simula en SQL lo que hace la API.

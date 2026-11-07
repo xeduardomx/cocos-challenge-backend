@@ -46,7 +46,7 @@ es seguro (ADR 0005).
 - La transacción del envío no puede pasar a `REPEATABLE READ`. Si alguien la cambiara, el test del caso 1 de GEN
   fallaría (RFC, sección 10.3).
 - Las lecturas (portfolio, búsqueda y listado) no toman el turno ni esperan.
-- La cancelación tampoco lo toma: solo libera reservas, y es un solo `UPDATE` condicionado (sección 5.4).
+- La cancelación tampoco lo toma: solo libera reservas, y es un solo `UPDATE` condicionado (RFC, sección 5.4).
 - Cada envío bloquea una sola fila, siempre la de su usuario y antes que nada, así que dos envíos no se pueden trabar
   entre sí.
 - Las órdenes de un mismo usuario se procesan de a una. Alcanza de sobra para una persona: el turno dura milisegundos.

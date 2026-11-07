@@ -1,8 +1,8 @@
 # Resultados de la prueba de la sección 10 del RFC
 
 > Corrida del 2026-11-07 en una laptop, con Postgres 18.6 en Docker. Salida de
-> [`10-volver-a-los-originales.sql`](10-volver-a-los-originales.sql), sobre la misma copia que las otras mediciones
-> (RFC, sección 3.5).
+> [`10-volver-a-los-originales.sql`](10-volver-a-los-originales.sql), en una copia nueva con `database.sql` y
+> `03-esquema.sql`, sin los datos de `03-indices.sql` (RFC, sección 3.5).
 
 ```text
 == Después de volver: la orden 7, los conteos y el próximo id de orden
