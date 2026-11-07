@@ -102,4 +102,5 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
   `docs/01-decisiones.md` ("Pendientes acumulados para el bloque del esquema") y se deciden en el RFC.
 - Cómo se muestran las métricas: Prometheus + Grafana local, New Relic real (cuenta free) o dashboard simulado.
 - Formato del portal HTML y de los diagramas (Mermaid, PlantUML…).
-- Nice to have del enunciado: colección de Postman / Insomnia / REST Client.
+- Nice to have del enunciado: **decidido en el PRD**, se entrega una colección de Postman con el recorrido completo
+  (`docs/02-prd.md`, sección 2).

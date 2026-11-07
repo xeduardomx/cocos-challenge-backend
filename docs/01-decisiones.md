@@ -1010,6 +1010,7 @@ decisión y es la base del alcance del PRD.
 | Envío por monto | la cantidad calculada | el usuario tiene que ver cuántas acciones salieron | A-6, parte 2, decisión 3 |
 | Listado | cursor de la página siguiente | paginación | A-7 |
 | Envío y listado | el identificador de la orden | si se perdió la respuesta, el cliente encuentra su orden | R-2 |
+| Portfolio | las acciones reservadas por ventas pendientes, en cada posición | explican por qué se rechaza una venta aunque la cantidad parezca alcanzar | PRD, POR-7 |
 
 **Reglas que agregamos o precisamos**
 
@@ -1051,6 +1052,11 @@ la copia local (ver "Base de Neon").
 | Detalle de una orden por id | el listado alcanza | A-7 |
 | Identificador de orden opcional, o generado por el servidor | sin identificador no hay protección, y uno generado por el servidor no protege el reintento | R-2 |
 | Autenticación de usuarios | el enunciado dice que no es necesaria; la consecuencia queda documentada como limitación | S-5 |
+| Otras monedas | todo está en pesos y no hay nada que convertir | S-1; PRD, sección 2 |
+| Comisiones e impuestos | cambian casi todos los cálculos de plata y el valor sería inventado; mejora posible, afuera por practicidad | PRD, sección 2 |
+| Modificar una orden pendiente | se cancela y se manda otra | PRD, sección 2 |
+| Vencimiento de las órdenes límite | quedan pendientes hasta que el usuario las cancela; vencerlas sería simular el mercado | PRD, sección 2 |
+| Horario de mercado | las órdenes se aceptan a cualquier hora; controlarlo sería simular el mercado | PRD, sección 2 |
 
 ## Lo que falta, en orden
 
