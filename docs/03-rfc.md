@@ -384,7 +384,7 @@ docker stop cocos-medicion-pg18
 
 ### 3.6 Migraciones y Neon
 
-**La herramienta: Flyway.** Viene integrada con Spring Boot: con `spring-boot-starter-flyway` y el módulo
+**La herramienta: Flyway** ([ADR 0006](adr/0006-migraciones-con-flyway.md)). Viene integrada con Spring Boot: con `spring-boot-starter-flyway` y el módulo
 `flyway-database-postgresql`, Spring Boot 4.1.2 trae Flyway 12.4.0. Cada migración es un archivo SQL numerado
 (`V2__....sql`) que se lee tal cual: el mismo SQL de [`mediciones/03-esquema.sql`](mediciones/03-esquema.sql). Flyway
 anota en una tabla propia, `flyway_schema_history`, qué migraciones se aplicaron, y detecta si alguna se editó
@@ -468,7 +468,7 @@ con las sumas en SQL y el PPC en Java, pondría la cuenta en dos lugares, y la p
 contra una base. El ADR 0001 ya puso los cálculos en Java puro.
 
 **El límite.** Java recibe todas las órdenes ejecutadas y pendientes del usuario: 8.597 en el pesado, unas 850.000 en
-el extremo, que es el límite ya documentado en A-4. El tiempo de punta a punta se mide en la fase 6, contra el
+el extremo, que es el límite ya documentado en A-4 ([ADR 0003](adr/0003-posiciones-calculadas.md)). El tiempo de punta a punta se mide en la fase 6, contra el
 objetivo de la sección 8.
 
 ### 4.2 El último precio, acción por acción
@@ -572,7 +572,8 @@ Solo una orden `NEW` cambia de estado; las otras tres son finales (D-7). Nuestro
 
 ### 5.2 El turno del usuario
 
-La transacción del envío empieza tomando el turno del usuario, con un lock sobre su fila de `users`:
+La transacción del envío empieza tomando el turno del usuario, con un lock sobre su fila de `users`
+([ADR 0004](adr/0004-turno-del-usuario.md)):
 
 ```sql
 select id from users where id = :userId for update
@@ -630,7 +631,7 @@ la API responde 503 con "intentá de nuevo" (sección 7). Reintentar con el mism
 
 ### 5.3 Reintentos
 
-Dentro del turno, antes de evaluar la orden (R-2, ENV-9):
+Dentro del turno, antes de evaluar la orden (R-2, ENV-9, [ADR 0005](adr/0005-reintentos-con-identificador-y-huella.md)):
 
 1. Se busca una orden del usuario con ese identificador.
 2. **Si no existe,** se evalúa y se graba (A-6).
@@ -894,8 +895,8 @@ probar la API desde el navegador en `/swagger-ui.html`. Quien evalúa puede reco
 y la especificación no se desactualiza, porque sale del código. La versión 3.2.0 de springdoc está construida sobre
 Spring Boot 4.1.2, la misma versión que usa la API.
 
-- **En contra:** es una librería más, así que necesita su ADR (`CLAUDE.md`), y documentar los ejemplos agrega
-  anotaciones en los controllers.
+- **En contra:** es una librería más, así que tiene su ADR ([0008](adr/0008-openapi-con-springdoc.md), como pide
+  `CLAUDE.md`), y documentar los ejemplos agrega anotaciones en los controllers.
 - **La alternativa,** solo la colección de Postman (ya decidida en el PRD), muestra el recorrido, pero no un contrato
   para consultar.
 
@@ -992,6 +993,8 @@ Las etiquetas toman pocos valores (2 lados × 2 tipos × 3 estados × 4 motivos,
 multiplican las series. El usuario y la orden no van como etiqueta: tendrían un valor por usuario.
 
 ### 8.3 Cómo se ven: Prometheus y Grafana en el mismo `docker compose`
+
+La decisión, con sus alternativas, está en el [ADR 0007](adr/0007-metricas-con-prometheus-y-grafana.md).
 
 - **Prometheus** lee `/actuator/prometheus` cada 15 segundos.
 - **Grafana** arranca con la fuente de datos y un tablero ya cargados desde archivos del repo: al levantar el compose,
@@ -1212,27 +1215,27 @@ Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Gra
 | No se guarda cuándo cambió el estado de una orden | el PRD no lo muestra, y auditar pediría un historial | sección 3.3 |
 | La hora de una orden la pone la base al grabarla, con `clock_timestamp()` | un solo reloj, tomado dentro del turno del usuario. `now()` es la hora en que empezó la transacción | sección 3.4 |
 | Un solo índice nuevo, por (usuario, fecha, id). Cambia la decisión 7 de A-7 | medido con 2 millones de órdenes: el filtro por estado nunca cuesta más que el portfolio del mismo usuario, y el índice de A-7 suma 95 MB y encarece cada alta un 30 % | sección 3.5 |
-| Migraciones con Flyway; `database.sql` es la versión 1, y la copia local se arma igual que Neon: con los datos y sin historial | el camino que va a recorrer Neon es el que se prueba todos los días (probado con Flyway 12.4.0) | sección 3.6 |
+| Migraciones con Flyway; `database.sql` es la versión 1, y la copia local se arma igual que Neon: con los datos y sin historial | el camino que va a recorrer Neon es el que se prueba todos los días (probado con Flyway 12.4.0) | sección 3.6, ADR 0006 |
 | Todas las migraciones pendientes en una sola transacción (`group`) | Neon recibe todos los cambios o ninguno (probado: sin `group`, una falla deja aplicadas las anteriores) | sección 3.6 |
 | La API migra sola solo cuando se le pide: en la copia local y en los tests; a Neon, a propósito, en la fase 8 | apuntar la API a Neon no lo migra por accidente | sección 3.6 |
-| La base trae las órdenes del usuario y `account` calcula todo en Java | el PPC depende del orden de las órdenes; partir el cálculo lo pondría en dos lugares | sección 4.1 |
+| La base trae las órdenes del usuario y `account` calcula todo en Java | el PPC depende del orden de las órdenes; partir el cálculo lo pondría en dos lugares | sección 4.1, ADR 0003 |
 | El último precio se busca acción por acción | 0,05 ms, contra 26 y 80 ms de las otras formas (medido) | sección 4.2 |
 | La búsqueda usa `strpos` y `starts_with`, sin `LIKE` | `%` y `_` quedan como texto común sin escaparlos | sección 4.3 |
 | El cursor es la fecha con microsegundos y el id, en base64url | no pierde precisión al pasar de página, y el cliente no depende de su forma | sección 4.4 |
 | Divisiones con 34 dígitos y un solo redondeo al final, con `HALF_UP` | se redondea solo el número que se muestra; los números del PRD dan igual con los dos modos | sección 4.5 |
-| El turno del usuario es un lock sobre su fila de `users`, en `READ COMMITTED`, con espera máxima de 2 segundos | probado: sin turno se reproduce la orden 11; en `REPEATABLE READ`, también | sección 5.2 |
-| El reintento se reconoce dentro del turno, con la huella `v1` del pedido; la regla de unicidad queda como red | probado: dos pedidos con el mismo identificador crean una sola orden | sección 5.3 |
+| El turno del usuario es un lock sobre su fila de `users`, en `READ COMMITTED`, con espera máxima de 2 segundos | probado: sin turno se reproduce la orden 11; en `REPEATABLE READ`, también | sección 5.2, ADR 0004 |
+| El reintento se reconoce dentro del turno, con la huella `v1` del pedido; la regla de unicidad queda como red | probado: dos pedidos con el mismo identificador crean una sola orden | sección 5.3, ADR 0005 |
 | La cancelación no toma el turno: es un solo `UPDATE` condicionado | solo libera reservas, y dos cancelaciones simultáneas no ganan las dos (probado) | sección 5.4 |
 | Direcciones con el usuario en la ruta, cancelación con `POST .../cancel` y sin versión en la ruta | no hay autenticación (S-5), y la orden cancelada no se borra | sección 6.1 |
 | `REJECTED` y orden nueva responden 201; el reintento, 200; el identificador repetido con otro contenido, 422 | la orden rechazada existe; el reintento no crea nada | sección 6.3 |
 | `amount` es siempre cantidad × precio, y en depósitos y retiros reemplaza a cantidad y precio | muestra lo que de verdad se usa en una orden por monto, y cumple LIS-5 | sección 6.2 |
 | El identificador va en el cuerpo (`clientOrderId`), no en un encabezado | es un dato de la orden, como el `ClOrdID` de FIX | sección 6.5 |
 | Los números configurables: 20 resultados, 50 caracteres, páginas de 20 (máximo 100), turno de 2 segundos | cada uno con su porqué | sección 6.6 |
-| Se publica la especificación OpenAPI con springdoc-openapi (necesita ADR) | quien evalúa recorre la API desde el navegador, y la especificación sale del código | sección 6.7 |
+| Se publica la especificación OpenAPI con springdoc-openapi | quien evalúa recorre la API desde el navegador, y la especificación sale del código | sección 6.7, ADR 0008 |
 | Errores en Problem Details con `type` fijo, `requestId` y lista de campos; catálogo de 8 tipos, con textos en español | el cliente decide por el `type`, la persona lee el `detail`, y un 500 no muestra nada interno | sección 7 |
 | Logs en JSON (ECS) con el id de cada pedido; la API nunca lee el email | se filtran por campo, y el email no se puede registrar por error | sección 8.1 |
 | Cinco métricas: órdenes creadas por lado, tipo, estado y motivo; cancelaciones; reintentos; espera del turno; y las de HTTP | responden GEN-4 sin etiquetas que multipliquen las series | sección 8.2 |
-| Prometheus y Grafana en el compose, con el tablero cargado desde el repo; New Relic, documentado como el cambio de registro | quien evalúa ve las métricas reales sin crear cuentas | sección 8.3 |
+| Prometheus y Grafana en el compose, con el tablero cargado desde el repo; New Relic, documentado como el cambio de registro | quien evalúa ve las métricas reales sin crear cuentas | sección 8.3, ADR 0007 |
 | Objetivo: percentil 95 por debajo de 100 ms, con 2 millones de órdenes y usuarios de hasta 10.000, medido con k6 en la fase 6 | la consulta más cara del usuario pesado tarda 1,2 ms en la base | sección 8.4 |
 | La base se configura en formato JDBC con usuario y clave aparte; Actuator expone solo `health` y `prometheus`; sin campos desconocidos | la clave no viaja dentro de una URL, y los endpoints con configuración no quedan abiertos | sección 9 |
 | Tres niveles de test: unitarios, de integración contra Postgres real y funcionales por HTTP con los casos del PRD | cada nivel prueba lo suyo: los cálculos solos, el SQL contra la base real, y el recorrido completo | sección 10.1 |
@@ -1250,7 +1253,9 @@ En la carpeta [`adr/`](adr/), un archivo corto por decisión, con contexto, opci
 
 - [ADR 0001 — Capas agrupadas por función, no hexagonal](adr/0001-capas-por-funcion.md)
 - [ADR 0002 — SQL directo con `JdbcClient`, no JPA](adr/0002-sql-directo-con-jdbcclient.md)
-
-Candidatos que faltan: posiciones calculadas (el que dejó pendiente
-A-4), el turno del usuario (sección 5.2), cómo se reconoce un reintento (5.3), migraciones sobre una base con datos
-(3.6), cómo se muestran las métricas (8.3) y springdoc-openapi, porque es una librería más (6.7).
+- [ADR 0003 — Las posiciones se calculan desde `orders`, sin tabla de posiciones](adr/0003-posiciones-calculadas.md)
+- [ADR 0004 — El turno del usuario: un lock sobre su fila de `users`, en `READ COMMITTED`](adr/0004-turno-del-usuario.md)
+- [ADR 0005 — Reintentos: identificador del cliente y huella del pedido](adr/0005-reintentos-con-identificador-y-huella.md)
+- [ADR 0006 — Migraciones con Flyway, sobre una base con datos y sin historial](adr/0006-migraciones-con-flyway.md)
+- [ADR 0007 — Métricas con Micrometer, y Prometheus y Grafana en el `docker compose`](adr/0007-metricas-con-prometheus-y-grafana.md)
+- [ADR 0008 — Especificación OpenAPI con springdoc-openapi](adr/0008-openapi-con-springdoc.md)
