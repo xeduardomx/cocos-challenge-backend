@@ -101,6 +101,9 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
 - Cambios a la base (el enunciado los permite si se justifican). Los candidatos ya están juntados en
   `docs/01-decisiones.md` ("Pendientes acumulados para el bloque del esquema") y se deciden en el RFC.
 - Cómo se muestran las métricas: Prometheus + Grafana local, New Relic real (cuenta free) o dashboard simulado.
-- Formato del portal HTML y de los diagramas (Mermaid, PlantUML…).
+- Documentos y diagramas: **decidido al arrancar el RFC** (2026-11-07). Los documentos se escriben en Markdown, que es
+  la única fuente. Los diagramas van en Mermaid, adentro del Markdown, porque GitHub los dibuja solo. El portal HTML
+  de la fase 7 se genera desde esos mismos archivos y no se escribe a mano, así nunca dicen cosas distintas. La
+  herramienta que arma el portal se elige en el RFC.
 - Nice to have del enunciado: **decidido en el PRD**, se entrega una colección de Postman con el recorrido completo
   (`docs/02-prd.md`, sección 2).
