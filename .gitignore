@@ -1,0 +1,15 @@
+# Secretos: nunca al repo
+.env
+.env.*
+!.env.example
+
+# Build
+target/
+build/
+out/
+
+# IDE / SO
+.idea/
+*.iml
+.vscode/
+.DS_Store
