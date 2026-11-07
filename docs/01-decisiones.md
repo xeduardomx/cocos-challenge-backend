@@ -104,7 +104,9 @@ El detalle se trabaja en el bloque del esquema, que se hace en el RFC (fase 3).
 - **Desarrollo y tests: siempre contra una copia local**, armada con `database.sql` más nuestras migraciones
   (archivos SQL numerados que se aplican en orden).
 - **Neon no se toca mientras desarrollamos:** solo se lee, para verificar. En la fase 8, con todo probado, se
-  evalúa aplicarle las mismas migraciones una vez, como un pase a producción.
+  evalúa aplicarle las mismas migraciones una vez, como un pase a producción. **Cómo, decidido en el RFC (sección
+  3.6, ADR 0006):** con Flyway, que anota a `database.sql` como versión 1 y aplica todos los cambios en una sola
+  transacción; la API no migra sola salvo que se le pida.
 - **Por qué:**
   - El mail pide que *"el proyecto tiene que poder ser ejecutado localmente"*.
   - Los tests graban órdenes. Contra Neon, cada corrida cambiaría la plata y las posiciones del usuario 1, y los
@@ -113,7 +115,8 @@ El detalle se trabaja en el bloque del esquema, que se hace en el RFC (fase 3).
 - **Por qué no se descarta aplicarlas al final:** el mail dice que la base la crearon *"para que no lo tengas que
   hacer vos"*, y los contadores de ids intactos sugieren que es una base solo para este challenge.
 - **Nota para el RFC:** la URL de la base se configura por variable de entorno, así la misma aplicación puede
-  apuntar a la copia local o a Neon sin cambiar código.
+  apuntar a la copia local o a Neon sin cambiar código. **En el RFC (sección 9):** en formato JDBC, con el usuario y
+  la clave en variables aparte.
 
 ### D-2 · Instrumentos sin precio (PGR e IRCP)
 
@@ -195,7 +198,7 @@ pagar 0,6 centavos, así que es una cuenta, no un precio operado. La base lo gua
      acciones de menos de $1 (BYMA permite pasos de 0,001) o precios ajustados con más decimales, se amplían juntas
      `marketdata` y `orders.price`. Ampliar no pierde datos.
    - **Cálculos** (precio promedio, porcentajes): más precisión por dentro y redondeo solo al final. El modo de
-     redondeo se elige en el RFC.
+     redondeo se elige en el RFC. **Elegido en el RFC (sección 4.5):** `HALF_UP`, una sola vez al final.
 4. **Un precio de orden con más de 2 decimales se rechaza (error 400):** no se redondea ni se corta, porque nunca
    se cambia lo que el usuario autorizó con su plata. No se valida el paso de 5 centavos: sería simular el mercado
    (el enunciado dice que no hace falta) y no se encontró la tabla oficial completa.
@@ -498,7 +501,7 @@ Cerrada en D-1: la posición de BMA (−10) se muestra tal cual, con rendimiento
   5. **La foto a una fecha queda como evolución posible.** Se usaría si el portfolio supera el tiempo de respuesta
      objetivo que fije el RFC.
   6. **La concurrencia de D-1 no cambia:** las órdenes de un mismo usuario se procesan de a una. El mecanismo se
-     elige en el RFC.
+     elige en el RFC. **Elegido en el RFC (sección 5.2, ADR 0004):** un lock sobre la fila del usuario.
   7. **Test funcional:** el usuario 1 compra 10 PAMP a mercado ($925,85, o sea $9.258,50). El siguiente portfolio
      muestra 50 PAMP, PPC $929,17 ((40 × $930 + 10 × $925,85) ÷ 50) y pesos disponibles por $618.241,50. El valor
      total sigue en $889.756: comprar a precio de mercado no cambia el total, solo pasa plata de pesos a acciones.
@@ -536,6 +539,7 @@ Cerrada en D-1: la posición de BMA (−10) se muestra tal cual, con rendimiento
   6. **Una sola letra se permite.** Cambia lo que proponía el análisis (400): "y" es una búsqueda válida y YPFD sale
      primero. El tope de resultados evita traer todo.
   7. **Texto muy largo: error 400** pasando un máximo que se fija en el RFC (el nombre más largo tiene 42 letras).
+     **Fijado en el RFC (sección 6.6):** 50 caracteres.
   8. **Tope de resultados configurable** (por ejemplo, 20): con "a" coinciden 59 de 65.
   9. **Orden:** ticker igual → ticker que empieza así → ticker que lo contiene → nombre que empieza así → el resto.
      Los empates, por ticker. Ejemplo "pa": PAMP y PATA, después BPAT y CGPA2, al final INTR ("Com**pa**ñía"). El
@@ -602,10 +606,10 @@ Cerrada en D-1: la posición de BMA (−10) se muestra tal cual, con rendimiento
 - **Decisiones:**
   1. **El criterio de arriba,** con los casos de las dos tablas.
   2. **Un `REJECTED` no es un error de la API:** la orden se creó, rechazada. La respuesta devuelve la orden con su
-     estado, igual que una `FILLED` o una `NEW`. El código HTTP exacto, en el RFC.
+     estado, igual que una `FILLED` o una `NEW`. El código HTTP exacto, en el RFC. **En el RFC (sección 6.3):** 201.
   3. **La respuesta explica el motivo del rechazo** ("no alcanzan los pesos", "el activo no cotiza"). Guardarlo en la
      base es candidato para el bloque del esquema, con recomendación de hacerlo: sin eso, nadie puede responder
-     después "¿por qué me rechazaron?".
+     después "¿por qué me rechazaron?". **Decidido en el RFC (sección 3.3):** se guarda, como código.
   4. **"No existe":** 404 solo si lo que no existe está en la dirección del pedido (por ejemplo, `/users/99/...`); si
      viene en los datos enviados, 400. Las direcciones, en el RFC.
   5. **Para el bloque del esquema:** como una orden de 0 acciones nunca se graba, **cantidad ≥ 1 vale para todas las
@@ -833,7 +837,7 @@ no pide** (cancelar y listar órdenes) y deja afuera las transferencias. Cada co
    solo filtro opcional por estado, transferencias como monto en pesos, lista vacía para un usuario sin órdenes y 404
    para uno inexistente.
 6. **Paginación por cursor,** con tamaño por defecto y máximo configurables (los números, en el RFC). No se muestra el
-   total ni se salta a una página.
+   total ni se salta a una página. **Fijados en el RFC (sección 6.6):** 20 por página, y 100 como máximo.
 7. **Para el bloque del esquema:** índice por (usuario, estado, fecha, id), con la medición de arriba; candidato:
    cuándo cambió el estado de la orden (sin recomendación fuerte). **Revisado en el RFC (sección 3.5):** medido con
    2 millones de órdenes, alcanza con un índice por (usuario, fecha, id), y el de esta decisión se descarta. Cuándo
@@ -936,7 +940,8 @@ no pide** (cancelar y listar órdenes) y deja afuera las transferencias. Cada co
   8. **Para el RFC:** formato y largo máximo del identificador, nombre del campo, si viaja en el cuerpo o en un
      encabezado, y los códigos HTTP. El borrador del IETF sugiere 422 para "mismo identificador, otro contenido" y 409
      si el original todavía se está procesando; con el bloqueo de D-1, el segundo espera y recibe el resultado del
-     primero.
+     primero. **Decidido en el RFC (secciones 3.3, 5.3, 6.3 y 6.5; ADR 0005):** `clientOrderId`, un UUID, en el
+     cuerpo; el reintento responde 200, y el identificador repetido con otro contenido, 422.
   9. **Tests:**
      - Reintento con el mismo identificador: devuelve la misma orden y `orders` no suma filas.
      - El reintento de la compra de $700.000 rechazada devuelve el mismo `REJECTED`, sin fila nueva.
@@ -995,12 +1000,14 @@ decisión y es la base del alcance del PRD.
 | Envío de órdenes | sí | A-6, D-2, D-4, D-6, R-2 |
 | **Cancelar una orden** | no: el enunciado define la regla, no el endpoint | A-7 |
 | **Listar las órdenes del usuario**, paginado por cursor | no | A-7 |
+| `/actuator/health` y `/actuator/prometheus` | no: técnicos, para el chequeo de salud y las métricas | RFC, secciones 8 y 9 |
+| `/v3/api-docs` y `/swagger-ui.html`, la especificación OpenAPI | no: para recorrer la API desde el navegador | RFC, sección 6.7; ADR 0008 |
 
 **Datos de los pedidos que el enunciado no pide**
 
 | Endpoint | Dato agregado | Por qué | Dónde |
 |---|---|---|---|
-| Envío | identificador de la orden, puesto por el cliente y obligatorio | un reintento no crea una orden duplicada | R-2 |
+| Envío | identificador de la orden, puesto por el cliente y obligatorio: `clientOrderId`, un UUID, en el cuerpo | un reintento no crea una orden duplicada | R-2; RFC, secciones 3.3 y 6.5 |
 
 **Datos de las respuestas que el enunciado no pide**
 
@@ -1014,6 +1021,10 @@ decisión y es la base del alcance del PRD.
 | Listado | cursor de la página siguiente | paginación | A-7 |
 | Envío y listado | el identificador de la orden | si se perdió la respuesta, el cliente encuentra su orden | R-2 |
 | Portfolio | las acciones reservadas por ventas pendientes, en cada posición | explican por qué se rechaza una venta aunque la cantidad parezca alcanzar | PRD, POR-7 |
+| Envío y listado | `amount`: el monto en pesos de la orden, cantidad × precio. En depósitos y retiros reemplaza a la cantidad y el precio | muestra lo que de verdad se usa en una orden por monto, y cumple LIS-5 | RFC, sección 6.2 |
+| Envío y listado | el motivo del rechazo, como código (`rejectionReason`) y como texto (`rejectionMessage`) | el cliente decide por el código; la persona lee el texto | RFC, secciones 3.3 y 7.4 |
+| Todas | `X-Request-Id` en la respuesta, y `requestId` en los errores | para encontrar un pedido en los logs | RFC, secciones 7.1 y 8.1 |
+| Errores | el formato Problem Details, con `type`, la lista de campos con problemas y, en el 409, el estado actual | el formato estándar, con lo que el cliente necesita para decidir | RFC, sección 7 |
 
 **Reglas que agregamos o precisamos**
 
@@ -1035,10 +1046,24 @@ decisión y es la base del alcance del PRD.
 | Se acepta cualquier precio límite mayor a 0 y se reserva a ese precio | A-6, parte 2 |
 | Solo se cancela una orden `NEW`; otro estado da conflicto | A-7 |
 | Toda orden nueva trae un identificador único por usuario; repetirlo con el mismo contenido devuelve la orden original, y con otro contenido da error | R-2 |
+| Una orden nueva responde 201 aunque quede `REJECTED`; un reintento, 200; el identificador repetido con otro contenido, 422 | RFC, sección 6.3 |
+| Si el envío no consigue el turno del usuario en 2 segundos: 503, "intentá de nuevo" | RFC, sección 5.2 |
+| Un campo desconocido en el pedido da 400 | RFC, secciones 6.2 y 9 |
+| Topes: precio de hasta $99.999.999,99; cantidad de hasta 2.147.483.647, también la calculada por monto; texto de búsqueda de hasta 50 caracteres; páginas de hasta 100 órdenes | RFC, secciones 3.2 y 6.6 |
+| La hora de una orden es la del momento en que se graba, con el reloj de la base | D-10; RFC, sección 3.4 |
+| Las divisiones (PPC, rendimientos) se redondean una sola vez, al final, a 2 decimales, con `HALF_UP` | RFC, sección 4.5 |
 
-**Cambios al modelo de datos:** ninguno aplicado todavía. Los candidatos se juntan en "Pendientes acumulados para el
-bloque del esquema" (abajo), y cada uno se decide y justifica en el RFC (fase 3). Se aplican con migraciones, solo en
-la copia local (ver "Base de Neon").
+**Cambios al modelo de datos:** decididos en el RFC (sección 3) y todavía sin aplicar: se aplican con migraciones en
+la fase 5, solo en la copia local, y a Neon se le aplican, si se decide, en la fase 8 (ADR 0006).
+
+| Cambio | Dónde |
+|---|---|
+| Reglas que miran una sola fila: datos obligatorios, valores permitidos, cantidad y precios mayores a 0, precio 1 en depósitos y retiros, una fila de precios por acción y fecha, ticker único | RFC, sección 3.2 |
+| Tres columnas nuevas en `orders`: el identificador de la orden, la huella del pedido y el motivo del rechazo | RFC, sección 3.3 |
+| `datetime` pasa a fecha y hora con zona, y la pone la base al grabar | RFC, sección 3.4 |
+| Un índice nuevo en `orders`, por (usuario, fecha, id) | RFC, sección 3.5 |
+| La extensión `unaccent` | RFC, sección 3.5 |
+| La tabla `flyway_schema_history`, que anota las migraciones aplicadas | RFC, sección 3.6 |
 
 **Lo que evaluamos y dejamos afuera, a propósito**
 
@@ -1060,6 +1085,12 @@ la copia local (ver "Base de Neon").
 | Modificar una orden pendiente | se cancela y se manda otra | PRD, sección 2 |
 | Vencimiento de las órdenes límite | quedan pendientes hasta que el usuario las cancela; vencerlas sería simular el mercado | PRD, sección 2 |
 | Horario de mercado | las órdenes se aceptan a cualquier hora; controlarlo sería simular el mercado | PRD, sección 2 |
+| Índice por (usuario, estado, fecha, id), o uno parcial de pendientes | medido: el filtro por estado nunca cuesta más que el portfolio; el parcial queda como el paso siguiente | RFC, sección 3.5 |
+| Guardar cuándo cambió el estado de una orden | el PRD no lo muestra, y auditar pediría un historial | RFC, sección 3.3 |
+| Índice para la búsqueda (trigramas) | con 10.000 activos tarda entre 11 y 17 ms; evolución posible | RFC, sección 3.5 |
+| Versión en las direcciones (`/v1`) | hay una sola versión y un solo cliente | RFC, sección 6.1 |
+| Límite de pedidos por cliente, HTTPS propio y CORS | fuera de alcance; en producción, el HTTPS lo pone el balanceador | RFC, sección 9 |
+| New Relic de verdad | quien evalúa necesitaría una cuenta; queda documentado como cambiar el registro de Micrometer | RFC, sección 8.3; ADR 0007 |
 
 ## Lo que falta, en orden
 
@@ -1098,7 +1129,8 @@ quedar con cantidad 0 o sin precio; A-7, el índice del listado.
 ### Pendientes acumulados para el bloque del esquema
 
 Insumo del RFC (fase 3): ahí se decide y justifica cada uno, y se escriben las migraciones. **Decididos en el RFC,
-sección 3 (2026-11-07):** las reglas, las columnas nuevas y los índices, verificados y medidos en la copia local.
+sección 3 (2026-11-07):** las reglas, las columnas nuevas, los índices y cómo se aplican, verificados y medidos en la
+copia local.
 
 - **E-1 a E-8 del análisis:** columnas obligatorias, valores permitidos, únicos, índices, decimales, tamaño de `size`,
   orden alfabético, extensiones.

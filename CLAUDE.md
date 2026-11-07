@@ -49,7 +49,7 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
 | 3 | RFC: arquitectura, modelo y cambios a la base, contratos de API, consistencia/concurrencia, errores, observabilidad, estrategia de tests, diagramas | `docs/03-rfc.md` + `docs/adr/` | brainstorming |
 | 4 | Plan de implementación en tareas chicas | `docs/04-plan.md` | writing-plans |
 | 5 | Implementación con TDD | código + tests | test-driven-development, executing-plans |
-| 6 | Observabilidad: métricas, dashboard (New Relic simulado) | código + dashboard | — |
+| 6 | Observabilidad: métricas, tablero con Prometheus y Grafana (New Relic, documentado) y medición del tiempo de respuesta | código + tablero | — |
 | 7 | Portal HTML tipo Confluence: análisis, PRD, RFC, diagramas, runbook, métricas | `docs/portal/` | — |
 | 8 | Revisión y entrega: review, verificación, README, repo público, mail | repo + mail | requesting-code-review, verification-before-completion, finishing-a-development-branch |
 
@@ -78,13 +78,14 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
 - Validación en el borde (Bean Validation) y errores con formato estándar (Problem Details, RFC 9457).
 - Logs estructurados con id de request; sin datos personales (nada de emails en logs).
 - Métricas con Micrometer: de negocio (órdenes por tipo, lado y estado) y técnicas (latencia y errores por endpoint).
-- Formato y análisis estático automáticos que rompen el build (herramientas: se eligen en el RFC).
+- Formato y análisis estático automáticos que rompen el build: Spotless con google-java-format, Error Prone y
+  NullAway con JSpecify (RFC, sección 11.1).
 
 **Tests**
 - TDD: primero el test que falla, después el código.
 - Dominio con tests unitarios; integración contra Postgres real (Testcontainers + `database.sql`);
   el **test funcional del envío de orden** es requisito explícito del enunciado.
-- Cobertura medida (JaCoCo) con un piso que se fija en el RFC.
+- Cobertura medida (JaCoCo) con un piso de 85 % de las líneas y 80 % de las ramas (RFC, sección 10.4).
 - Los tests **nunca** tocan la base de Neon.
 
 **Proceso**
@@ -94,19 +95,26 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
 - Ejecutable con un comando (`docker compose up`) y README con los pasos.
 - Documentación en español; código, nombres y commits técnicos en inglés.
 
-## Decisiones abiertas (se deciden en el análisis o el RFC, no antes)
+## Decisiones de diseño: dónde quedó cada una
 
 - Arquitectura: **decidida en el RFC** (2026-11-07). Capas agrupadas por función, no hexagonal, con los cálculos en
   Java puro y la cuenta del usuario calculada en un solo lugar (`docs/adr/0001-capas-por-funcion.md`).
 - Versiones y acceso a datos: **decididos en el RFC** (2026-11-07). Java 25 y Spring Boot 4.1; SQL directo con
   `JdbcClient`, no JPA ni jOOQ (`docs/adr/0002-sql-directo-con-jdbcclient.md`).
 - Cambios a la base: **decididos en el RFC** (2026-11-07, sección 3). Reglas que miran una sola fila, tres columnas
-  nuevas en `orders` y un solo índice nuevo, verificados y medidos en la copia local (`docs/mediciones/`). Falta la
-  parte 2: cómo se aplican las migraciones y qué pasa con Neon.
-- Cómo se muestran las métricas: Prometheus + Grafana local, New Relic real (cuenta free) o dashboard simulado.
+  nuevas en `orders` y un solo índice nuevo, verificados y medidos en la copia local (`docs/mediciones/`). Se aplican
+  con Flyway, con `database.sql` como versión 1, y la API migra sola solo cuando se le pide
+  (`docs/adr/0006-migraciones-con-flyway.md`).
+- Cómo se muestran las métricas: **decidido en el RFC** (2026-11-07). Prometheus y Grafana en el mismo `docker
+  compose`; New Relic queda documentado como el cambio de registro de Micrometer
+  (`docs/adr/0007-metricas-con-prometheus-y-grafana.md`).
 - Documentos y diagramas: **decidido al arrancar el RFC** (2026-11-07). Los documentos se escriben en Markdown, que es
   la única fuente. Los diagramas van en Mermaid, adentro del Markdown, porque GitHub los dibuja solo. El portal HTML
   de la fase 7 se genera desde esos mismos archivos y no se escribe a mano, así nunca dicen cosas distintas. La
-  herramienta que arma el portal se elige en el RFC.
+  herramienta: Zensical, con Docusaurus como alternativa (RFC, sección 11.6).
 - Nice to have del enunciado: **decidido en el PRD**, se entrega una colección de Postman con el recorrido completo
   (`docs/02-prd.md`, sección 2).
+- El resto del diseño (cálculos, órdenes simultáneas, contratos, errores, seguridad, tests y build): **decidido en el
+  RFC** (2026-11-07), `docs/03-rfc.md`, con sus ADR en `docs/adr/`.
+- **Queda abierta una sola:** si a Neon se le aplican las migraciones. Se decide en la fase 8 (ver "Base de Neon" en
+  `docs/01-decisiones.md`).
