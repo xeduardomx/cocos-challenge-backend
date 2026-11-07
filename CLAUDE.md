@@ -96,8 +96,10 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
 
 ## Decisiones abiertas (se deciden en el análisis o el RFC, no antes)
 
-- ¿Arquitectura hexagonal o capas clásicas? Se decide por lo que el problema pide, no por moda.
-- Versión de Spring Boot; JPA vs JDBC/jOOQ.
+- Arquitectura: **decidida en el RFC** (2026-11-07). Capas agrupadas por función, no hexagonal, con los cálculos en
+  Java puro y la cuenta del usuario calculada en un solo lugar (`docs/adr/0001-capas-por-funcion.md`).
+- Versiones y acceso a datos: **decididos en el RFC** (2026-11-07). Java 25 y Spring Boot 4.1; SQL directo con
+  `JdbcClient`, no JPA ni jOOQ (`docs/adr/0002-sql-directo-con-jdbcclient.md`).
 - Cambios a la base (el enunciado los permite si se justifican). Los candidatos ya están juntados en
   `docs/01-decisiones.md` ("Pendientes acumulados para el bloque del esquema") y se deciden en el RFC.
 - Cómo se muestran las métricas: Prometheus + Grafana local, New Relic real (cuenta free) o dashboard simulado.
