@@ -1,6 +1,6 @@
 # 01 — Análisis del enunciado y de los datos
 
-> Fase 1 · 2026-11-06 · Estado: **versión final, pendiente de aprobación**
+> Fase 1 · 2026-11-06 · Estado: **aprobado por el autor el 2026-11-07**
 >
 > Fuentes: [`00-fuentes/backend-challenge.md`](00-fuentes/backend-challenge.md) (enunciado) y
 > [`00-fuentes/database.sql`](00-fuentes/database.sql) (esquema y datos), contrastadas con la base de Neon
@@ -161,7 +161,8 @@ consultar la base con los nombres que ya conoce.
   cantidad; las ventas no lo cambian. PAMP: compró 50 a $930, vendió 10 y le quedan 40, que hoy valen $925,85:
   **−0,45 %**. Los otros métodos evaluados daban −0,18 % y −0,14 %.
 - **Variación diaria** = (`close` − `previousClose`) ÷ `previousClose`, en un campo aparte. PAMP: +0,44 %.
-- Con la posición en 0 o negativa (BMA), el rendimiento va vacío.
+- Con la posición en 0 o negativa (BMA), el PPC y el rendimiento van vacíos. Si vuelve a positivo, el PPC arranca de
+  la compra que la hizo positiva.
 
 ### A-3. Posición negativa
 
@@ -233,7 +234,7 @@ METR con límite $10.000 reservarían $1.000.000, y con $627.500 disponibles que
 | # | Riesgo | Cómo quedó |
 |---|---|---|
 | R-1 | **Dos órdenes al mismo tiempo gastan la misma plata.** Con $627.500 disponibles llegan dos compras de $600.000: las dos leen $627.500, las dos pasan y se gastan $1.200.000. **El más serio del challenge.** | D-1: las órdenes de un mismo usuario se procesan de a una; el mecanismo, en el RFC. Test: dos ventas de 15 BMA teniendo 20 dejan una `FILLED` y una `REJECTED`. |
-| R-2 | **Un reintento compra dos veces.** Se compran 100 PAMP ($92.585), la respuesta se pierde y la app reintenta: 200 PAMP y $185.170 gastados. | Cada orden trae un identificador obligatorio que pone el cliente, como el `ClOrdID` de FIX. Si se repite con el mismo contenido, se devuelve la orden original; con otro contenido, error. Es único por usuario. |
+| R-2 | **Un reintento compra dos veces.** Se compran 100 PAMP ($92.585), la respuesta se pierde y la app reintenta: 200 PAMP y $185.170 gastados. | Cada orden trae un identificador obligatorio que pone el cliente, como el `ClOrdID` de FIX. Si se repite con el mismo contenido, se devuelve la orden original; con otro contenido, error. Es único por usuario. Para volver a intentar una orden rechazada, la app manda una orden nueva, con otro identificador. |
 | R-3 | **Redondeo.** | La cantidad por monto se corta para abajo (A-6). Plata y precios, con 2 decimales y decimales exactos; los cálculos se redondean solo al final (el modo, en el RFC). |
 | R-4 | **Rendimiento con costo cero.** | Imposible si la base exige precio > 0; con posición ≤ 0, rendimiento vacío (A-2). |
 | R-5 | **Neon es modificable** por cualquiera que tenga la URL. | Todo corre contra la copia local; Neon, solo lectura. Si se le aplican las migraciones se decide en la fase 8. |
@@ -323,12 +324,13 @@ no hay acciones compradas a ningún precio (A-2).
 | Caso | Resultado esperado |
 |---|---|
 | Comprar 10 PAMP a mercado | `FILLED` a $925,85 ($9.258,50). Portfolio: 50 PAMP, PPC $929,17, rendimiento −0,36 %; disponibles $618.241,50. El valor total sigue en $889.756 |
+| Comprar 15 BMA a mercado | `FILLED` a $1.502,80 ($22.542). BMA pasa a 5 acciones con PPC $1.502,80: el promedio arranca de esa compra (arrastrando los $1.540 daría $1.428,40). Rendimiento 0 %; disponibles $604.958; el valor total sigue en $889.756 |
 | $10.000 en PAMP a mercado | 10 acciones ($9.258,50); los $741,50 que sobran siguen disponibles |
 | $9.258,50 en PAMP a mercado | exactamente 10 acciones, no 9 |
 | $10.000 en PAMP con límite $900 | 11 acciones, `NEW`; reserva $9.900 |
 | $630.000 en PAMP a mercado | 680 acciones ($629.578), más que los $627.500 disponibles: `REJECTED` |
 | $700.000 en PAMP a mercado | 756 acciones ($699.942,60): `REJECTED`. Sin la reserva de A-1 habría pasado |
-| Cancelar la orden 7 y mandar otra vez la compra de $700.000, con un identificador nuevo | orden 7 `CANCELLED`, disponibles $717.500; la compra queda `FILLED` |
+| Cancelar la orden 7 y mandar otra vez la compra de $700.000 | la orden 7 queda `CANCELLED` y libera su reserva de $90.000: los disponibles suben a $717.500. Con un identificador nuevo, la compra queda `FILLED` y los disponibles bajan a $17.557,40. Con el de antes, devuelve el mismo `REJECTED` sin comprar (R-2) |
 | 10 METR con límite $10.000 | `NEW`; reserva $100.000 y los disponibles bajan a $527.500 |
 | 100 METR con límite $10.000 | `REJECTED`: reservaría $1.000.000 |
 | $500 en PAMP | error: la cantidad da 0 |

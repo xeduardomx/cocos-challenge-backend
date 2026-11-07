@@ -21,7 +21,8 @@
 - **Pesos de la cuenta:** la plata en efectivo, calculada como un extracto bancario: depósitos − retiros − compras +
   ventas (órdenes `FILLED`). $753.000 para el usuario 1.
 - **Reserva (o pesos comprometidos):** lo que bloquean las compras pendientes (`NEW`) a su precio límite. Las ventas
-  pendientes reservan acciones (A-1).
+  pendientes reservan acciones (A-1). La plata reservada sigue en la cuenta, bloqueada; cancelar la orden la libera
+  (A-7).
 - **Pesos disponibles para operar:** los pesos de la cuenta menos la reserva (A-1). $627.500 para el usuario 1.
 - **Portfolio:** la foto de la cuenta: valor total, pesos disponibles y lista de posiciones. ARS no va en la lista:
   los pesos tienen su propio campo.
@@ -30,7 +31,7 @@
   tiene al menos una fila en `marketdata`.
 - **Variación diaria:** cuánto se movió el precio en el último día: (`close` − `previousClose`) ÷ `previousClose`.
 - **Precio promedio de compra (PPC):** el promedio de las compras de una posición, ponderado por cantidad; las ventas
-  no lo cambian (A-2).
+  no lo cambian. Con la posición en 0 o negativa no hay PPC (A-2).
 - **Rendimiento total:** cuánto se ganó o perdió contra lo pagado: (último precio − PPC) ÷ PPC (A-2).
 - **Día sin operaciones:** un día en que nadie compró ni vendió una acción. No tiene apertura, máximo ni mínimo, y
   el cierre repite el último precio conocido (D-5).
@@ -38,7 +39,8 @@
   está bien armada pero la cuenta o el mercado no dejan ejecutarla, se graba como `REJECTED` (A-6).
 - **Cursor:** la marca que trae cada página del listado de órdenes para pedir la siguiente ("ver más") (A-7).
 - **Identificador de la orden:** un código único que el cliente le pone a cada orden nueva. Si la misma orden llega
-  dos veces (un reintento), no se crea otra (R-2). Es el `ClOrdID` de FIX.
+  dos veces (un reintento), no se crea otra (R-2). Es el `ClOrdID` de FIX. Lo genera la app: un reintento automático
+  usa el mismo, y una orden nueva, uno nuevo.
 
 ## Cerradas
 
@@ -415,11 +417,21 @@ pagar 0,6 centavos, así que es una cuenta, no un precio operado. La base lo gua
      vuelve a positivo, el promedio arranca de nuevo desde esa compra.
   4. **Campos que el enunciado no pide pero explican los números:** último precio, PPC y variación diaria. Los
      obligatorios son cantidad, valor y rendimiento total.
-  5. **Casos borde:** posición ≤ 0, PPC y rendimiento vacíos (con −10 no hay acciones compradas a ningún precio). El
-     costo cero queda imposible con la restricción de precio > 0 del esquema, y eso resuelve el riesgo de dividir por
-     cero (R-4).
-  6. **Tests:** METR da −8,20 %; PAMP, −0,45 % (no −0,18 %); compra 10 a $100, compra 10 a $200 y venta 5 da un PPC de
-     $150.
+  5. **Casos borde:**
+     - **Posición en 0 o negativa: PPC y rendimiento vacíos.** BMA (−10) compró 20 a $1.540 y vendió 30: no le queda
+       ninguna acción comprada a ningún precio. Mostrar $1.540 diría que tiene acciones pagadas a ese precio, y no es
+       cierto. La variación diaria sí se muestra: mide el precio, no la posición. Cerrado el 2026-11-07.
+     - **Si la posición vuelve a positivo, el PPC arranca de esa compra** (decisión 3). BMA en −10 compra 15 a
+       $1.502,80: le quedan 5, pagadas a $1.502,80, y ese es su PPC. Arrastrando los $1.540, la fórmula daría
+       (−10 × $1.540 + 15 × $1.502,80) ÷ 5 = $1.428,40, un precio que nadie pagó.
+     - **Costo cero:** imposible con la restricción de precio > 0 del esquema, y eso resuelve el riesgo de dividir por
+       cero (R-4).
+  6. **Tests:**
+     - METR da −8,20 %; PAMP, −0,45 % (no −0,18 %).
+     - Compra 10 a $100, compra 10 a $200 y venta 5 da un PPC de $150.
+     - BMA (−10) sale con PPC y rendimiento vacíos, y variación diaria −1,15 %.
+     - Con BMA en −10, comprar 15 a mercado ($1.502,80) deja 5 acciones con PPC $1.502,80 (no $1.428,40) y
+       rendimiento 0 %.
 - **Fuentes:**
   [Vanguard](https://investor.vanguard.com/investor-resources-education/article/cost-basis-and-taxes),
   [H&R Block](https://www.hrblock.com/tax-center/income/investments/average-cost-basis/),
@@ -864,6 +876,14 @@ no pide** (cancelar y listar órdenes) y deja afuera las transferencias. Cada co
     sirve para identificar la orden, pero no protege contra el reintento: el reintento recibe uno nuevo.
   - **Borrador del IETF para APIs HTTP** (`Idempotency-Key`, versión 08, activo): la misma idea, aplicada a cualquier
     pedido; propone responder con error si se reusa la clave con otro contenido.
+  - **Fuera de los mercados, Stripe** (pagos, `Idempotency-Key`), verificado el 2026-11-07 en su documentación:
+    - **API v1:** el reintento devuelve la respuesta guardada del primer pedido, *"even if it was an error"*. Si los
+      datos no pasan la validación, no se guarda nada y se puede reintentar con la misma clave. Si la clave se reusa
+      con otros datos, da error. Es el mismo criterio que R-2.
+    - **API v2:** si el primer pedido salió bien, no se repite nada; si falló, se vuelve a ejecutar. No cambia R-2,
+      porque un `REJECTED` no es un pedido fallido: la orden se creó, rechazada (A-6, parte 1, decisión 2).
+    - **La diferencia:** las claves de Stripe vencen (24 horas en v1, 30 días en v2); las nuestras no, porque viven en
+      la orden (decisión 2).
 - **Los casos:**
 
   | Caso | Resultado |
@@ -877,6 +897,21 @@ no pide** (cancelar y listar órdenes) y deja afuera las transferencias. Cada co
   | Un pedido que dio error (400) | no gasta el identificador: como no se grabó nada, el usuario corrige y reintenta con el mismo |
   | Después de un `REJECTED`, el usuario deposita y quiere volver a intentar | identificador nuevo: es una intención nueva |
 
+- **Dos preguntas separadas: el identificador decide si la orden se evalúa; la plata decide el resultado.** Ejemplo
+  con el usuario 1: compra $700.000 de PAMP con el identificador "A" y queda `REJECTED`, porque tiene $627.500
+  disponibles. Después cancela la orden 7, que libera su reserva de $90.000 (A-1, A-7): los pesos de la cuenta siguen
+  en $753.000, pero los disponibles suben a $717.500. Vuelve a mandar la misma compra:
+
+  | | Antes de cancelar la 7 ($627.500) | Después de cancelar ($717.500) |
+  |---|---|---|
+  | **Con "A" (ya usado)** | devuelve la orden original, `REJECTED` | devuelve la orden original, `REJECTED` |
+  | **Con "B" (nuevo)** | se evalúa: otra orden `REJECTED`, una fila nueva | se evalúa: `FILLED`, 756 acciones por $699.942,60 |
+
+  Con "A" no se compra aunque ahora alcance la plata: si un reintento se volviera a evaluar, un reintento automático de
+  la app (por ejemplo, después de un corte de red) compraría sin que el usuario lo haya decidido de nuevo. Cerrado el
+  2026-11-07.
+- **Quién pone el identificador: la app, no el usuario.** Un reintento automático usa el mismo; si el usuario toca
+  "Comprar" otra vez, la app genera uno nuevo. El usuario nunca lo ve.
 - **"El mismo contenido":** los mismos datos enviados (activo, lado, tipo, cantidad o monto, precio límite). La orden
   grabada no alcanza para compararlos, porque no guarda el pedido tal cual: una MARKET guarda el `close` como precio
   (el pedido no tenía precio) y una orden por monto guarda la cantidad calculada (el pedido traía el monto, que no se
@@ -907,13 +942,17 @@ no pide** (cancelar y listar órdenes) y deja afuera las transferencias. Cada co
      - Dos usuarios con el mismo identificador: dos órdenes.
      - Sin identificador: 400.
      - Un pedido con error no gasta el identificador: corregido, se crea con el mismo.
+     - Después de cancelar la orden 7, el reintento con "A" devuelve el mismo `REJECTED`, sin fila nueva, y la orden
+       con "B" queda `FILLED` (756 acciones por $699.942,60; los disponibles quedan en $17.557,40).
 - **Fuentes:**
   [Coinbase Advanced Trade, Create Order](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/create-order),
   [Binance, Trading endpoints](https://developers.binance.com/legacy-docs/binance-spot-api-docs/rest-api/trading-endpoints),
   [OneChronos, FIX 4.2](https://onechronos-site-next.pages.dev/documentation/fix/fix-42),
   [Bybit, FIX Place Order](https://bybit-exchange.github.io/docs/fix-api/create-order),
   [NSX, Order identification](https://docs.nsx.com.au/ncd/order-identification),
-  [IETF, borrador The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/).
+  [IETF, borrador The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/),
+  [Stripe, Idempotent requests](https://docs.stripe.com/api/idempotent_requests),
+  [Stripe, API v2 overview](https://docs.stripe.com/api-v2-overview).
 
 ### Riesgos y supuestos del análisis: repaso
 
@@ -1031,7 +1070,12 @@ la copia local (ver "Base de Neon").
    inventario, y números de referencia del usuario 1 recalculados en la copia local (con escenarios nuevos de envío,
    cancelación, listado y búsqueda). Se sacaron las preguntas para Cocos y el supuesto S-3, y se corrigieron
    "LIMIT sobre PGR → `NEW`" (D-2: `REJECTED`) y "1 letra → 400" (A-5: se permite).
-9. **Aprobación de la fase 1** por el autor, y PR de `docs/phase-1-analysis` a `develop`. ← **siguiente**
+9. ~~**Aprobación de la fase 1**~~ Aprobada por el autor el 2026-11-07, después de cerrar los dos últimos puntos: PPC
+   vacío con la posición en 0 o negativa (A-2, decisión 5) e identificador nuevo para volver a mandar una orden
+   rechazada (R-2). Se integra a `develop` con un PR.
+
+**Fase 1 cerrada.** Sigue la fase 2, el PRD, en la rama `docs/phase-2-prd`. El repaso de conceptos (punto 7) sigue
+pospuesto.
 
 ### Ideas anotadas para fases siguientes
 
