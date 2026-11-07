@@ -24,7 +24,7 @@ enunciado: cada ambigüedad se investiga, se decide y se documenta (ver `docs/01
 
 El análisis y las decisiones tienen que verse en el repo, separados del código. En la raíz:
 
-- `docs/`: el camino (análisis, PRD, RFC, ADR, portal). `00-fuentes/` no se toca.
+- `docs/`: el camino (análisis, PRD, RFC, ADR, mediciones, portal). `00-fuentes/` no se toca.
 - `api/`: el proyecto Java (`pom.xml`, `src/`, `Dockerfile`). Se crea en la fase 5.
 - `docker-compose.yml` y `README.md`. El README es la puerta de entrada: cómo correrlo y un mapa a los documentos.
 
@@ -100,8 +100,9 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
   Java puro y la cuenta del usuario calculada en un solo lugar (`docs/adr/0001-capas-por-funcion.md`).
 - Versiones y acceso a datos: **decididos en el RFC** (2026-11-07). Java 25 y Spring Boot 4.1; SQL directo con
   `JdbcClient`, no JPA ni jOOQ (`docs/adr/0002-sql-directo-con-jdbcclient.md`).
-- Cambios a la base (el enunciado los permite si se justifican). Los candidatos ya están juntados en
-  `docs/01-decisiones.md` ("Pendientes acumulados para el bloque del esquema") y se deciden en el RFC.
+- Cambios a la base: **decididos en el RFC** (2026-11-07, sección 3). Reglas que miran una sola fila, tres columnas
+  nuevas en `orders` y un solo índice nuevo, verificados y medidos en la copia local (`docs/mediciones/`). Falta la
+  parte 2: cómo se aplican las migraciones y qué pasa con Neon.
 - Cómo se muestran las métricas: Prometheus + Grafana local, New Relic real (cuenta free) o dashboard simulado.
 - Documentos y diagramas: **decidido al arrancar el RFC** (2026-11-07). Los documentos se escriben en Markdown, que es
   la única fuente. Los diagramas van en Mermaid, adentro del Markdown, porque GitHub los dibuja solo. El portal HTML

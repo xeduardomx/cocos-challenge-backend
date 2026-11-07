@@ -167,27 +167,243 @@ test de cada una primero.
 
 ## 3. Modelo de datos y cambios a la base
 
-_Pendiente._ Cada punto de "Pendientes acumulados para el bloque del esquema" (`01-decisiones.md`), decidido:
-columnas nuevas (el identificador, el motivo del rechazo y lo que haga falta para reconocer un reintento), reglas,
-índices con su medición antes y después, y `datetime` con zona horaria. Cómo se aplican las migraciones a una base
-que ya tiene datos y no tiene historial de migraciones, como la de Neon. Diagrama del modelo.
+El modelo de Cocos se mantiene: las cuatro tablas, sus columnas y sus nombres (C-2). Los cambios son de tres tipos:
+
+- **reglas,** para que la base no acepte datos imposibles (principio 3);
+- **tres columnas nuevas** en `orders`, para el identificador de la orden y el motivo del rechazo (R-2, A-6);
+- **un índice,** con su medición antes y después (principio 5).
+
+Todo se probó en la copia local (Postgres 18.6, con `database.sql`). La forma exacta está en
+[`mediciones/03-esquema.sql`](mediciones/03-esquema.sql), el borrador verificado del que sale la migración de la
+fase 5. Cómo se aplican las migraciones, y qué pasa con Neon, es la parte 2 de esta sección (3.6).
+
+### 3.1 El modelo, con los cambios
+
+```mermaid
+erDiagram
+    users ||--o{ orders : "manda"
+    instruments ||--o{ orders : "se opera en"
+    instruments ||--o{ marketdata : "tiene precios en"
+    users {
+        int id PK
+        varchar email "sin cambios"
+        varchar accountnumber "sin cambios"
+    }
+    instruments {
+        int id PK
+        varchar ticker UK "obligatorio y único"
+        varchar name "obligatorio"
+        varchar type "obligatorio"
+    }
+    orders {
+        int id PK
+        int instrumentid FK "obligatorio"
+        int userid FK "obligatorio"
+        int size "obligatorio, 1 o más"
+        numeric price "mayor a 0, vacío solo en una REJECTED a mercado"
+        varchar type "MARKET o LIMIT"
+        varchar side "BUY, SELL, CASH_IN o CASH_OUT"
+        varchar status "NEW, FILLED, REJECTED o CANCELLED"
+        timestamptz datetime "con zona, la pone la base al grabar"
+        uuid clientorderid "nueva, única por usuario"
+        varchar requestfingerprint "nueva, huella del pedido"
+        varchar rejectionreason "nueva, código del motivo"
+    }
+    marketdata {
+        int id PK
+        int instrumentid FK "obligatorio"
+        numeric high
+        numeric low
+        numeric open
+        numeric close "obligatorio"
+        numeric previousclose
+        date date "obligatorio, una fila por acción y fecha"
+    }
+```
+
+### 3.2 Reglas
+
+Cada regla mira una sola fila. Las que necesitan sumar muchas filas, o mirar otra tabla, van en el código (principio
+3, D-1).
+
+| Tabla | Regla | Por qué |
+|---|---|---|
+| `orders` | Obligatorios: activo, usuario, cantidad, tipo, lado, estado y fecha | una orden sin usuario o sin cantidad no se puede calcular (E-1) |
+| `orders` | El lado, el tipo y el estado, solo con los valores del enunciado | `side = 'COMPRA'` es un dato imposible (E-2) |
+| `orders` | Cantidad de 1 o más | una orden de 0 acciones nunca se graba (A-6) |
+| `orders` | Precio mayor a 0, y vacío solo en una `REJECTED` a mercado | una orden a mercado sobre un activo sin cotización queda sin precio (A-6). Con precio mayor a 0, el costo nunca es cero (A-2, R-4) |
+| `orders` | En depósitos y retiros (`CASH_IN`, `CASH_OUT`), precio 1 | `size × price` es el monto en pesos: con precio 2, un depósito de $1.000 valdría $2.000 (D-9) |
+| `orders` | El identificador es único por usuario, y viaja con su huella: están las dos o ninguna | un reintento no crea otra orden, y dos usuarios pueden usar el mismo identificador (R-2) |
+| `orders` | El motivo del rechazo: uno de los tres códigos, y solo en una `REJECTED` | un motivo de rechazo en una orden ejecutada no tiene sentido (A-6) |
+| `instruments` | Ticker, nombre y tipo obligatorios; el ticker, único | la búsqueda y el portfolio muestran el ticker, y dos activos con el mismo serían ambiguos (E-1, E-3) |
+| `marketdata` | Activo, fecha y cierre obligatorios; una fila por acción y fecha | el último precio es el cierre de la fecha más reciente, y tiene que haber uno solo (D-3) |
+| `marketdata` | Precios mayores a 0; mínimo menor o igual al máximo; apertura y cierre entre los dos | un precio de $0, o un mínimo mayor al máximo, son imposibles (D-5) |
+
+`users` no cambia: la API solo verifica que el usuario exista. El tipo de activo no se limita a `ACCIONES` y
+`MONEDA`: el catálogo podría sumar bonos o CEDEAR, y la API solo distingue la moneda del resto.
+
+**Conviven con los datos de hoy.** Cada regla se probó contra las 11 órdenes, los 66 activos y los 126 precios, y los
+datos cumplen todas. Por eso se agregan verificadas, sin `NOT VALID`, la opción de Postgres que agrega una regla sin
+revisar las filas que ya existen. La única regla que los datos rompen, "la posición no puede quedar negativa", no va
+en la base (D-1).
+
+**Lo que queda en el código**
+
+| Regla | Por qué no va en la base |
+|---|---|
+| No vender más de lo que se tiene | depende de la suma de muchas filas, y BMA ya está en −10 (D-1) |
+| Toda orden nueva trae identificador | las 11 viejas no lo tienen, y `NOT VALID` no sirve: Postgres vuelve a verificar la regla cuando se modifica una fila vieja, así que cancelar la orden 7 fallaría (probado). La API responde 400 si falta (R-2) |
+| Toda `REJECTED` tiene motivo | la orden 6, vieja, no lo tiene. Lo asegura la API, con un test |
+| Solo se cancela una orden `NEW` | compara la fila antes y después del cambio. Va en el `UPDATE` de la cancelación, que solo cambia la orden si sigue `NEW` (A-7) |
+| Depósitos y retiros solo sobre ARS, y ARS no se compra ni se vende | hay que mirar otra tabla (D-9, A-6) |
+
+**Lo que no entra en las columnas.** Un precio de más de $99.999.999,99 no entra en `price` (`NUMERIC(10,2)`), y una
+cantidad de más de 2.147.483.647 no entra en `size` (`INT`). Por ejemplo, $15.100 millones por monto en CARC, a $7,
+dan 2.157 millones de acciones. Sin validación, esa orden no queda `REJECTED`: la base falla y la respuesta sería un
+500. La API valida esos topes antes de grabar y responde 400 (sección 7). Los tipos no se amplían: ninguna orden real
+se acerca a esos números, y los precios se quedan en 2 decimales (D-4).
+
+### 3.3 Columnas nuevas en `orders`
+
+| Columna | Tipo | Qué guarda | En las 11 órdenes viejas |
+|---|---|---|---|
+| `clientOrderId` | `uuid` | el identificador que pone la app en cada orden (R-2) | vacía |
+| `requestFingerprint` | `varchar(64)` | la huella del pedido: un resumen de sus datos (SHA-256, en hexadecimal) | vacía |
+| `rejectionReason` | `varchar(30)` | el motivo del rechazo: `INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` o `NO_MARKET_PRICE` | vacía, también en la orden 6 (LIS-4) |
+
+Siguen la convención de las columnas de Cocos: se escriben `clientOrderId` y Postgres las guarda en minúsculas
+(`clientorderid`), igual que `instrumentId`. Con `client_order_id` habría dos convenciones en la misma tabla.
+
+- **El identificador es un UUID,** por ejemplo `3f2b8c1e-9d4a-4c7b-8e21-5a6f0b9c2d13`. Lo genera la app y el usuario
+  nunca lo ve (R-2). En Postman sale con `{{$guid}}`, y desde una terminal, con `uuidgen`. Tiene largo fijo, así que
+  cierra el "largo máximo" de ENV-9. Un texto libre, como el `ClOrdID` de FIX, sería más flexible, pero obligaría a
+  fijar un largo y qué caracteres valen, y "abc" y "ABC" serían dos identificadores distintos.
+- **La huella compara el contenido de un reintento.** El mismo pedido da la misma huella, aunque el precio haya
+  cambiado entre el envío y el reintento. Guardar el pedido tal cual, en JSON, se leería mejor, pero copiaría el
+  activo, el lado y el tipo, que ya están en la orden (principio 4), y guardaría el monto pedido, que A-6 decidió no
+  guardar. Qué datos entran en la huella se define en la sección 5.
+- **El motivo es un código, no un texto.** El texto que ve el usuario ("no alcanzan los pesos") lo arma la API
+  (sección 7), y la métrica de rechazos por motivo (GEN-4) cuenta por código. Con texto libre, "no alcanzan los pesos"
+  y "fondos insuficientes" contarían como dos motivos distintos.
+- **No se guarda cuándo cambió el estado** (A-7 lo dejaba como candidato). El PRD no lo muestra, la orden 3, que está
+  cancelada, quedaría con la fecha vacía, y una columna guarda solo el último cambio. Para auditar haría falta un
+  historial de cambios, que queda como mejora posible.
+
+### 3.4 La fecha y hora de las órdenes
+
+- **Pasa a fecha y hora con zona** (`timestamptz`), leyendo las fechas existentes como hora argentina (D-10). La
+  conversión nombra la zona (`AT TIME ZONE 'America/Argentina/Buenos_Aires'`), y la orden 2 sigue a las 12:31 de
+  Buenos Aires. Con la conversión simple, la base usaría la zona de la sesión, que en Neon es GMT, y la orden 2
+  quedaría a las 9:31, con el mercado cerrado (probado).
+- **La pone la base al grabar la orden, con `clock_timestamp()`.** Es un solo reloj aunque haya varias instancias de
+  la API. Y como la orden se graba dentro del turno del usuario (sección 5), el orden por fecha es el orden en que se
+  procesaron sus órdenes, del que depende el PPC (A-2). `now()`, lo más común, no sirve: es la hora en que empezó la
+  transacción, antes de esperar el turno (probado: quedó fija mientras pasaban 1,5 segundos). Esto precisa D-10, que
+  decía "el momento en que se recibe": es el momento en que se graba, milisegundos después.
+- **Guarda microsegundos.** La respuesta del envío y el cursor del listado usan la fecha tal como quedó grabada
+  (sección 6), así no se pierde precisión al pasar de página (A-7).
+
+### 3.5 Índices
+
+**Cómo se midió.** En la copia local, con este esquema y 2.010.011 órdenes inventadas:
+
+- 10.000 usuarios típicos, de 100 órdenes cada uno;
+- uno pesado, de 10.000;
+- uno extremo, de 1.000.000, que sirve para ver dónde está el límite: ningún inversor común llega a eso.
+
+Cada consulta corrió 7 veces (el portfolio del extremo, 3) y se toma la mediana. Son números de una laptop con los
+datos en memoria: sirven como orden de magnitud. Los scripts están en [`mediciones/`](mediciones/); la salida
+completa de la corrida, en [`mediciones/03-resultados.md`](mediciones/03-resultados.md); y al final de esta parte
+está cómo repetirla.
+
+**Hoy, sin índices, cualquier consulta lee las 2 millones de órdenes:** tarda entre 33 y 55 ms aunque el usuario
+tenga 100, y el tiempo crece con la tabla. Con un índice por **(usuario, fecha, id)**:
+
+| Consulta | Típico (100) | Pesado (10.000) | Extremo (1.000.000) |
+|---|---|---|---|
+| Portfolio y cuenta del envío: las órdenes `FILLED` y `NEW`, en orden | 54 → 0,017 ms | 55 → 1,2 ms | 304 → 175 ms |
+| Listado, primera página | 33 → 0,006 ms | 35 → 0,006 ms | 91 → 0,007 ms |
+| Listado, última página (cursor) | 40 → 0,007 ms | 41 → 0,007 ms | 42 → 0,007 ms |
+| Pendientes (filtro `NEW`) | 40 → 0,012 ms | 40 → 0,7 ms | 42 → 131 ms |
+| Rechazadas (filtro `REJECTED`) | 40 → 0,012 ms | 39 → 0,026 ms | 48 → 0,029 ms |
+
+- **El listado queda instantáneo para cualquier usuario, en cualquier página.** El índice tiene el orden que
+  necesita el cursor de A-7 para ir directo a donde quedó. El índice del identificador (R-2) también empieza por el
+  usuario y ya ayuda algo (el portfolio del pesado, 3,2 ms), pero no está ordenado por fecha: con él, el listado del
+  extremo tarda 91 ms.
+- **Las pendientes del extremo empeoran,** de 42 a 131 ms. Con el índice, la base recorre en orden su millón de
+  órdenes buscando sus 8 pendientes, y eso es más lento que leer de corrido toda la tabla de esta prueba. Con una
+  tabla más grande, ganaría el índice.
+- **El portfolio es la consulta más cara de cada usuario, y ningún índice lo baja de ahí.** El del extremo lee unas
+  850.000 órdenes ejecutadas y pendientes. Es el límite conocido de calcular desde las órdenes (A-4), y la salida es
+  la foto a una fecha, documentada como evolución posible.
+
+**Alternativas medidas.** A-7 había decidido un índice por (usuario, estado, fecha, id) para el filtro por estado.
+Se descarta, igual que las otras dos opciones:
+
+| Alternativa | Qué mejora | Qué cuesta |
+|---|---|---|
+| Sumar (usuario, estado, fecha, id), el de A-7 | pendientes del extremo: 131 → 0,006 ms | es el índice más grande: 95 MB, contra 78 del de fecha, en una tabla de 342. Cada alta pasa de 19 a 25 microsegundos, un 30 % más |
+| Usar solo (usuario, estado, fecha, id), sin el de fecha | lo mismo | el listado sin filtro del extremo vuelve a 83 ms |
+| Sumar un índice parcial, que guarda solo las pendientes | pendientes del extremo: 131 → 0,005 ms, con 2 MB y casi sin costo en las altas (20 microsegundos, contra 19) | solo se usa si la consulta lleva `'NEW'` escrito en el SQL. Cuando una consulta se repite mucho, Postgres puede pasar a un plan general, que no sabe qué estado se pide, y ese plan no lo usa (probado: 128 ms) |
+
+Ninguna amplía los usuarios que la API aguanta. **Las pendientes siempre cuestan menos que el portfolio del mismo
+usuario** (0,7 contra 1,2 ms en el pesado; 131 contra 175 ms en el extremo), y ninguna de las tres mejora el
+portfolio. Esto cambia la decisión 7 de A-7. **Cuándo revisarlo:** si se hace la foto a una fecha, el portfolio deja
+de leer todo el historial y las pendientes pasan a ser la consulta más lenta. Ahí se suma el índice parcial, con
+`'NEW'` escrito en el SQL.
+
+**Las otras tablas**
+
+- **`marketdata`:** el índice viene con la regla "una fila por acción y fecha". Con 10 años de precios diarios
+  (164.430 filas), el último precio de 20 acciones, buscado acción por acción, tarda 0,06 ms con el índice y 91 ms
+  sin él. Con `DISTINCT ON` sobre toda la tabla, como en el anexo del análisis, tarda 88 ms aunque el índice exista:
+  la consulta tiene que buscarlo acción por acción (sección 4).
+- **Búsqueda:** sin índice, como anticipaba A-5. Tarda 0,06 ms con los 65 activos y entre 11 y 17 ms con un catálogo
+  inventado de 10.000. Si el catálogo creciera tanto, la mejora sería un índice de trigramas (`pg_trgm`) sobre el
+  ticker y el nombre sin acentos. Queda como evolución posible.
+- **`orders.instrumentid`:** sin índice. Postgres no crea solo los índices de las claves foráneas, y este solo
+  serviría para borrar activos o para buscar las órdenes de un activo entre todos los usuarios, y la API no hace
+  ninguna de las dos cosas. Con 2 millones de órdenes, borrar un activo tarda 73 ms, porque revisa todas.
+
+**Extensiones.** Se instala `unaccent`, para buscar sin acentos (A-5). `pg_trgm` no hace falta.
+
+**Cómo repetir la medición.** En una copia descartable, nunca en Neon. Tarda unos minutos. La espera pregunta por
+red (`-h 127.0.0.1`) porque, al arrancar, la imagen de Postgres levanta un servidor provisorio que solo escucha
+localmente y después lo reinicia: preguntando sin red, el script puede encontrarlo y fallar.
+
+```bash
+docker run --rm -d --name cocos-medicion-pg18 -e POSTGRES_PASSWORD=medicion postgres:18
+until docker exec cocos-medicion-pg18 pg_isready -h 127.0.0.1 -U postgres -q; do sleep 1; done
+docker exec -i cocos-medicion-pg18 psql -U postgres -X -q -v ON_ERROR_STOP=1 < docs/00-fuentes/database.sql
+docker exec -i cocos-medicion-pg18 psql -U postgres -X -q -v ON_ERROR_STOP=1 < docs/mediciones/03-esquema.sql
+docker exec -i cocos-medicion-pg18 psql -U postgres -X < docs/mediciones/03-indices.sql
+docker exec -i cocos-medicion-pg18 psql -U postgres -X < docs/mediciones/03-precios-y-busqueda.sql
+docker stop cocos-medicion-pg18
+```
+
+### 3.6 Migraciones y Neon
+
+_Pendiente (parte 2)._ Con qué herramienta se aplican estos cambios; cómo se arranca sobre una base que ya tiene datos
+y no tiene historial de migraciones, como la de Neon; y si la API aplica las migraciones sola al arrancar.
 
 ## 4. Cálculos y consultas
 
 _Pendiente._ Si cada número (portfolio, reservas, cantidad por monto) se calcula en la base o en Java. Cómo se arman
-la búsqueda y la paginación del listado. Precisión y modo de redondeo (GEN-7).
+la búsqueda, el último precio (acción por acción, sección 3.5) y la paginación del listado. Precisión y modo de
+redondeo (GEN-7).
 
 ## 5. Órdenes simultáneas y reintentos
 
 _Pendiente._ Cómo se procesan de a una las órdenes de un usuario (GEN-1), cómo se reconoce un reintento (ENV-9, R-2)
-y cómo convive todo eso con la cancelación. Diagramas: los estados de una orden, dos compras al mismo tiempo y un
+y con qué datos se arma la huella del pedido (sección 3.3), y cómo convive todo eso con la cancelación. Diagramas: los estados de una orden, dos compras al mismo tiempo y un
 reintento.
 
 ## 6. Contratos de la API
 
 _Pendiente._ Las direcciones de las 5 funciones, con pedidos y respuestas de ejemplo con los números del usuario 1;
-códigos HTTP; formato de fechas (ENV-8); el identificador de orden: nombre, largo y si va en el cuerpo o en un
-encabezado (ENV-9); la paginación; los números configurables (BUS-5, BUS-6, LIS-3); si se publica la especificación
+códigos HTTP; formato de fechas (ENV-8); el identificador de orden: su nombre y si va en el cuerpo o en un
+encabezado (ENV-9; el formato, UUID, quedó en la sección 3.3); la paginación; los números configurables (BUS-5, BUS-6, LIS-3); si se publica la especificación
 OpenAPI.
 
 ## 7. Errores y validación
@@ -229,6 +445,11 @@ de cómo se levanta todo.
 | Capas agrupadas por función, no hexagonal | lo único de afuera es la base, y lo delicado se prueba contra Postgres real igual | sección 2, ADR 0001 |
 | SQL directo con `JdbcClient`, no JPA ni jOOQ | las consultas importantes son SQL propio de Postgres, y el camino más delicado no puede tener comportamiento escondido | sección 2, ADR 0002 |
 | La cuenta del usuario se calcula en un solo lugar (`account`), que usan el portfolio y el envío | si cada uno tuviera su fórmula, podrían mostrar y validar números distintos (principio 4) | sección 2, ADR 0001 |
+| Las reglas que miran una sola fila van en la base, verificadas contra los datos de hoy; las que suman filas o miran otra tabla, en el código | la base no acepta datos imposibles y los datos heredados no se rompen. El identificador obligatorio también va en el código, porque `NOT VALID` haría fallar la cancelación de las órdenes viejas | sección 3.2 |
+| Tres columnas nuevas en `orders`: el identificador (UUID), la huella del pedido y el motivo del rechazo como código, con la convención de nombres de Cocos | el identificador lo genera la app y tiene largo fijo; la huella no copia datos de la orden; el código sirve para el texto y para la métrica | sección 3.3 |
+| No se guarda cuándo cambió el estado de una orden | el PRD no lo muestra, y auditar pediría un historial | sección 3.3 |
+| La hora de una orden la pone la base al grabarla, con `clock_timestamp()` | un solo reloj, tomado dentro del turno del usuario. `now()` es la hora en que empezó la transacción | sección 3.4 |
+| Un solo índice nuevo, por (usuario, fecha, id). Cambia la decisión 7 de A-7 | medido con 2 millones de órdenes: el filtro por estado nunca cuesta más que el portfolio del mismo usuario, y el índice de A-7 suma 95 MB y encarece cada alta un 30 % | sección 3.5 |
 
 **ADR**
 

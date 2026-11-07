@@ -354,7 +354,8 @@ pagar 0,6 centavos, así que es una cuenta, no un precio operado. La base lo gua
      hora argentina. No cambia lo que dicen los datos: "12:31 en Buenos Aires" sigue siendo eso; ahora la base lo
      sabe. Argentina no tiene horario de verano desde 2009, así que la conversión no tiene ambigüedades.
   3. **Las órdenes nuevas guardan el momento exacto en que se reciben.** La API muestra la fecha con su zona (por
-     ejemplo, `2023-07-12T12:31:20-03:00`); el formato exacto se define en el RFC.
+     ejemplo, `2023-07-12T12:31:20-03:00`); el formato exacto se define en el RFC. **Precisado en el RFC (sección
+     3.4):** es el momento en que se graban, con el reloj de la base.
   4. **El orden de las órdenes es por fecha y hora;** si dos coinciden, se desempata por id.
   5. **Test:** una orden mandada a una hora conocida se guarda y se devuelve con la hora y la zona correctas.
 
@@ -834,7 +835,9 @@ no pide** (cancelar y listar órdenes) y deja afuera las transferencias. Cada co
 6. **Paginación por cursor,** con tamaño por defecto y máximo configurables (los números, en el RFC). No se muestra el
    total ni se salta a una página.
 7. **Para el bloque del esquema:** índice por (usuario, estado, fecha, id), con la medición de arriba; candidato:
-   cuándo cambió el estado de la orden (sin recomendación fuerte).
+   cuándo cambió el estado de la orden (sin recomendación fuerte). **Revisado en el RFC (sección 3.5):** medido con
+   2 millones de órdenes, alcanza con un índice por (usuario, fecha, id), y el de esta decisión se descarta. Cuándo
+   cambió el estado: no se guarda (sección 3.3).
 8. **Fuera de alcance, documentados:** transferencias por API y detalle de una orden por id. El formato de las
    direcciones y los códigos HTTP exactos, en el RFC.
 9. **Tests:**
@@ -1094,7 +1097,8 @@ quedar con cantidad 0 o sin precio; A-7, el índice del listado.
 
 ### Pendientes acumulados para el bloque del esquema
 
-Insumo del RFC (fase 3): ahí se decide y justifica cada uno, y se escriben las migraciones.
+Insumo del RFC (fase 3): ahí se decide y justifica cada uno, y se escriben las migraciones. **Decididos en el RFC,
+sección 3 (2026-11-07):** las reglas, las columnas nuevas y los índices, verificados y medidos en la copia local.
 
 - **E-1 a E-8 del análisis:** columnas obligatorias, valores permitidos, únicos, índices, decimales, tamaño de `size`,
   orden alfabético, extensiones.
