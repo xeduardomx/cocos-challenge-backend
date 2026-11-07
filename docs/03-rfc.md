@@ -384,14 +384,168 @@ docker stop cocos-medicion-pg18
 
 ### 3.6 Migraciones y Neon
 
-_Pendiente (parte 2)._ Con qué herramienta se aplican estos cambios; cómo se arranca sobre una base que ya tiene datos
-y no tiene historial de migraciones, como la de Neon; y si la API aplica las migraciones sola al arrancar.
+**La herramienta: Flyway.** Viene integrada con Spring Boot: con `spring-boot-starter-flyway` y el módulo
+`flyway-database-postgresql`, Spring Boot 4.1.2 trae Flyway 12.4.0. Cada migración es un archivo SQL numerado
+(`V2__....sql`) que se lee tal cual: el mismo SQL de [`mediciones/03-esquema.sql`](mediciones/03-esquema.sql). Flyway
+anota en una tabla propia, `flyway_schema_history`, qué migraciones se aplicaron, y detecta si alguna se editó
+después.
+
+- **Liquibase** también serviría, pero los cambios se escriben en XML o YAML y trae más de lo que hace falta acá (por
+  ejemplo, deshacer migraciones o soportar varios motores de base).
+- **Scripts a mano, sin herramienta,** no dejan registro de qué se aplicó: el pase a Neon dependería de acordarse.
+
+**Cómo se arranca sobre una base con datos y sin historial.** `database.sql` es la versión 1, y nuestras migraciones
+empiezan en la 2. Con `baseline-on-migrate`, Flyway encuentra una base con tablas y sin historial, la anota como
+versión 1 sin tocarla ("database.sql de Cocos") y aplica de la 2 en adelante. La copia local se arma igual que Neon:
+Postgres carga `database.sql` al crear la base, y después la API migra. Así, el camino que va a recorrer Neon es el que
+se prueba todos los días.
+
+- **Probado** con Flyway 12.4.0 en la copia local (Postgres 18.6). Anotó la versión 1, aplicó la 2, y una segunda
+  corrida no hizo nada. `unaccent` quedó instalada, y la orden 2 siguió a las 12:31 de Buenos Aires.
+- **Neon, revisado en solo lectura:** no tiene historial de migraciones y `unaccent` está disponible, sin instalar.
+  Sigue con 11 órdenes y el contador de ids en 11. El rol de la URL (`neondb_owner`) es miembro de `neon_superuser`,
+  el grupo con el que Neon da permisos a los usuarios del proyecto. Su documentación dice que sus roles solo pueden
+  instalar las extensiones que Neon soporta, y `unaccent` es una; no dice explícitamente qué rol puede. Se confirma
+  en la fase 8, al migrar: si no pudiera, la migración falla y se deshace entera (ver "Todo o nada").
+- **Una base vacía, sin `database.sql`, no se puede migrar:** la versión 2 falla porque las tablas no existen, y se
+  deshace (probado). Copiar `database.sql` como versión 1 lo resolvería, pero la copia local seguiría otro camino que
+  Neon.
+
+**Todo o nada.** Postgres deshace entera una migración que falla. Se probó con una regla que los datos rompen: no
+quedó ni la columna que la migración había agregado antes ni una entrada en el historial. Pero con varias migraciones
+pendientes, Flyway las aplica de a una: si falla la cuarta, la segunda y la tercera quedan aplicadas (probado). Con
+`group`, todas las pendientes van en una sola transacción, y Neon recibe todos los cambios o ninguno (probado). Se
+activa.
+
+**La API migra sola solo cuando se le pide.** Flyway arranca apagado por defecto (`spring.flyway.enabled: false`). El
+`docker compose` de la copia local lo prende, y los tests también. Si alguien apunta la API a Neon, no lo migra por
+accidente: a Neon se le aplican las migraciones a propósito, una vez, en la fase 8, como un pase a producción, con el
+mismo Flyway y las mismas migraciones. Antes se verifica en solo lectura que Neon sigue igual a `database.sql`, como
+en el análisis. La alternativa, migrar siempre al arrancar, es lo más común y lo más simple, pero convierte "probar la
+API contra Neon" en "migrar Neon".
+
+```yaml
+spring:
+  flyway:
+    enabled: false                # el compose de la copia local y los tests lo prenden
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: database.sql de Cocos
+    group: true                   # todas las migraciones pendientes en una sola transacción
+```
+
+**Consecuencias**
+
+- Neon recibe una tabla más, `flyway_schema_history`.
+- Con 11 órdenes, los cambios tardan milisegundos. En una tabla grande habría que planificarlos aparte: cambiar el
+  tipo de `datetime` reescribe la tabla y la bloquea mientras dura, y un índice se crearía con
+  `CREATE INDEX CONCURRENTLY`, que no puede ir dentro de una transacción.
+- En producción, las migraciones las corre un usuario de la base con permiso para cambiar tablas, y la API usa otro
+  que solo lee y escribe datos. Acá hay un solo usuario, el de la URL (sección 9).
 
 ## 4. Cálculos y consultas
 
-_Pendiente._ Si cada número (portfolio, reservas, cantidad por monto) se calcula en la base o en Java. Cómo se arman
-la búsqueda, el último precio (acción por acción, sección 3.5) y la paginación del listado. Precisión y modo de
-redondeo (GEN-7).
+### 4.1 La cuenta del usuario: la base trae las órdenes y Java calcula
+
+Una sola consulta trae las órdenes `FILLED` y `NEW` del usuario, en orden cronológico (por fecha, con desempate por
+id: D-10), con lo que los cálculos necesitan: activo, lado, estado, cantidad y precio. Es la consulta medida en la
+sección 3.5: 1,2 ms para el usuario pesado. Con esas filas, `account`, en Java puro, calcula en una sola pasada:
+
+- **los pesos de la cuenta:** depósitos y ventas suman, retiros y compras restan, todo como `size × price` (D-9);
+- **las reservas:** las compras pendientes reservan pesos, y las ventas pendientes, acciones (A-1);
+- **lo disponible:** pesos menos reservas, y acciones menos ventas pendientes;
+- **las posiciones:** compras menos ventas ejecutadas, por activo;
+- **el PPC, en orden:** cada compra lo actualiza y las ventas no lo cambian. Con la posición en 0 o negativa queda
+  vacío, y la compra siguiente lo hace arrancar de nuevo (A-2).
+
+Con los últimos precios (4.2) salen el valor de cada posición, el rendimiento, la variación diaria y el valor total.
+El portfolio y el envío usan el mismo cálculo (principio 4); el envío lo corre dentro del turno del usuario
+(sección 5).
+
+**Por qué no en SQL.** Las sumas serían fáciles en SQL, pero el PPC depende del orden de las órdenes y se reinicia:
+en SQL necesita funciones de ventana en varios pasos, difíciles de leer y de probar caso por caso. Partir el cálculo,
+con las sumas en SQL y el PPC en Java, pondría la cuenta en dos lugares, y la parte en SQL solo se podría probar
+contra una base. El ADR 0001 ya puso los cálculos en Java puro.
+
+**El límite.** Java recibe todas las órdenes ejecutadas y pendientes del usuario: 8.597 en el pesado, unas 850.000 en
+el extremo, que es el límite ya documentado en A-4. El tiempo de punta a punta se mide en la fase 6, contra el
+objetivo de la sección 8.
+
+### 4.2 El último precio, acción por acción
+
+```sql
+select i.id, m.close, m.previousclose
+from unnest(:instrumentIds) as i(id)
+cross join lateral (
+  select close, previousclose from marketdata
+  where instrumentid = i.id
+  order by date desc
+  limit 1
+) m
+```
+
+Por cada acción, el índice de la regla "una fila por acción y fecha" va directo a la fecha más reciente. Medido con
+10 años de precios (164.430 filas), para 20 acciones
+([`mediciones/04-resultados.md`](mediciones/04-resultados.md)):
+
+| Forma de la consulta | Tiempo |
+|---|---|
+| Acción por acción, como arriba | **0,05 ms** |
+| `DISTINCT ON` solo de esas 20 acciones | 26 ms: lee los 10 años de cada una |
+| `DISTINCT ON` sobre toda la tabla, como en el anexo del análisis | 80 ms |
+
+La usan el portfolio (los activos con posición), la búsqueda (los resultados) y el envío (un activo), y vive en
+`instruments`. Una acción sin filas en `marketdata` no tiene cotización (D-2, D-3): la consulta no devuelve nada para
+ella, el envío la rechaza y la búsqueda la muestra con el precio vacío.
+
+### 4.3 La búsqueda
+
+Una consulta, con las reglas de A-5:
+
+- **El texto y los datos se normalizan igual, en la base:** `lower(unaccent(...))` de los dos lados.
+- **Cada palabra tiene que aparecer** en el ticker o en el nombre, en cualquier orden.
+- **Sin comodines:** se busca con `strpos` y `starts_with` en lugar de `LIKE`, así `%` y `_` son texto común sin
+  tener que escaparlos (A-5, decisión 10).
+- **El orden:** ticker igual, ticker que empieza así, ticker que lo contiene, nombre que empieza así y el resto. Los
+  empates van por ticker con `COLLATE "C"`, para que Neon y la copia local den el mismo orden (E-7).
+- **Afuera la moneda** (ARS), y como mucho el tope de resultados (BUS-5). El largo del texto se valida antes de
+  llegar a la base (BUS-6, sección 6).
+- **Cada resultado lleva su último precio** y su variación diaria (4.2).
+
+Tarda 0,06 ms con los 65 activos y entre 11 y 17 ms con 10.000 (sección 3.5).
+
+### 4.4 El listado
+
+```sql
+select ... from orders
+where userid = :userId
+  and status = :status                      -- solo si se filtra por estado
+  and (datetime, id) < (:cursorDatetime, :cursorId)   -- solo desde la segunda página
+order by datetime desc, id desc
+limit :pageSize + 1
+```
+
+- Usa el índice de la sección 3.5. Se pide una orden más que el tamaño de página: si llega, hay página siguiente
+  (A-7).
+- **El cursor** es la fecha, con sus microsegundos, y el id de la última orden de la página, codificados en base64url
+  (un texto opaco para el cliente). Uno que no se puede leer da 400 (LIS-6).
+- Los depósitos y retiros se traducen a monto en pesos en Java (LIS-5, D-9).
+
+### 4.5 Precisión y redondeo (GEN-7)
+
+- **`BigDecimal` siempre,** nunca `double` (`CLAUDE.md`).
+- **Lo exacto no se redondea:** pesos, reservas, valores y montos son sumas y productos de precios con 2 decimales
+  por cantidades enteras, así que dan resultados exactos, con 2 decimales.
+- **La cantidad por monto se corta hacia abajo** (`RoundingMode.DOWN`): monto ÷ precio, sin fracciones (A-6).
+- **El PPC, el rendimiento y la variación diaria** son divisiones. Se calculan con 34 dígitos (`DECIMAL128`) y se
+  redondean una sola vez, al final, a 2 decimales, con `HALF_UP`: la mitad redondea hacia arriba (100,005 → 100,01).
+  El rendimiento usa el PPC sin redondear.
+- **Por qué `HALF_UP` y no `HALF_EVEN`** (el "redondeo del banquero", que en la mitad va al par: 100,005 → 100,00).
+  `HALF_EVEN` evita un sesgo cuando se suman muchos números ya redondeados. Acá solo se redondea el número final que
+  se muestra, y nunca se suma un número redondeado. `HALF_UP` es además lo que cualquiera calcula a mano. Verificado:
+  los 9 números del PRD que salen de una división (PPC, rendimientos y variaciones diarias) dan igual con los dos
+  modos, porque ninguno cae justo en la mitad.
+- **Lo que manda el usuario nunca se redondea:** un precio o un monto con más de 2 decimales da 400 (D-4).
 
 ## 5. Órdenes simultáneas y reintentos
 
@@ -450,6 +604,14 @@ de cómo se levanta todo.
 | No se guarda cuándo cambió el estado de una orden | el PRD no lo muestra, y auditar pediría un historial | sección 3.3 |
 | La hora de una orden la pone la base al grabarla, con `clock_timestamp()` | un solo reloj, tomado dentro del turno del usuario. `now()` es la hora en que empezó la transacción | sección 3.4 |
 | Un solo índice nuevo, por (usuario, fecha, id). Cambia la decisión 7 de A-7 | medido con 2 millones de órdenes: el filtro por estado nunca cuesta más que el portfolio del mismo usuario, y el índice de A-7 suma 95 MB y encarece cada alta un 30 % | sección 3.5 |
+| Migraciones con Flyway; `database.sql` es la versión 1, y la copia local se arma igual que Neon: con los datos y sin historial | el camino que va a recorrer Neon es el que se prueba todos los días (probado con Flyway 12.4.0) | sección 3.6 |
+| Todas las migraciones pendientes en una sola transacción (`group`) | Neon recibe todos los cambios o ninguno (probado: sin `group`, una falla deja aplicadas las anteriores) | sección 3.6 |
+| La API migra sola solo cuando se le pide: en la copia local y en los tests; a Neon, a propósito, en la fase 8 | apuntar la API a Neon no lo migra por accidente | sección 3.6 |
+| La base trae las órdenes del usuario y `account` calcula todo en Java | el PPC depende del orden de las órdenes; partir el cálculo lo pondría en dos lugares | sección 4.1 |
+| El último precio se busca acción por acción | 0,05 ms, contra 26 y 80 ms de las otras formas (medido) | sección 4.2 |
+| La búsqueda usa `strpos` y `starts_with`, sin `LIKE` | `%` y `_` quedan como texto común sin escaparlos | sección 4.3 |
+| El cursor es la fecha con microsegundos y el id, en base64url | no pierde precisión al pasar de página, y el cliente no depende de su forma | sección 4.4 |
+| Divisiones con 34 dígitos y un solo redondeo al final, con `HALF_UP` | se redondea solo el número que se muestra; los números del PRD dan igual con los dos modos | sección 4.5 |
 
 **ADR**
 
