@@ -1038,16 +1038,163 @@ del objetivo, como límite documentado (A-4): su portfolio lee unas 850.000 órd
 
 ## 10. Estrategia de tests
 
-_Pendiente._ Los niveles: unitarios, integración contra Postgres real y el funcional del envío (GEN-3). Cómo arranca
-cada caso desde los datos originales y cómo se prueban los casos simultáneos. El piso de cobertura. Resuelve el
-choque entre D-8.4 ("cada test arma sus propios datos") y los casos del PRD que escriben sobre el usuario 1.
+### 10.1 Los niveles
+
+Primero el test que falla, después el código (`CLAUDE.md`). Los casos del PRD son la base de los tests (principio 5).
+
+| Nivel | Qué prueba | Con qué | Por ejemplo |
+|---|---|---|---|
+| Unitarios | los cálculos en Java puro: la cuenta, el PPC, la cantidad por monto, el redondeo, la huella y el cursor | JUnit 5 y AssertJ, sin Spring ni base: milisegundos | PPC $150 (caso 5 de POR); $9.258,50 en PAMP dan 10 acciones (caso 4 del envío); `10000` y `10000.00` dan la misma huella |
+| Integración | cada consulta y cada migración, contra Postgres 18 real | Testcontainers, con `database.sql` y las migraciones: el mismo camino que Neon (sección 3.6) | el último precio sale por fecha y no por orden de carga (caso 8 de POR); la búsqueda; el cursor con microsegundos (caso 4 de LIS) |
+| Funcionales | las cinco funciones de punta a punta, por HTTP, con la API levantada | Spring Boot sobre la base de Testcontainers y un cliente HTTP | los casos del PRD: los 20 del envío, que son el test funcional que pide el enunciado (GEN-3), y los de portfolio, búsqueda, cancelación y listado |
+
+Neon nunca se toca en los tests (`CLAUDE.md`). El tiempo de respuesta no se prueba acá: se mide en la fase 6 (sección
+8.4), porque los tiempos en CI varían.
+
+### 10.2 Cada caso arranca de los datos originales
+
+Esto resuelve el choque que quedó abierto: los casos del PRD están escritos sobre los datos originales del usuario 1, y
+varios escriben (el envío, la cancelación), mientras D-8.4 pedía que cada test arme sus datos para no pisarse.
+
+- **Antes de cada test, la base vuelve a los datos originales.** Después de las migraciones se guarda una foto de las
+  cuatro tablas, una sola vez. Antes de cada test, las tablas se vacían y se vuelven a llenar desde la foto, con los
+  contadores de ids incluidos: la próxima orden vuelve a ser la 12, como en los ejemplos. Tarda 4 ms (medido:
+  [`mediciones/10-resultados.md`](mediciones/10-resultados.md)).
+- **Un test que necesita datos propios los agrega encima,** y la vuelta siguiente los borra. Por ejemplo, el usuario
+  con 20 BMA del caso 1 de GEN, o la acción con un día sin operaciones del caso 7 de POR. Así se cumple D-8.4, cada
+  test controla sus datos, y los casos del PRD corren tal como están escritos.
+- **Un solo Postgres para toda la corrida,** y los tests corren de a uno, porque comparten la base.
+
+| Alternativa | Por qué no |
+|---|---|
+| Una transacción que se deshace al final de cada test | no sirve para los tests por HTTP, donde la API confirma en su propia transacción, ni para los simultáneos, que necesitan datos confirmados desde conexiones separadas |
+| Un contenedor nuevo por test | tarda segundos por test |
+| Copiar una base modelo por test (`CREATE DATABASE ... TEMPLATE`) | la API tendría que cambiar de base en cada test |
+
+### 10.3 Los casos simultáneos
+
+Son el caso 1 y el 2 de GEN, el caso 20 del envío y CAN-5. Dos hilos mandan sus pedidos a la vez. Para que el test
+falle siempre sin el turno, y no solo cuando los hilos se cruzan por casualidad, el test inyecta una pausa: la primera
+orden espera, después de leer su cuenta, a que la segunda haya arrancado. La pausa va en el test (un espía sobre el
+repository), sin cambiar el código de la API. Sin el turno, las dos leen la misma cuenta y el test falla; con el turno,
+la segunda espera, y el test verifica que esté esperando su turno en Postgres antes de soltar a la primera. Es lo
+mismo que las pruebas A y B de la sección 5, pero con la API real. Si alguien cambiara el nivel de aislamiento a
+`REPEATABLE READ`, este mismo test fallaría, como la prueba C.
+
+### 10.4 Cobertura
+
+JaCoCo, con un piso que frena el build: **85 % de las líneas y 80 % de las ramas** del proyecto, sin contar la clase
+que arranca la aplicación. Con TDD la cobertura suele dar más: el piso está para que no baje sin que nadie lo note. La
+cobertura no dice si los tests son buenos; eso lo dicen los casos del PRD, cada uno con su test.
 
 ## 11. Construcción, ejecución y entrega
 
-_Pendiente._ Maven; las convenciones de código (código limpio) y las herramientas de formato y de análisis estático
-que las hacen cumplir y frenan el build; CI en GitHub Actions;
-Docker y `docker compose up` (GEN-2); la configuración; la colección de Postman; la herramienta del portal. Diagrama
-de cómo se levanta todo.
+### 11.1 Maven y las herramientas que frenan el build
+
+Maven, con su wrapper (`mvnw`): quien construye no necesita tener Maven instalado, y con Docker ni siquiera Java
+(11.3). `./mvnw verify` corre todo y falla si cualquier control falla:
+
+| Herramienta | Qué hace cumplir | Versión |
+|---|---|---|
+| Spotless, con google-java-format | un solo formato, sin discusiones; `spotless:apply` lo arregla solo | 3.11.0, con 2.0.0 |
+| Error Prone | errores comunes de Java, al compilar: por ejemplo, comparar textos con `==` | 2.52.0 |
+| NullAway, con las anotaciones de JSpecify | ningún `null` sin chequear. Lo vacío (el PPC de BMA, el precio de una `REJECTED` a mercado) se marca, y el compilador obliga a tratarlo | 0.14.3 |
+| JaCoCo | el piso de cobertura (sección 10.4) | 0.8.16 |
+
+- **Probadas juntas con Java 25,** en un proyecto descartable fuera del repo, con la imagen de Maven sobre Temurin 25.
+  Compilan un record, un `switch` con patrones y una variable sin nombre (`_`). Un `null` sin chequear frena el build,
+  por NullAway, y un archivo mal formateado también, por Spotless. Error Prone necesita que Maven abra partes internas
+  del compilador de Java: van en `.mvn/jvm.config`.
+- **NullAway encaja con Spring:** Spring Framework 7 marca con JSpecify qué puede ser `null` en su propia API.
+- **Por qué no más herramientas:** Checkstyle repite lo que ya hace el formateador. SpotBugs y PMD buscan en buena
+  parte los mismos errores que Error Prone, y cada herramienta suma reglas para ajustar. SonarCloud necesita una
+  cuenta externa, y el repo es privado hasta la fase 8.
+- **Lo que ninguna herramienta controla** (sin números mágicos, nombres claros, métodos cortos) se cuida en la
+  revisión de cada PR, con la vara de `CLAUDE.md`.
+
+### 11.2 CI en GitHub Actions
+
+En cada push y en cada PR:
+
+1. `./mvnw verify` con Temurin 25: formato, compilación con Error Prone y NullAway, todos los tests (Testcontainers
+   usa el Docker de la máquina de GitHub) y el piso de cobertura.
+2. La imagen de Docker de la API se construye.
+3. **Prueba de humo:** `docker compose up`, esperar a que la API esté lista y pedir el portfolio del usuario 1, que
+   tiene que dar los números de POR (caso 3 de GEN). Después corre la colección de Postman con Newman, la herramienta
+   de línea de comandos de Postman (11.5), y al final `docker compose down`.
+
+Un PR se mergea solo con todo en verde.
+
+### 11.3 Docker y `docker compose up`
+
+```mermaid
+flowchart LR
+    quien([Quien evalúa]) -->|docker compose up| api
+    subgraph compose["docker compose"]
+        pg[("postgres:18<br/>carga database.sql al crearse")]
+        api["api<br/>migra con Flyway y atiende en :8080"]
+        prom["prometheus<br/>lee las métricas de la API"]
+        graf["grafana<br/>tablero en :3000"]
+        api -->|espera a que esté lista| pg
+        prom -->|cada 15 segundos| api
+        graf --> prom
+    end
+```
+
+- **La API:** un `Dockerfile` en dos etapas, que compila con `maven:3.9-eclipse-temurin-25` y corre con
+  `eclipse-temurin:25-jre`, con un usuario sin privilegios (sección 9). Quien evalúa solo necesita Docker (GEN-2).
+- **Postgres** carga `database.sql` cuando se crea la base (carpeta `docker-entrypoint-initdb.d`), y la API migra al
+  arrancar (sección 3.6). Sus datos viven en memoria (`tmpfs`): cada `docker compose up` arranca de los datos
+  originales, y los casos del PRD se pueden repetir a mano.
+- **La API espera a que Postgres esté listo de verdad.** El chequeo de salud pregunta por red
+  (`pg_isready -h 127.0.0.1`): al crear la base, la imagen levanta un servidor provisorio que solo escucha localmente
+  mientras carga `database.sql`, y un chequeo sin red lo daría por listo antes de tiempo. Se encontró al armar las
+  mediciones (sección 3.5).
+- **Prometheus y Grafana** se configuran con archivos del repo: qué leer, la fuente de datos y el tablero (sección
+  8.3). Grafana deja ver el tablero sin usuario y contraseña, porque es solo local.
+- **Puertos:** la API en 8080 (con la página de OpenAPI), Grafana en 3000 y Prometheus en 9090. Postgres, en el 5433
+  de la máquina, para mirarlo con `psql` sin chocar con un Postgres instalado.
+- **Solo la API y la base:** `docker compose up api` levanta la API con lo que necesita.
+
+### 11.4 La configuración
+
+`application.yml` trae los valores para correr en local, y todo lo que cambia según dónde corre llega por variables de
+entorno: la base (sección 9), si migra al arrancar (sección 3.6) y los números de la sección 6.6. No hay perfiles de
+Spring: una sola configuración, y las variables la pisan. Para apuntar a Neon en la fase 8, las variables de la base
+se llenan desde `.env`, que nunca se sube al repo.
+
+### 11.5 La colección de Postman
+
+En `postman/`, con la colección y un entorno local (la dirección de la API). Recorre todo:
+
+1. el portfolio del usuario 1;
+2. la búsqueda de "pamp";
+3. una compra a mercado, que queda `FILLED`;
+4. una compra límite, que queda `NEW`;
+5. el listado de las pendientes;
+6. la cancelación de esa compra;
+7. un reintento con el mismo identificador, que devuelve la misma orden (200);
+8. el mismo identificador con otro contenido (422);
+9. una compra de $700.000, que queda `REJECTED`.
+
+Cada paso que necesita un identificador nuevo lo genera con `{{$guid}}`, y cada paso verifica su respuesta con tests
+de la colección: por eso CI la puede correr con Newman (11.2).
+
+### 11.6 El portal (fase 7)
+
+Se arma desde los mismos archivos Markdown, como se decidió al empezar el RFC, con **Zensical**: el sucesor de Material
+for MkDocs, del mismo equipo y con licencia MIT. Dibuja los diagramas de Mermaid con una sola línea de configuración
+(según su documentación).
+
+- **Por qué no Material for MkDocs,** que es lo más usado: está en mantenimiento desde noviembre de 2025, y sus
+  correcciones terminaron el 2026-11-05.
+- **El riesgo:** Zensical está en beta (0.1.0). La fase 7 arranca con una prueba corta, armando el portal con estos
+  documentos. Si algo no se ve bien, la alternativa es Docusaurus (3.10.2, con un tema oficial para Mermaid): es
+  estable, pero necesita Node y más configuración.
+- Se publica en GitHub Pages cuando el repo pase a público (fase 8), construido por CI.
+
+Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Grafana) y su orden quedan para el plan
+(fase 4).
 
 ## 12. Decisiones de esta fase y ADR
 
@@ -1088,6 +1235,14 @@ de cómo se levanta todo.
 | Prometheus y Grafana en el compose, con el tablero cargado desde el repo; New Relic, documentado como el cambio de registro | quien evalúa ve las métricas reales sin crear cuentas | sección 8.3 |
 | Objetivo: percentil 95 por debajo de 100 ms, con 2 millones de órdenes y usuarios de hasta 10.000, medido con k6 en la fase 6 | la consulta más cara del usuario pesado tarda 1,2 ms en la base | sección 8.4 |
 | La base se configura en formato JDBC con usuario y clave aparte; Actuator expone solo `health` y `prometheus`; sin campos desconocidos | la clave no viaja dentro de una URL, y los endpoints con configuración no quedan abiertos | sección 9 |
+| Tres niveles de test: unitarios, de integración contra Postgres real y funcionales por HTTP con los casos del PRD | cada nivel prueba lo suyo: los cálculos solos, el SQL contra la base real, y el recorrido completo | sección 10.1 |
+| Antes de cada test, la base vuelve a los datos originales desde una foto (4 ms); los datos propios van encima | resuelve el choque con D-8.4: los casos del PRD corren tal cual y cada test controla sus datos | sección 10.2 |
+| Los casos simultáneos inyectan una pausa desde el test, sin tocar el código de la API | el test falla siempre sin el turno, no solo por casualidad | sección 10.3 |
+| Piso de cobertura: 85 % de líneas y 80 % de ramas | que no baje sin que nadie lo note | sección 10.4 |
+| Spotless con google-java-format, Error Prone y NullAway con JSpecify, y JaCoCo, todos frenando el build | probados juntos con Java 25; Checkstyle, SpotBugs, PMD y SonarCloud repiten o necesitan cuentas externas | sección 11.1 |
+| CI con build, tests, imagen y una prueba de humo con el compose y la colección de Postman | el caso 3 de GEN se prueba solo en cada push | sección 11.2 |
+| Compose con Postgres (datos en memoria), API, Prometheus y Grafana; el chequeo de salud de Postgres pregunta por red | cada `up` arranca de los datos originales, y la API no arranca antes de tiempo | sección 11.3 |
+| El portal se arma con Zensical, con Docusaurus como alternativa si la prueba de la fase 7 falla | Material for MkDocs dejó de recibir correcciones el 2026-11-05 | sección 11.6 |
 
 **ADR**
 
@@ -1096,5 +1251,6 @@ En la carpeta [`adr/`](adr/), un archivo corto por decisión, con contexto, opci
 - [ADR 0001 — Capas agrupadas por función, no hexagonal](adr/0001-capas-por-funcion.md)
 - [ADR 0002 — SQL directo con `JdbcClient`, no JPA](adr/0002-sql-directo-con-jdbcclient.md)
 
-Candidatos que faltan: posiciones calculadas (el que dejó pendiente A-4), órdenes de un usuario de a una, cómo se
-reconoce un reintento, migraciones sobre una base con datos y cómo se muestran las métricas.
+Candidatos que faltan: posiciones calculadas (el que dejó pendiente
+A-4), el turno del usuario (sección 5.2), cómo se reconoce un reintento (5.3), migraciones sobre una base con datos
+(3.6), cómo se muestran las métricas (8.3) y springdoc-openapi, porque es una librería más (6.7).
