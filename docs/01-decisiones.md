@@ -36,6 +36,8 @@
 - **Error vs. `REJECTED`:** si con lo enviado no se puede armar una orden, es un error y no se graba nada; si la orden
   está bien armada pero la cuenta o el mercado no dejan ejecutarla, se graba como `REJECTED` (A-6).
 - **Cursor:** la marca que trae cada página del listado de órdenes para pedir la siguiente ("ver más") (A-7).
+- **Identificador de la orden:** un código único que el cliente le pone a cada orden nueva. Si la misma orden llega
+  dos veces (un reintento), no se crea otra (R-2). Es el `ClOrdID` de FIX.
 
 ## Cerradas
 
@@ -571,6 +573,8 @@ Cerrada en D-1: la posición de BMA (−10) se muestra tal cual, con rendimiento
   | Por monto, la cantidad da 0 | $500 en PAMP a $925,85 | una orden de 0 acciones no es una orden y nunca llegaría al mercado; una app muestra "cantidad: 0" y no deja enviar |
   | Por monto, a mercado, sobre un activo sin precio | $10.000 en PGR | sin precio no se puede calcular la cantidad: no hay orden que armar |
   | El usuario o el activo no existen | usuario 99 | ni se podría grabar: la base exige que existan |
+  | Falta el identificador de la orden | | sin él, un reintento compraría dos veces (R-2) |
+  | El identificador ya se usó con otro contenido | 100 PAMP y después 200 PAMP con el mismo identificador | es otra intención con un identificador repetido (R-2) |
 
 - **Casos que quedan `REJECTED` (se graba):**
 
@@ -830,6 +834,85 @@ no pide** (cancelar y listar órdenes) y deja afuera las transferencias. Cada co
    - Las fechas con microsegundos no se pierden al pasar de página.
    - El listado de un usuario sin órdenes es una lista vacía.
 
+### R-2 · Reintentos: cada orden trae un identificador del cliente
+
+- **El problema:** la misma orden mandada dos veces. El usuario 1 manda "comprar 100 PAMP a mercado" ($92.585). La
+  orden se ejecuta y se graba, pero la respuesta se pierde (se cortó el wifi). La app no sabe si salió y reintenta.
+  Sin protección, se graba una segunda orden `FILLED`: 200 PAMP y $185.170 gastados.
+- **Por qué no lo resuelve D-1:** D-1 procesa de a una las órdenes *distintas* de un mismo usuario. Acá las dos son
+  válidas, una después de la otra, y la plata alcanza para las dos.
+- **Opciones evaluadas:**
+
+  | Opción | Qué es | A favor | En contra |
+  |---|---|---|---|
+  | A. Fuera de alcance, documentado | el cliente revisa el listado (A-7) antes de reintentar | no se construye nada | compra duplicada con plata real |
+  | B. Identificador opcional | si viene repetido, se devuelve la orden original; sin identificador, funciona como ahora | protege a quien lo usa | deja mandar órdenes de plata sin protección |
+  | **C. Identificador obligatorio** | toda orden nueva lo trae; sin él, error 400 | ninguna orden queda sin protección; es lo más parecido al estándar de los mercados | quien prueba a mano tiene que generarlo (en Postman lo genera `{{$guid}}`; con curl, `uuidgen`) |
+
+- **El trabajo es casi el mismo en B y en C:** el campo nuevo, la regla de unicidad y la comparación del contenido.
+  C tiene un solo camino en el código (B, dos: con y sin identificador). La diferencia real es el contrato: B permite
+  órdenes sin protección contra duplicados; C, no. La primera recomendación fue B, por la fricción para quien evalúa;
+  al revisarla, esa fricción casi no existe, y se eligió C.
+- **Qué usa el mercado (es mixto):**
+  - **FIX** (el protocolo con el que los brokers se conectan a los mercados): cada orden nueva lleva un identificador
+    que pone el cliente (`ClOrdID`). La mayoría de los mercados lo exige; hay excepciones, como Bybit, que lo deja
+    opcional. Cuánto tiempo tiene que ser único varía: por sesión, entre órdenes abiertas, por 360 días.
+  - **Coinbase Advanced Trade (REST):** obligatorio y único por orden.
+  - **Binance (REST):** opcional; si no se manda, lo genera el servidor. Un identificador generado por el servidor
+    sirve para identificar la orden, pero no protege contra el reintento: el reintento recibe uno nuevo.
+  - **Borrador del IETF para APIs HTTP** (`Idempotency-Key`, versión 08, activo): la misma idea, aplicada a cualquier
+    pedido; propone responder con error si se reusa la clave con otro contenido.
+- **Los casos:**
+
+  | Caso | Resultado |
+  |---|---|
+  | Orden nueva con un identificador que el usuario nunca usó | flujo normal (A-6) |
+  | Sin identificador | error 400 que explica qué falta; no se graba nada |
+  | Mismo identificador y mismo contenido (el reintento) | se devuelve la orden original, sin crear otra, **aunque haya quedado `REJECTED`**: es la misma intención y no se vuelve a evaluar |
+  | Mismo identificador y distinto contenido (100 PAMP y después 200 PAMP) | **error, la segunda no se graba**: es otra intención con un identificador repetido. Sigue el criterio de A-6: no se puede armar una orden válida con lo que se mandó |
+  | Dos pedidos con el mismo identificador al mismo tiempo | se crea una sola orden. Con el bloqueo por usuario de D-1 llegan de a uno, y el segundo encuentra la orden del primero; la regla de unicidad de la base es la red de seguridad |
+  | **Dos usuarios con el mismo identificador** | no chocan: el identificador es único **por usuario**. Se crean las dos órdenes |
+  | Un pedido que dio error (400) | no gasta el identificador: como no se grabó nada, el usuario corrige y reintenta con el mismo |
+  | Después de un `REJECTED`, el usuario deposita y quiere volver a intentar | identificador nuevo: es una intención nueva |
+
+- **"El mismo contenido":** los mismos datos enviados (activo, lado, tipo, cantidad o monto, precio límite). La orden
+  grabada no alcanza para compararlos, porque no guarda el pedido tal cual: una MARKET guarda el `close` como precio
+  (el pedido no tenía precio) y una orden por monto guarda la cantidad calculada (el pedido traía el monto, que no se
+  guarda: A-6, parte 2). Ejemplo: "$10.000 en PAMP a mercado" queda grabada como "10 PAMP a $925,85"; si el precio
+  cambiara entre el envío y el reintento, recalcular daría otra cantidad y el reintento se rechazaría por error. Hace
+  falta guardar, junto con la orden, una **huella del pedido** (un resumen calculado de sus datos, como propone el
+  borrador del IETF) o el pedido tal cual. Se elige en el RFC, con recomendación de la huella.
+- **Decisiones:**
+  1. **Opción C: toda orden nueva trae un identificador que pone el cliente,** obligatorio. Sin él, 400.
+  2. **Único por usuario y para siempre:** vive en la misma orden, así que no vence. Es lo más simple de explicar.
+  3. **Los casos de la tabla de arriba.**
+  4. **El identificador se graba en la orden y aparece en la respuesta y en el listado (A-7):** si se perdió la
+     respuesta, el cliente puede buscar su orden por su propio identificador.
+  5. **Límite documentado:** si el cliente genera un identificador nuevo en cada reintento (un error del cliente), la
+     protección no funciona. Ninguna API puede arreglar eso.
+  6. **La cancelación no lo necesita:** reintentarla es inofensivo (A-7). Portfolio, búsqueda y listado solo leen.
+  7. **Para el bloque del esquema:** columna para el identificador (vacía en las 11 órdenes viejas, que no lo tienen),
+     única por (usuario, identificador); huella del pedido o pedido tal cual, para comparar el contenido.
+  8. **Para el RFC:** formato y largo máximo del identificador, nombre del campo, si viaja en el cuerpo o en un
+     encabezado, y los códigos HTTP. El borrador del IETF sugiere 422 para "mismo identificador, otro contenido" y 409
+     si el original todavía se está procesando; con el bloqueo de D-1, el segundo espera y recibe el resultado del
+     primero.
+  9. **Tests:**
+     - Reintento con el mismo identificador: devuelve la misma orden y `orders` no suma filas.
+     - El reintento de la compra de $700.000 rechazada devuelve el mismo `REJECTED`, sin fila nueva.
+     - Mismo identificador con otro contenido: error y `orders` no cambia.
+     - Dos pedidos simultáneos con el mismo identificador: una sola orden.
+     - Dos usuarios con el mismo identificador: dos órdenes.
+     - Sin identificador: 400.
+     - Un pedido con error no gasta el identificador: corregido, se crea con el mismo.
+- **Fuentes:**
+  [Coinbase Advanced Trade, Create Order](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/create-order),
+  [Binance, Trading endpoints](https://developers.binance.com/legacy-docs/binance-spot-api-docs/rest-api/trading-endpoints),
+  [OneChronos, FIX 4.2](https://onechronos-site-next.pages.dev/documentation/fix/fix-42),
+  [Bybit, FIX Place Order](https://bybit-exchange.github.io/docs/fix-api/create-order),
+  [NSX, Order identification](https://docs.nsx.com.au/ncd/order-identification),
+  [IETF, borrador The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/).
+
 ## Inventario: lo que agregamos o cambiamos respecto del enunciado
 
 Todo lo que no sale literal del enunciado, en un solo lugar y con el enlace a su porqué. Se mantiene al día con cada
@@ -841,9 +924,15 @@ decisión y es la base del alcance del PRD.
 |---|---|---|
 | Portfolio | sí | A-1, A-2, A-4, D-1, D-8 |
 | Búsqueda de activos | sí | A-5 |
-| Envío de órdenes | sí | A-6, D-2, D-4, D-6 |
+| Envío de órdenes | sí | A-6, D-2, D-4, D-6, R-2 |
 | **Cancelar una orden** | no: el enunciado define la regla, no el endpoint | A-7 |
 | **Listar las órdenes del usuario**, paginado por cursor | no | A-7 |
+
+**Datos de los pedidos que el enunciado no pide**
+
+| Endpoint | Dato agregado | Por qué | Dónde |
+|---|---|---|---|
+| Envío | identificador de la orden, puesto por el cliente y obligatorio | un reintento no crea una orden duplicada | R-2 |
 
 **Datos de las respuestas que el enunciado no pide**
 
@@ -855,6 +944,7 @@ decisión y es la base del alcance del PRD.
 | Envío | motivo del rechazo | sin él nadie puede responder "¿por qué me rechazaron?" | A-6, parte 1, decisión 3 |
 | Envío por monto | la cantidad calculada | el usuario tiene que ver cuántas acciones salieron | A-6, parte 2, decisión 3 |
 | Listado | cursor de la página siguiente | paginación | A-7 |
+| Envío y listado | el identificador de la orden | si se perdió la respuesta, el cliente encuentra su orden | R-2 |
 
 **Reglas que agregamos o precisamos**
 
@@ -875,6 +965,7 @@ decisión y es la base del alcance del PRD.
 | Por monto, la cantidad se corta para abajo, en compras y ventas | A-6, parte 2 |
 | Se acepta cualquier precio límite mayor a 0 y se reserva a ese precio | A-6, parte 2 |
 | Solo se cancela una orden `NEW`; otro estado da conflicto | A-7 |
+| Toda orden nueva trae un identificador único por usuario; repetirlo con el mismo contenido devuelve la orden original, y con otro contenido da error | R-2 |
 
 **Cambios al modelo de datos:** ninguno aplicado todavía. Los candidatos se juntan en "Pendientes acumulados para el
 bloque del esquema" (abajo), y cada uno se decide y justifica en el RFC (fase 3). Se aplican con migraciones, solo en la copia local
@@ -893,6 +984,7 @@ bloque del esquema" (abajo), y cada uno se decide y justifica en el RFC (fase 3)
 | Validar el paso de precio de 5 centavos | sería simular el mercado | D-4 |
 | Transferencias por API | no se piden; la plata entra desde el banco; `size` entero | A-7 |
 | Detalle de una orden por id | el listado alcanza | A-7 |
+| Identificador de orden opcional, o generado por el servidor | sin identificador no hay protección, y uno generado por el servidor no protege el reintento | R-2 |
 
 ## Lo que falta, en orden
 
@@ -905,9 +997,10 @@ bloque del esquema" (abajo), y cada uno se decide y justifica en el RFC (fase 3)
    cursor) sí; transferencias por API, no.
 5. ~~**Bloque del esquema**~~ Pasa al RFC (fase 3), decidido el 2026-11-06: es trabajo técnico, y `CLAUDE.md` pone
    "modelo y cambios a la base" en el RFC. La lista de abajo queda escrita como insumo.
-6. **Repaso rápido de riesgos (R-1 a R-5) y supuestos (S-1 a S-5)** del análisis. Varios ya quedaron resueltos: la
-   concurrencia en D-1, el redondeo en A-6, el costo cero en A-2, la base compartida en "Base de Neon". Queda abierto
-   R-2 (reintentos). ← **siguiente**
+6. **Repaso rápido de riesgos (R-1 a R-5) y supuestos (S-1 a S-5)** del análisis. R-2 (reintentos), cerrada:
+   identificador de orden obligatorio. Varios ya quedaron resueltos en otras decisiones: la concurrencia en D-1, el
+   redondeo en A-6, el costo cero en A-2, la base compartida en "Base de Neon". Falta confirmar el resto.
+   ← **siguiente**
 7. **Repaso final de dudas sobre los conceptos.**
 8. **Reescritura de `01-analisis.md`** con estas decisiones, y recálculo de los números de referencia del usuario 1.
    Incluye el inventario de arriba, y saca o corrige lo que estas decisiones dejaron viejo: la sección de preguntas
@@ -943,5 +1036,8 @@ Insumo del RFC (fase 3): ahí se decide y justifica cada uno, y se escriben las 
 - **A-7:** índice por (usuario, estado, fecha, id) para el listado con filtro por estado (28 ms → 0,01 ms con un
   usuario de un millón de órdenes); se define junto con el índice de A-4. Candidato: cuándo cambió el estado de la
   orden (sin recomendación fuerte).
+- **R-2:** columna para el identificador de la orden (vacía en las 11 órdenes viejas), única por (usuario,
+  identificador); huella del pedido o pedido tal cual, para comparar el contenido en un reintento (recomendada: la
+  huella).
 - **C-2, abierta:** ¿renombrar columnas (por ejemplo, `instrumentid` → `instrument_id`)? Propuesta: no, para que
   cualquiera que consulte la base con los nombres que conoce siga pudiendo hacerlo.
