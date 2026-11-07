@@ -1,6 +1,6 @@
 # 03 — RFC: cómo se construye la API
 
-> Fase 3 · 2026-11-07 · Estado: **en construcción, por secciones**
+> Fase 3 · 2026-11-07 · Estado: **aprobado por el autor el 2026-11-07**
 >
 > El PRD ([`02-prd.md`](02-prd.md)) dice qué tiene que hacer la API; este documento dice cómo se construye. Cubre lo
 > que el PRD dejó para esta fase (su sección 6) y los cambios a la base que quedaron pendientes en
@@ -10,7 +10,31 @@
 
 ## Resumen
 
-_Se escribe al final, con todo decidido: el diseño en media página y un diagrama de quién llama a quién._
+Una API en Java 25 y Spring Boot 4.1, en capas agrupadas por función, sobre la base de Cocos con cambios mínimos y
+medidos. Lo central:
+
+- **La plata y las acciones nunca se gastan dos veces.** Cada envío toma el turno de su usuario, un lock sobre su
+  fila, y cada orden trae un identificador que convierte un reintento en la misma orden. Probado en la copia local:
+  sin turno, dos ventas simultáneas reproducen la orden 11 (sección 5).
+- **La cuenta se calcula desde las órdenes, en un solo lugar y en Java,** con un solo índice nuevo: 1,2 ms en la base
+  para un usuario de 10.000 órdenes, con 2 millones en la tabla (secciones 3.5 y 4).
+- **La base no acepta datos imposibles:** reglas que miran una fila, verificadas contra los datos de hoy, y tres
+  columnas nuevas en `orders`. Los cambios se aplican con Flyway, por el mismo camino en la copia local y en Neon
+  (sección 3).
+- **Los contratos son simples y explícitos:** cinco direcciones, una orden rechazada es una orden (201), los errores
+  van en Problem Details con un catálogo fijo y la especificación OpenAPI se publica (secciones 6 y 7).
+- **Todo se ve y se prueba:** logs en JSON con el id de cada pedido, métricas en Prometheus y Grafana, tests en tres
+  niveles con los casos del PRD, y un `docker compose up` que levanta todo (secciones 8, 10 y 11).
+
+No simula el mercado ni autentica usuarios, como pide el enunciado (sección 1).
+
+```mermaid
+flowchart LR
+    app([App o Postman]) -->|las 5 funciones, por HTTP| api["API<br/>Java 25 y Spring Boot 4.1"]
+    api -->|SQL con JdbcClient, con el turno del usuario| pg[("Postgres 18<br/>datos de Cocos y migraciones")]
+    prom["Prometheus"] -->|lee las métricas cada 15 s| api
+    graf["Grafana<br/>tablero"] --> prom
+```
 
 ## 1. Contexto y principios
 
