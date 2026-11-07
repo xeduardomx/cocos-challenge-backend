@@ -549,16 +549,355 @@ limit :pageSize + 1
 
 ## 5. Órdenes simultáneas y reintentos
 
-_Pendiente._ Cómo se procesan de a una las órdenes de un usuario (GEN-1), cómo se reconoce un reintento (ENV-9, R-2)
-y con qué datos se arma la huella del pedido (sección 3.3), y cómo convive todo eso con la cancelación. Diagramas: los estados de una orden, dos compras al mismo tiempo y un
-reintento.
+Las pruebas de esta sección corren en la copia local con [`mediciones/05-turno.sh`](mediciones/05-turno.sh), que
+simula en SQL lo que hace la API: dos pedidos casi a la vez, que leen la cuenta, esperan un segundo y graban. La
+salida está en [`mediciones/05-resultados.md`](mediciones/05-resultados.md).
+
+### 5.1 Los estados de una orden
+
+```mermaid
+stateDiagram-v2
+    [*] --> FILLED: a mercado, si alcanza
+    [*] --> NEW: límite, si alcanza
+    [*] --> REJECTED: si no alcanza o no cotiza
+    NEW --> CANCELLED: el usuario la cancela
+    NEW --> FILLED: el mercado llega al precio (no se simula)
+    FILLED --> [*]
+    REJECTED --> [*]
+    CANCELLED --> [*]
+```
+
+Solo una orden `NEW` cambia de estado; las otras tres son finales (D-7). Nuestro sistema nunca pasa una `NEW` a
+`FILLED`: si un proceso externo lo hiciera, el portfolio la contaría bien, porque cuenta por estado.
+
+### 5.2 El turno del usuario
+
+La transacción del envío empieza tomando el turno del usuario, con un lock sobre su fila de `users`:
+
+```sql
+select id from users where id = :userId for update
+```
+
+La segunda orden del mismo usuario espera en esa línea hasta que la primera confirma. Recién ahí lee la cuenta, y ya
+ve la primera orden. Las órdenes de usuarios distintos no se esperan, porque son filas distintas. Dos ventas de 15
+BMA a la vez, teniendo 20 (el caso 1 de GEN):
+
+| Prueba | Venta 1 | Venta 2 | Posición final |
+|---|---|---|---|
+| A. Sin turno | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10**: es la orden 11, reproducida |
+| B. Con turno | `FILLED` (vio 20) | `REJECTED` (vio 5) | **5**, lo correcto |
+| C. Con turno, en `REPEATABLE READ` | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10** |
+
+```mermaid
+sequenceDiagram
+    participant V1 as Venta 1 (15 BMA)
+    participant DB as Postgres
+    participant V2 as Venta 2 (15 BMA)
+    V1->>DB: toma el turno del usuario
+    V2->>DB: pide el turno y espera
+    V1->>DB: lee la cuenta: 20 BMA
+    V1->>DB: graba FILLED y confirma
+    DB-->>V2: turno concedido
+    V2->>DB: lee la cuenta: 5 BMA
+    V2->>DB: graba REJECTED y confirma
+```
+
+**La trampa de la prueba C.** El turno funciona porque Postgres, en su nivel de aislamiento por defecto
+(`READ COMMITTED`), hace que cada consulta vea lo confirmado antes de que empiece. En `REPEATABLE READ`, la
+transacción conserva la foto de la base de su primera consulta: la segunda venta espera su turno, pero después sigue
+sin ver la primera, y vende lo mismo. Por eso la transacción del envío se queda en `READ COMMITTED`, y el caso 1 de
+GEN se prueba con dos órdenes simultáneas de verdad (sección 10).
+
+**Lo que da el turno, además:**
+
+- **Verifica que el usuario exista:** si la consulta no devuelve fila, es un 404 (está en la dirección del pedido).
+- **No bloquea las lecturas:** portfolio, búsqueda y listado no lo toman, y no esperan.
+- **No puede trabar dos órdenes entre sí:** cada envío bloquea una sola fila, la de su usuario, y es lo primero que
+  hace.
+- **Ordena las fechas:** la hora de la orden la pone la base al grabar (sección 3.4), dentro del turno.
+
+**Espera máxima.** El turno dura milisegundos. Si un envío espera más de 2 segundos (`lock_timeout`, configurable),
+la API responde 503 con "intentá de nuevo" (sección 7). Reintentar con el mismo identificador es seguro (5.3).
+
+**Alternativas evaluadas**
+
+| Opción | Por qué no |
+|---|---|
+| Un lock de Postgres sin fila (`pg_advisory_xact_lock`) | hace lo mismo, pero no verifica que el usuario exista, y sus números se comparten con cualquier otro uso de esos locks en la base |
+| Nivel `SERIALIZABLE` | Postgres detecta el choque y aborta una de las dos transacciones: la API tendría que reintentar la orden entera, con más código y una orden evaluada dos veces |
+| Un lock en Java | solo funciona con una instancia de la API |
+| Una tabla de posiciones con "cantidad ≥ 0" | descartada en A-4 y D-1: BMA ya está en −10 |
+
+### 5.3 Reintentos
+
+Dentro del turno, antes de evaluar la orden (R-2, ENV-9):
+
+1. Se busca una orden del usuario con ese identificador.
+2. **Si no existe,** se evalúa y se graba (A-6).
+3. **Si existe con la misma huella,** se devuelve tal cual, sin volver a evaluarla, aunque haya quedado `REJECTED`.
+   Responde 200, no 201, porque no se creó nada (sección 6).
+4. **Si existe con otra huella,** es otra intención con un identificador repetido: 422, y no se graba nada.
+
+Un pedido que da error (400) no graba nada, así que no gasta el identificador.
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant API
+    participant DB as Postgres
+    App->>API: envía la orden con el identificador A
+    API->>DB: toma el turno y busca A: no existe
+    API->>DB: evalúa y graba la orden 12 (FILLED)
+    API--xApp: la respuesta se pierde
+    App->>API: reintenta: mismo identificador, mismo contenido
+    API->>DB: toma el turno y busca A: existe, con la misma huella
+    API-->>App: 200, la orden 12 tal cual
+```
+
+**Dos pedidos simultáneos con el mismo identificador** (el caso 20 del envío): el segundo espera su turno y encuentra
+la orden del primero (prueba E: una sola orden). Sin el turno, lo frena la regla de unicidad (prueba D: error de
+clave duplicada, una sola orden). Esa regla queda como red: si la API alguna vez recibe ese error, lo trata como un
+reintento y vuelve al paso 1.
+
+**La huella** es el SHA-256 de una forma fija del pedido: `v1`, el activo, el lado, el tipo, la cantidad, el monto y el
+precio límite, separados por `|`. Lo que no viene queda vacío, y los números se escriben sin ceros de más, así
+`10000` y `10000.00` dan la misma huella:
+
+| Pedido | Forma fija | Huella |
+|---|---|---|
+| $10.000 en PAMP a mercado | `v1\|47\|BUY\|MARKET\|\|10000\|` | `7fab9319…c1a727` |
+| el mismo, con `10000.00` | `v1\|47\|BUY\|MARKET\|\|10000\|` | `7fab9319…c1a727` |
+| $20.000 en PAMP a mercado | `v1\|47\|BUY\|MARKET\|\|20000\|` | `5877f5a9…475a0c` |
+
+No entran el usuario, porque el identificador ya es por usuario, ni el identificador mismo. El `v1` permite cambiar
+la forma más adelante sin confundir huellas viejas con nuevas.
+
+### 5.4 La cancelación, sin turno
+
+```sql
+update orders set status = 'CANCELLED'
+where id = :orderId and userid = :userId and status = 'NEW'
+returning ...
+```
+
+- **Si no cambió ninguna fila,** se lee la orden: si no existe o es de otro usuario, 404 (CAN-4); si existe, 409 con
+  su estado actual (CAN-3).
+- **Dos cancelaciones a la vez:** la segunda espera a que la primera confirme, y cuando vuelve a mirar la orden ya no
+  está `NEW`: no cambia ninguna fila y recibe 409 (prueba F, CAN-5).
+- **Por qué no toma el turno:** cancelar solo libera reservas. Si una orden se evalúa mientras otra se cancela, ve la
+  reserva todavía activa: puede rechazar de más, nunca gastar dos veces. Y cancelar bloquea la fila de la orden, no la
+  del usuario, así que no espera a los envíos ni los traba.
 
 ## 6. Contratos de la API
 
-_Pendiente._ Las direcciones de las 5 funciones, con pedidos y respuestas de ejemplo con los números del usuario 1;
-códigos HTTP; formato de fechas (ENV-8); el identificador de orden: su nombre y si va en el cuerpo o en un
-encabezado (ENV-9; el formato, UUID, quedó en la sección 3.3); la paginación; los números configurables (BUS-5, BUS-6, LIS-3); si se publica la especificación
-OpenAPI.
+### 6.1 Las direcciones
+
+| Función | Pedido | Respuesta |
+|---|---|---|
+| Portfolio | `GET /users/{userId}/portfolio` | 200 |
+| Búsqueda | `GET /instruments?query={texto}` | 200, también sin resultados |
+| Envío | `POST /users/{userId}/orders` | 201 si crea la orden, aunque quede `REJECTED`; 200 si es un reintento |
+| Listado | `GET /users/{userId}/orders?status={estado}&limit={n}&cursor={marca}` | 200 |
+| Cancelación | `POST /users/{userId}/orders/{orderId}/cancel` | 200, con la orden ya `CANCELLED` |
+
+- **El usuario va en la dirección** porque no hay autenticación (S-5). En producción saldría de la sesión, y la
+  dirección perdería el `{userId}`. Lo que no existe en la dirección da 404, y en los datos, 400 (A-6, decisión 4).
+- **Cancelar es un `POST` a `/cancel`,** no un `DELETE`. Algunas APIs de brokers cancelan con `DELETE`, pero la orden
+  no se borra: sigue en el listado, cancelada. Y un `PATCH` del estado invitaría a pedir cualquier estado, cuando lo
+  único permitido es cancelar.
+- **Sin versión en la dirección** (`/v1`): hay una sola versión y un solo cliente. Si el contrato cambiara de una
+  forma que rompe a los clientes, se agrega entonces.
+
+### 6.2 Pedidos y respuestas, con el usuario 1
+
+**Portfolio** (casos 1 y 2 de POR). Las posiciones van ordenadas por ticker.
+
+```http
+GET /users/1/portfolio
+```
+
+```json
+{
+  "userId": 1,
+  "totalValue": 889756.00,
+  "cash": { "balance": 753000.00, "reserved": 125500.00, "available": 627500.00 },
+  "positions": [
+    { "instrumentId": 31, "ticker": "BMA", "name": "Banco Macro S.A.",
+      "quantity": -10, "reservedQuantity": 0, "lastPrice": 1502.80, "marketValue": -15028.00,
+      "averagePrice": null, "totalReturnPercent": null, "dailyChangePercent": -1.15 },
+    { "instrumentId": 54, "ticker": "METR", "name": "MetroGAS S.A.",
+      "quantity": 500, "reservedQuantity": 0, "lastPrice": 229.50, "marketValue": 114750.00,
+      "averagePrice": 250.00, "totalReturnPercent": -8.20, "dailyChangePercent": -1.08 },
+    { "instrumentId": 47, "ticker": "PAMP", "name": "Pampa Holding S.A.",
+      "quantity": 40, "reservedQuantity": 0, "lastPrice": 925.85, "marketValue": 37034.00,
+      "averagePrice": 930.00, "totalReturnPercent": -0.45, "dailyChangePercent": 0.44 }
+  ]
+}
+```
+
+**Búsqueda** (caso 8 de BUS). Una acción que no cotiza, como PGR, viene con `lastPrice` y `dailyChangePercent` en
+`null`.
+
+```http
+GET /instruments?query=pamp
+```
+
+```json
+{
+  "instruments": [
+    { "instrumentId": 47, "ticker": "PAMP", "name": "Pampa Holding S.A.", "lastPrice": 925.85, "dailyChangePercent": 0.44 }
+  ]
+}
+```
+
+**Envío: comprar 10 PAMP a mercado** (caso 1 del envío).
+
+```http
+POST /users/1/orders
+```
+
+```json
+{ "clientOrderId": "3f2b8c1e-9d4a-4c7b-8e21-5a6f0b9c2d13", "instrumentId": 47, "side": "BUY", "type": "MARKET", "quantity": 10 }
+```
+
+```json
+{
+  "id": 12,
+  "clientOrderId": "3f2b8c1e-9d4a-4c7b-8e21-5a6f0b9c2d13",
+  "instrumentId": 47,
+  "ticker": "PAMP",
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 10,
+  "price": 925.85,
+  "amount": 9258.50,
+  "status": "FILLED",
+  "rejectionReason": null,
+  "rejectionMessage": null,
+  "datetime": "2026-11-08T11:02:15.483921-03:00"
+}
+```
+
+**`amount` es siempre el monto en pesos de la orden,** cantidad × precio, como en `size × price` (D-9). En una orden
+por monto muestra lo que de verdad se usa: con $10.000 en PAMP salen 10 acciones y `amount` es 9258.50, así se ve que
+sobran $741,50. En un depósito o un retiro, `amount` es lo transferido, y `quantity` y `price` van en `null`, para que
+no aparezca "1.000.000 acciones a $1" (LIS-5).
+
+**Envío por monto, con precio límite** (caso 5): `{ ..., "type": "LIMIT", "amount": 10000.00, "price": 900.00 }`.
+Responde 201 con `"quantity": 11`, `"price": 900.00`, `"amount": 9900.00` y `"status": "NEW"`.
+
+**Envío rechazado** (caso 7): $700.000 de PAMP a mercado. Responde 201, porque la orden existe, rechazada (A-6,
+decisión 2):
+
+```json
+{
+  "id": 13, "clientOrderId": "9b4e2f71-0c3d-4a8b-b5e6-7f1a2c3d4e5f", "instrumentId": 47, "ticker": "PAMP",
+  "side": "BUY", "type": "MARKET", "quantity": 756, "price": 925.85, "amount": 699942.60,
+  "status": "REJECTED", "rejectionReason": "INSUFFICIENT_CASH",
+  "rejectionMessage": "No alcanzan los pesos disponibles para esta orden.",
+  "datetime": "2026-11-08T11:03:40.120734-03:00"
+}
+```
+
+**Reintento** (caso 15): el mismo pedido, con el mismo identificador, responde 200 con la misma orden, idéntica.
+
+**Listado** de las pendientes (caso 1 de LIS):
+
+```http
+GET /users/1/orders?status=NEW
+```
+
+```json
+{
+  "orders": [
+    { "id": 7, "clientOrderId": null, "instrumentId": 31, "ticker": "BMA", "side": "BUY", "type": "LIMIT",
+      "quantity": 60, "price": 1500.00, "amount": 90000.00, "status": "NEW",
+      "rejectionReason": null, "rejectionMessage": null, "datetime": "2023-07-13T11:13:20-03:00" },
+    { "id": 5, "clientOrderId": null, "instrumentId": 45, "ticker": "LOMA", "side": "BUY", "type": "LIMIT",
+      "quantity": 50, "price": 710.00, "amount": 35500.00, "status": "NEW",
+      "rejectionReason": null, "rejectionMessage": null, "datetime": "2023-07-12T15:14:20-03:00" }
+  ],
+  "nextCursor": null
+}
+```
+
+Las órdenes viejas no tienen identificador ni motivo de rechazo: van en `null` (LIS-4). El depósito (orden 1) aparece
+con `"quantity": null`, `"price": null` y `"amount": 1000000.00`.
+
+**Cancelación** (caso 1 de CAN): `POST /users/1/orders/7/cancel` responde 200 con la orden 7 en `"status": "CANCELLED"`.
+
+**Qué se valida en el envío** (ENV-1, ENV-7 y los límites de la sección 3.2). Si algo falla, 400 y no se graba nada:
+
+| Campo | Regla |
+|---|---|
+| `clientOrderId` | obligatorio, un UUID |
+| `instrumentId` | obligatorio. El activo tiene que existir y no ser ARS |
+| `side` | `BUY` o `SELL`. `CASH_IN` y `CASH_OUT` dan 400 |
+| `type` | `MARKET` o `LIMIT` |
+| `quantity` o `amount` | exactamente uno de los dos. `quantity`, un entero de 1 a 2.147.483.647; `amount`, mayor a 0 y con hasta 2 decimales |
+| `price` | obligatorio en `LIMIT` y prohibido en `MARKET`. Mayor a 0, con hasta 2 decimales y hasta 99.999.999,99 |
+| por monto | la cantidad calculada tiene que dar de 1 a 2.147.483.647, y una a mercado necesita que el activo cotice |
+| cualquier otro campo | 400: un campo mal escrito, como `prise`, no se ignora en silencio |
+
+### 6.3 Códigos HTTP
+
+| Código | Cuándo |
+|---|---|
+| 200 | lecturas, cancelación, y un reintento que devuelve la orden original |
+| 201 | el envío creó una orden: `FILLED`, `NEW` o `REJECTED` |
+| 400 | el pedido no se puede armar: falta un dato, un valor no es válido, el activo no existe, el cursor no se puede leer |
+| 404 | no existe lo que está en la dirección: el usuario, o la orden (o es de otro usuario) |
+| 409 | se quiere cancelar una orden que ya no está `NEW` (CAN-3) |
+| 422 | el identificador ya se usó con otro contenido. Es el código que propone el borrador del IETF para `Idempotency-Key` (R-2) |
+| 503 | el envío no consiguió el turno del usuario en 2 segundos: "intentá de nuevo" (sección 5.2) |
+| 500 | un error inesperado, sin detalles internos en la respuesta |
+
+Todos los errores tienen el mismo formato (sección 7).
+
+### 6.4 Formatos
+
+- **Fechas:** ISO 8601, en hora de Buenos Aires y con la zona escrita: `2023-07-12T12:31:20-03:00`. Las órdenes nuevas
+  muestran sus microsegundos (`.483921`), tal como quedaron grabadas (sección 3.4).
+- **Plata y precios:** números JSON con sus decimales (`925.85`, `889756.00`), que la API lee y escribe como
+  `BigDecimal`. Un precio que llega como `229.555` se lee entero, sin redondear, y da 400.
+- **Porcentajes:** números con 2 decimales, en puntos porcentuales: `-0.45` es −0,45 %. El nombre del campo lo dice
+  (`totalReturnPercent`).
+- **Estados, lados, tipos y motivos:** los textos del enunciado (`BUY`, `LIMIT`, `FILLED`) y los códigos de la sección
+  3.3.
+- **Lo vacío va en `null`,** y el campo aparece igual: el PPC vacío de BMA es `"averagePrice": null`. Así la forma de
+  la respuesta no cambia según el caso.
+- **Nombres de campos** en inglés, en camelCase, como el código (`CLAUDE.md`).
+
+### 6.5 El identificador de la orden
+
+Va en el cuerpo, como `clientOrderId`, y es un UUID (sección 3.3). No va en un encabezado `Idempotency-Key` (el
+borrador del IETF), porque es un dato de la orden: se graba, vuelve en la respuesta y en el listado, y el cliente lo
+usa para encontrar su orden si perdió la respuesta (R-2, decisión 4). Es el mismo lugar que le dan el `ClOrdID` de FIX
+y el `client_order_id` de Coinbase.
+
+### 6.6 Los números configurables
+
+Van en `application.yml`, con `@ConfigurationProperties` (`CLAUDE.md`):
+
+| Qué | Valor | Por qué |
+|---|---|---|
+| Tope de resultados de la búsqueda (BUS-5) | 20 | con "a" coinciden 59 de los 65 activos |
+| Largo máximo del texto de búsqueda (BUS-6) | 50 caracteres | deja pasar el ticker más largo, un espacio y el nombre más largo (5 + 1 + 42 = 48) |
+| Tamaño de página del listado, por defecto (LIS-3) | 20 | una pantalla de órdenes |
+| Tamaño de página máximo (LIS-3) | 100 | un pedido más grande da 400 |
+| Espera máxima del turno (sección 5.2) | 2 segundos | el turno dura milisegundos |
+
+### 6.7 La especificación OpenAPI
+
+Se publica, generada desde el código con springdoc-openapi: la especificación en `/v3/api-docs` y una página para
+probar la API desde el navegador en `/swagger-ui.html`. Quien evalúa puede recorrer las 5 funciones sin instalar nada,
+y la especificación no se desactualiza, porque sale del código. La versión 3.2.0 de springdoc está construida sobre
+Spring Boot 4.1.2, la misma versión que usa la API.
+
+- **En contra:** es una librería más, así que necesita su ADR (`CLAUDE.md`), y documentar los ejemplos agrega
+  anotaciones en los controllers.
+- **La alternativa,** solo la colección de Postman (ya decidida en el PRD), muestra el recorrido, pero no un contrato
+  para consultar.
 
 ## 7. Errores y validación
 
@@ -612,6 +951,15 @@ de cómo se levanta todo.
 | La búsqueda usa `strpos` y `starts_with`, sin `LIKE` | `%` y `_` quedan como texto común sin escaparlos | sección 4.3 |
 | El cursor es la fecha con microsegundos y el id, en base64url | no pierde precisión al pasar de página, y el cliente no depende de su forma | sección 4.4 |
 | Divisiones con 34 dígitos y un solo redondeo al final, con `HALF_UP` | se redondea solo el número que se muestra; los números del PRD dan igual con los dos modos | sección 4.5 |
+| El turno del usuario es un lock sobre su fila de `users`, en `READ COMMITTED`, con espera máxima de 2 segundos | probado: sin turno se reproduce la orden 11; en `REPEATABLE READ`, también | sección 5.2 |
+| El reintento se reconoce dentro del turno, con la huella `v1` del pedido; la regla de unicidad queda como red | probado: dos pedidos con el mismo identificador crean una sola orden | sección 5.3 |
+| La cancelación no toma el turno: es un solo `UPDATE` condicionado | solo libera reservas, y dos cancelaciones simultáneas no ganan las dos (probado) | sección 5.4 |
+| Direcciones con el usuario en la ruta, cancelación con `POST .../cancel` y sin versión en la ruta | no hay autenticación (S-5), y la orden cancelada no se borra | sección 6.1 |
+| `REJECTED` y orden nueva responden 201; el reintento, 200; el identificador repetido con otro contenido, 422 | la orden rechazada existe; el reintento no crea nada | sección 6.3 |
+| `amount` es siempre cantidad × precio, y en depósitos y retiros reemplaza a cantidad y precio | muestra lo que de verdad se usa en una orden por monto, y cumple LIS-5 | sección 6.2 |
+| El identificador va en el cuerpo (`clientOrderId`), no en un encabezado | es un dato de la orden, como el `ClOrdID` de FIX | sección 6.5 |
+| Los números configurables: 20 resultados, 50 caracteres, páginas de 20 (máximo 100), turno de 2 segundos | cada uno con su porqué | sección 6.6 |
+| Se publica la especificación OpenAPI con springdoc-openapi (necesita ADR) | quien evalúa recorre la API desde el navegador, y la especificación sale del código | sección 6.7 |
 
 **ADR**
 
