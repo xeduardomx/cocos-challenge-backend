@@ -913,6 +913,30 @@ no pide** (cancelar y listar órdenes) y deja afuera las transferencias. Cada co
   [NSX, Order identification](https://docs.nsx.com.au/ncd/order-identification),
   [IETF, borrador The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/).
 
+### Riesgos y supuestos del análisis: repaso
+
+Todos quedaron resueltos en otras decisiones o se confirman. Este es el mapa:
+
+| # | Qué era | Cómo quedó |
+|---|---|---|
+| R-1 | Dos órdenes al mismo tiempo gastan la misma plata | **D-1:** las órdenes de un usuario se procesan de a una; el mecanismo, en el RFC. Test: dos ventas de 15 BMA teniendo 20 dejan una `FILLED` y una `REJECTED` |
+| R-2 | Un reintento compra dos veces | **R-2:** identificador de orden obligatorio |
+| R-3 | Redondeo | **A-6, parte 2:** la cantidad por monto se corta para abajo. **D-4:** plata y precios con 2 decimales; los cálculos se redondean solo al final (el modo, en el RFC) |
+| R-4 | Rendimiento con costo cero | **A-2:** con precio > 0 en la base, el costo cero es imposible; con posición ≤ 0, rendimiento vacío |
+| R-5 | Neon es modificable por cualquiera que tenga la URL | **"Base de Neon":** todo corre contra la copia local; Neon, solo lectura |
+| S-1 | Los precios ya están en pesos | **Se confirma:** los 65 instrumentos son `ACCIONES` locales y el otro es ARS; no hay nada que convertir |
+| S-2 | El último precio es la fila más reciente, sin importar la fecha de hoy | **D-3**, decisiones 1 y 2 |
+| S-3 | Las recomendaciones de A-1 a A-7 | Ya no son supuestos: son decisiones cerradas. Se saca en la reescritura del análisis |
+| S-4 | Las fechas existentes están en hora argentina | **D-10** |
+| S-5 | Sin autenticación: el usuario viene en el pedido | **Se confirma,** con la limitación de abajo |
+
+**S-5, limitación documentada.** El enunciado lo dice explícitamente: *"NO es necesario implementar autenticación de
+usuarios"*. Por eso el usuario viene en el pedido, y la consecuencia es que cualquiera puede consultar el portfolio de
+otro usuario o mandar órdenes en su nombre, solo cambiando el número. Las reglas de A-7 (la orden de otro usuario se
+trata como inexistente) y de R-2 (identificador único por usuario) son coherentes con el modelo, pero no protegen la
+privacidad. En producción, el usuario saldría de la sesión autenticada y no del pedido. Queda fuera de alcance por
+decisión del enunciado, no por omisión.
+
 ## Inventario: lo que agregamos o cambiamos respecto del enunciado
 
 Todo lo que no sale literal del enunciado, en un solo lugar y con el enlace a su porqué. Se mantiene al día con cada
@@ -985,6 +1009,7 @@ bloque del esquema" (abajo), y cada uno se decide y justifica en el RFC (fase 3)
 | Transferencias por API | no se piden; la plata entra desde el banco; `size` entero | A-7 |
 | Detalle de una orden por id | el listado alcanza | A-7 |
 | Identificador de orden opcional, o generado por el servidor | sin identificador no hay protección, y uno generado por el servidor no protege el reintento | R-2 |
+| Autenticación de usuarios | el enunciado dice que no es necesaria; la consecuencia queda documentada como limitación | S-5 |
 
 ## Lo que falta, en orden
 
@@ -997,15 +1022,18 @@ bloque del esquema" (abajo), y cada uno se decide y justifica en el RFC (fase 3)
    cursor) sí; transferencias por API, no.
 5. ~~**Bloque del esquema**~~ Pasa al RFC (fase 3), decidido el 2026-11-06: es trabajo técnico, y `CLAUDE.md` pone
    "modelo y cambios a la base" en el RFC. La lista de abajo queda escrita como insumo.
-6. **Repaso rápido de riesgos (R-1 a R-5) y supuestos (S-1 a S-5)** del análisis. R-2 (reintentos), cerrada:
-   identificador de orden obligatorio. Varios ya quedaron resueltos en otras decisiones: la concurrencia en D-1, el
-   redondeo en A-6, el costo cero en A-2, la base compartida en "Base de Neon". Falta confirmar el resto.
-   ← **siguiente**
-7. **Repaso final de dudas sobre los conceptos.**
+6. ~~**Repaso rápido de riesgos (R-1 a R-5) y supuestos (S-1 a S-5)**~~ Cerrado: R-2 con identificador de orden
+   obligatorio; el resto, resuelto en otras decisiones o confirmado (ver "Riesgos y supuestos del análisis: repaso").
+7. **Repaso final de dudas sobre los conceptos.** Pospuesto a pedido del autor: se hace más adelante.
 8. **Reescritura de `01-analisis.md`** con estas decisiones, y recálculo de los números de referencia del usuario 1.
    Incluye el inventario de arriba, y saca o corrige lo que estas decisiones dejaron viejo: la sección de preguntas
    para Cocos (no se envían), "LIMIT sobre PGR → `NEW`" (D-2 la cambió a `REJECTED`) y "1 letra → 400" (A-5 la
-   permite).
+   permite). ← **siguiente**
+
+### Ideas anotadas para fases siguientes
+
+- **Fase 7 (portal) o README:** "Las decisiones clave en 12 preguntas", cada una con su respuesta corta y el enlace a
+  la decisión, para que quien evalúa vea en dos minutos qué se pensó y dónde está el detalle.
 
 Las ambigüedades se cerraron antes que el esquema porque varias decisiones del esquema dependen de ellas: A-4 define
 si hay tabla de posiciones; A-5, qué índices y extensiones necesita la búsqueda; A-6, si una orden rechazada puede
