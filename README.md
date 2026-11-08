@@ -52,6 +52,15 @@ Recorre la API completa en nueve pasos, con sus tests, y se corre con Newman en 
 Va sobre los datos originales (el paso 1 espera $627.500 disponibles), así que corre sobre un `docker compose up` nuevo:
 una segunda corrida sin bajar y volver a levantar falla. Para usarla desde Postman, importá los dos archivos de `postman/`.
 
+## Tiempo de respuesta con volumen
+
+Levanta todo de cero, carga 2 millones de órdenes, mide las cinco funciones con k6 y baja todo al terminar. El resultado
+está en `docs/mediciones/06-tiempo-de-respuesta.md`:
+
+```bash
+./scripts/run-load-test.sh
+```
+
 ## Tests
 
 ```bash
