@@ -1,12 +1,15 @@
 package com.cocos.challenge.orders;
 
+import com.cocos.challenge.orders.listing.OrderCursor;
 import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.shared.domain.OrderStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -31,6 +34,18 @@ public class OrderRepository {
           from orders o join instruments i on i.id = o.instrumentid
           where o.userid = :userId and o.id = :orderId
           """;
+  // The page query is built from these fixed clauses; the values always go as named parameters.
+  // No "(:cursor is null or ...)": Postgres could fall to a generic plan that does not use the
+  // cursor on the index.
+  private static final String PAGE_FROM =
+      """
+      from orders o join instruments i on i.id = o.instrumentid
+      where o.userid = :userId
+      """;
+  private static final String PAGE_STATUS_CLAUSE = "and o.status = :status\n";
+  private static final String PAGE_CURSOR_CLAUSE =
+      "and (o.datetime, o.id) < (:cursorDatetime, :cursorId)\n";
+  private static final String PAGE_ORDER = "order by o.datetime desc, o.id desc limit :limit";
   // the update locks the row of the order: a second cancellation waits and then finds it no longer
   // NEW
   private static final String CANCEL_IF_NEW =
@@ -77,6 +92,30 @@ public class OrderRepository {
         .param("orderId", orderId)
         .query(ORDER_MAPPER)
         .optional();
+  }
+
+  /**
+   * The newest orders of the user first, from after the cursor if there is one, filtered by status
+   * if there is one. At most {@code limit} orders.
+   */
+  public List<StoredOrder> findPage(
+      long userId, @Nullable OrderStatus status, @Nullable OrderCursor after, int limit) {
+    String sql =
+        SELECT
+            + PAGE_FROM
+            + (status == null ? "" : PAGE_STATUS_CLAUSE)
+            + (after == null ? "" : PAGE_CURSOR_CLAUSE)
+            + PAGE_ORDER;
+    JdbcClient.StatementSpec statement =
+        jdbc.sql(sql).param("userId", userId).param("limit", limit);
+    if (status != null) {
+      statement = statement.param("status", status.name());
+    }
+    if (after != null) {
+      statement =
+          statement.param("cursorDatetime", after.createdAt()).param("cursorId", after.orderId());
+    }
+    return statement.query(ORDER_MAPPER).list();
   }
 
   /** Cancels the order if it is the user's and still NEW; empty when no row changed. */
