@@ -1,6 +1,5 @@
 package com.cocos.challenge.orders;
 
-import com.cocos.challenge.orders.listing.OrderCursor;
 import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.shared.domain.OrderStatus;
 import java.sql.ResultSet;
@@ -43,16 +42,16 @@ public class OrderRepository {
       where o.userid = :userId
       """;
   private static final String PAGE_STATUS_CLAUSE = "and o.status = :status\n";
-  private static final String PAGE_CURSOR_CLAUSE =
-      "and (o.datetime, o.id) < (:cursorDatetime, :cursorId)\n";
+  private static final String PAGE_AFTER_CLAUSE =
+      "and (o.datetime, o.id) < (:afterDatetime, :afterId)\n";
   private static final String PAGE_ORDER = "order by o.datetime desc, o.id desc limit :limit";
   // the update locks the row of the order: a second cancellation waits and then finds it no longer
   // NEW
   private static final String CANCEL_IF_NEW =
       """
       with o as (
-        update orders set status = 'CANCELLED'
-        where id = :orderId and userid = :userId and status = 'NEW'
+        update orders set status = :cancelledStatus
+        where id = :orderId and userid = :userId and status = :newStatus
         returning *)
       """
           + SELECT
@@ -95,16 +94,16 @@ public class OrderRepository {
   }
 
   /**
-   * The newest orders of the user first, from after the cursor if there is one, filtered by status
-   * if there is one. At most {@code limit} orders.
+   * The newest orders of the user first, from after the key if there is one, filtered by status if
+   * there is one. At most {@code limit} orders.
    */
   public List<StoredOrder> findPage(
-      long userId, @Nullable OrderStatus status, @Nullable OrderCursor after, int limit) {
+      long userId, @Nullable OrderStatus status, @Nullable OrderSortKey after, int limit) {
     String sql =
         SELECT
             + PAGE_FROM
             + (status == null ? "" : PAGE_STATUS_CLAUSE)
-            + (after == null ? "" : PAGE_CURSOR_CLAUSE)
+            + (after == null ? "" : PAGE_AFTER_CLAUSE)
             + PAGE_ORDER;
     JdbcClient.StatementSpec statement =
         jdbc.sql(sql).param("userId", userId).param("limit", limit);
@@ -113,7 +112,7 @@ public class OrderRepository {
     }
     if (after != null) {
       statement =
-          statement.param("cursorDatetime", after.createdAt()).param("cursorId", after.orderId());
+          statement.param("afterDatetime", after.createdAt()).param("afterId", after.orderId());
     }
     return statement.query(ORDER_MAPPER).list();
   }
@@ -123,6 +122,8 @@ public class OrderRepository {
     return jdbc.sql(CANCEL_IF_NEW)
         .param("userId", userId)
         .param("orderId", orderId)
+        .param("cancelledStatus", OrderStatus.CANCELLED.name())
+        .param("newStatus", OrderStatus.NEW.name())
         .query(ORDER_MAPPER)
         .optional();
   }

@@ -1,4 +1,4 @@
-/** From a validated request to a sized order. */
+/** From a validated request to a recorded order, recognizing the retry of one already recorded. */
 @NullMarked
 package com.cocos.challenge.orders.submission;
 
