@@ -21,8 +21,17 @@ public class ApiClient {
   private final RestClient client;
 
   public ApiClient(int port) {
+    this(port, new HttpHeaders());
+  }
+
+  /** Sends these headers in every request. */
+  public ApiClient(int port, HttpHeaders defaultHeaders) {
     this.baseUrl = "http://localhost:" + port;
-    this.client = RestClient.builder().baseUrl(baseUrl).build();
+    this.client =
+        RestClient.builder()
+            .baseUrl(baseUrl)
+            .defaultHeaders(headers -> headers.addAll(defaultHeaders))
+            .build();
   }
 
   /** The path may have URI variables, which are encoded as values. */
@@ -42,15 +51,6 @@ public class ApiClient {
         .uri(path)
         .contentType(MediaType.APPLICATION_JSON)
         .body(rawJson)
-        .exchange(ApiClient::toResponse);
-  }
-
-  public ApiResponse post(String path, Object body) {
-    return client
-        .post()
-        .uri(path)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(body)
         .exchange(ApiClient::toResponse);
   }
 

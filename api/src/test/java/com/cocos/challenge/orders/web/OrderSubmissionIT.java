@@ -20,6 +20,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import tools.jackson.databind.JsonNode;
 
@@ -38,6 +39,9 @@ class OrderSubmissionIT {
   private static final Duration FAST = Duration.ofSeconds(1);
   private static final String VALIDATION_ERROR = "/problems/validation-error";
   private static final String INVALID_ORDER = "/problems/invalid-order";
+  private static final String ORDERS_OF_USER_ONE = "/users/" + USER_ONE + "/orders";
+  // src/test/resources has an English translation of the two texts the test checks
+  private static final String ENGLISH = "en";
 
   @LocalServerPort private int port;
   @Autowired private TestData data;
@@ -364,6 +368,23 @@ class OrderSubmissionIT {
     assertThat(response.json().get("errors").get(0).get("field").asString())
         .isEqualTo("clientOrderId");
     assertThat(response.json().get("errors").get(0).get("message").asString())
+        .isEqualTo("Falta el identificador de la orden (clientOrderId).");
+  }
+
+  @Test
+  void answersInSpanishWhateverLanguageTheClientAsksFor() {
+    HttpHeaders english = new HttpHeaders();
+    english.set(HttpHeaders.ACCEPT_LANGUAGE, ENGLISH);
+    ApiClient englishClient = new ApiClient(port, english);
+    String withoutClientOrderId =
+        "{ \"instrumentId\": 47, \"side\": \"BUY\", \"type\": \"MARKET\", \"quantity\": 10 }";
+
+    ApiResponse rejected = englishClient.post(ORDERS_OF_USER_ONE, buy(PAMP, "\"amount\": 700000"));
+    ApiResponse refused = englishClient.post(ORDERS_OF_USER_ONE, withoutClientOrderId);
+
+    assertThat(rejected.json().get("rejectionMessage").asString())
+        .isEqualTo("No alcanzan los pesos disponibles para esta orden.");
+    assertThat(refused.json().get("errors").get(0).get("message").asString())
         .isEqualTo("Falta el identificador de la orden (clientOrderId).");
   }
 
