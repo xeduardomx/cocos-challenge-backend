@@ -48,7 +48,7 @@ jobs:
       - name: Check out the code
         uses: actions/checkout@v7
 
-      - name: Start the API and its database
+      - name: Start the API, its database, Prometheus and Grafana
         run: docker compose up -d --build --wait
 
       - name: Run the smoke test

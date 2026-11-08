@@ -35,6 +35,7 @@ class MetricsIT {
   private static final String REPLAYED = "orders_replayed_total";
   private static final String CANCELLED = "orders_cancelled_total";
   private static final String TURN_WAITS = "orders_turn_wait_seconds_count";
+  private static final String TURN_WAIT_BUCKET = "orders_turn_wait_seconds_bucket{";
   private static final String HISTOGRAM_BUCKET = "http_server_requests_seconds_bucket{";
   private static final String PORTFOLIO_ROUTE = "uri=\"/users/{userId}/portfolio\"";
 
@@ -133,5 +134,12 @@ class MetricsIT {
 
     assertThat(scrape())
         .anyMatch(line -> line.startsWith(HISTOGRAM_BUCKET) && line.contains(PORTFOLIO_ROUTE));
+  }
+
+  @Test
+  void theWaitForTheTurnHasBucketsForThePercentile() {
+    assertThat(submit(marketBuy(UUID.randomUUID(), TEN_SHARES)).status()).isEqualTo(201);
+
+    assertThat(scrape()).anyMatch(line -> line.startsWith(TURN_WAIT_BUCKET));
   }
 }

@@ -18,20 +18,24 @@ docker compose up --build
 - API: http://localhost:8080
 - Especificación OpenAPI: http://localhost:8080/v3/api-docs
 - Página de la API: http://localhost:8080/swagger-ui.html
+- Prometheus: http://localhost:9090
+- Grafana, con el tablero "Cocos challenge API" como página de inicio y sin usuario ni clave: http://localhost:3000
 
-Los dos puertos se abren solo en tu máquina (`127.0.0.1`), no en la red. Si alguno está ocupado, se mueve con una
-variable: `POSTGRES_PORT` para el Postgres (5433 si no se dice) y `API_PORT` para la API (8080 si no se dice), por
-ejemplo `POSTGRES_PORT=5434 API_PORT=8081 docker compose up --build`. Con otro puerto para la API, los scripts lo
-reciben en `API_URL`: `API_URL=http://localhost:8081 ./scripts/smoke-test.sh`.
+Los puertos se abren solo en tu máquina (`127.0.0.1`), no en la red. Si alguno está ocupado, se mueve con una
+variable: `POSTGRES_PORT` para el Postgres (5433 si no se dice), `API_PORT` para la API (8080), `PROMETHEUS_PORT`
+(9090) y `GRAFANA_PORT` (3000), por ejemplo `POSTGRES_PORT=5434 API_PORT=8081 docker compose up --build`. Con otro
+puerto, los scripts lo reciben en `API_URL`, `PROMETHEUS_URL` y `GRAFANA_URL`:
+`API_URL=http://localhost:8081 ./scripts/smoke-test.sh`.
 
 La base se arma con `docs/00-fuentes/database.sql` y las migraciones de la API, y vive en memoria (`tmpfs`): cada
-`docker compose up` arranca con los datos originales.
+`docker compose up` arranca con los datos originales. Prometheus y Grafana también arrancan de cero: no dejan
+volúmenes.
 
 Para bajar todo: `docker compose down`.
 
 ## Prueba de humo
 
-Con la API levantada, pide el portfolio del usuario 1 y verifica sus números:
+Con todo levantado, verifica que Prometheus lea la API, que Grafana tenga el tablero, y pide el portfolio del usuario 1 con sus números:
 
 ```bash
 ./scripts/smoke-test.sh
