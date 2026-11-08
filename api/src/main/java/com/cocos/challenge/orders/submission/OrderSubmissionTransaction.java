@@ -16,7 +16,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-/** One attempt to submit an order, all in one transaction (RFC 5.3). */
+/**
+ * One attempt to submit an order, all in one transaction that starts by taking the turn of the user
+ * (RFC 5.2 and 5.3). It stays in READ COMMITTED: once a second order of the user gets the turn, its
+ * account has to include the order that held it.
+ */
 @Service
 public class OrderSubmissionTransaction {
 
@@ -43,6 +47,7 @@ public class OrderSubmissionTransaction {
 
   @Transactional(isolation = Isolation.READ_COMMITTED)
   public SubmissionResult submit(SubmitOrderCommand command) {
+    accounts.takeTurn(command.userId());
     RequestFingerprint fingerprint = RequestFingerprint.of(command);
     Optional<StoredOrder> existing =
         orders.findByClientOrderId(command.userId(), command.clientOrderId());
