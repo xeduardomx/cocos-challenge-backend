@@ -713,7 +713,7 @@ clave duplicada, una sola orden). Esa regla queda como red: si la API alguna vez
 (Postgres no acepta más comandos en una transacción que tuvo un error) y vuelve a empezar desde el paso 1, como un
 reintento.
 
-**Con el turno tomado, nadie puede grabar una orden de ese usuario** (encontrado al implementar, fase 5). El chequeo de
+**Con el turno tomado, nadie más puede grabar una orden de ese usuario** (encontrado al implementar, fase 5). El chequeo de
 la clave foránea de `orders` hacia `users` pide un lock `FOR KEY SHARE` sobre la fila del usuario, que choca con el
 `FOR UPDATE` del turno. Así, todo `insert` en `orders` de ese usuario espera a que termine la orden en curso, venga de
 la API o de otro sistema. La red de unicidad solo se alcanza por un camino que no tome el turno, y el test la prueba
@@ -975,7 +975,8 @@ Spring Boot 4.1.2, la misma versión que usa la API.
 Todos los errores usan Problem Details (RFC 9457), con `Content-Type: application/problem+json`. Spring lo trae, y se
 prende con `spring.mvc.problemdetails.enabled: true` (por defecto viene apagado). A los campos estándar se suman tres:
 `requestId`, el id del pedido que también está en los logs (sección 8); `errors`, la lista de campos con problemas,
-en un 400 que tiene un campo concreto (un texto mal codificado en la dirección no lo tiene, y va sin `errors`); y `currentStatus`, el estado actual de la orden, en un 409.
+en un `validation-error` que tiene un campo concreto (un parámetro de la dirección que no se puede leer no lo tiene, y
+va sin `errors`); y `currentStatus`, el estado actual de la orden, en un 409.
 
 ```json
 {
@@ -1009,7 +1010,7 @@ Siguen los dos tipos de error del recorrido de un pedido (sección 2, pasos 2 y 
 
 | Código | `type` | Cuándo | Ejemplo de `detail` |
 |---|---|---|---|
-| 400 | `/problems/validation-error` | falta un dato, un valor no es válido o la combinación no tiene sentido; también un texto de búsqueda vacío o largo, un cursor que no se puede leer, un JSON mal armado o un campo desconocido | "Mandá la cantidad o el monto, no los dos." |
+| 400 | `/problems/validation-error` | falta un dato, un valor no es válido o la combinación no tiene sentido; también un texto de búsqueda vacío, largo o con un carácter nulo, un cursor que no se puede leer, un JSON mal armado, un campo desconocido o repetido, un número escrito como texto o en lugar del valor de un enum, o un parámetro de la dirección que no se puede leer | "Mandá la cantidad o el monto, no los dos." |
 | 400 | `/problems/invalid-order` | el activo no existe o es ARS; por monto, la cantidad da 0 o no entra en `size`; por monto y a mercado, el activo no cotiza | "Con $500 no alcanza para una acción de PAMP ($925,85)." |
 | 404 | `/problems/user-not-found` | el usuario de la dirección no existe | "No existe el usuario 99." |
 | 404 | `/problems/order-not-found` | la orden no existe, o es de otro usuario: la respuesta es la misma, para no confirmar órdenes ajenas (CAN-4) | "No existe la orden 999." |
@@ -1098,10 +1099,10 @@ del objetivo, como límite documentado (A-4): su portfolio lee unas 850.000 órd
   desconocidos y convierte un `2.5` en `2` sin avisar si el campo es entero. Se apagan las dos cosas:
   `spring.jackson.deserialization.fail-on-unknown-properties: true` y `accept-float-as-int: false`. Así, 2,5 acciones
   dan 400 (caso 14 del envío), en lugar de comprar 2 (principio 2). Con el mismo principio, al implementar (fase 5) se
-  apagaron dos cosas más que Jackson acepta por defecto: una clave repetida (`{"quantity": 1, "quantity": 3}` compraba
-  3), un número escrito como texto (`"quantity": "10"`) y un número en lugar del valor de un enum (`"side": 1`
-  grababa una venta). Las tres dan 400. Un número que no entra en su tipo, o un
-  texto mal codificado en la dirección, también dan 400, con el campo y un texto que dice qué está mal.
+  apagaron tres cosas más que Jackson acepta por defecto: una clave repetida (`{"quantity": 1, "quantity": 3}`
+  compraba 3), un número escrito como texto (`"quantity": "10"`) y un número en lugar del valor de un enum
+  (`"side": 1` grababa una venta). Las tres dan 400. Un número que no entra en su tipo da 400 con su campo, y un
+  parámetro de la dirección que no se puede leer (mal codificado o sin nombre), 400 con un texto que lo explica.
 - **SQL siempre con parámetros:** `JdbcClient` con parámetros con nombre. Ninguna consulta se arma pegando texto que
   viene del pedido.
 - **Secretos por variables de entorno,** nunca en el repo: `.env` está ignorado por git. La API recibe la dirección
@@ -1191,7 +1192,7 @@ Maven, con su wrapper (`mvnw`): quien construye no necesita tener Maven instalad
 - **NullAway encaja con Spring:** Spring Framework 7 marca con JSpecify qué puede ser `null` en su propia API.
 - **Por qué no más herramientas:** Checkstyle repite lo que ya hace el formateador. SpotBugs y PMD buscan en buena
   parte los mismos errores que Error Prone, y cada herramienta suma reglas para ajustar. SonarCloud necesita una
-  cuenta externa, y el repo es privado hasta la fase 8.
+  cuenta externa, y cuando se decidió el repo iba a ser privado hasta la fase 8.
 - **Lo que ninguna herramienta controla** (sin números mágicos, nombres claros, métodos cortos) se cuida en la
   revisión de cada PR, con la vara de `CLAUDE.md`.
 
@@ -1277,7 +1278,7 @@ for MkDocs, del mismo equipo y con licencia MIT. Dibuja los diagramas de Mermaid
 - **El riesgo:** Zensical está en beta (0.1.0). La fase 7 arranca con una prueba corta, armando el portal con estos
   documentos. Si algo no se ve bien, la alternativa es Docusaurus (3.10.2, con un tema oficial para Mermaid): es
   estable, pero necesita Node y más configuración.
-- Se publica en GitHub Pages cuando el repo pase a público (fase 8), construido por CI.
+- Se publica en GitHub Pages, construido por CI (el repo es público desde el 2026-11-08).
 
 Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Grafana) y su orden quedan para el plan
 (fase 4).
