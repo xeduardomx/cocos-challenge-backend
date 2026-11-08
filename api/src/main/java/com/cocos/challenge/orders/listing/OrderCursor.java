@@ -14,6 +14,8 @@ import java.util.Base64;
 public record OrderCursor(OffsetDateTime createdAt, long orderId) {
 
   private static final char SEPARATOR = '|';
+  private static final Instant EARLIEST_CURSOR_TIME = Instant.parse("0001-01-01T00:00:00Z");
+  private static final Instant LATEST_CURSOR_TIME = Instant.parse("9999-12-31T23:59:59.999999Z");
 
   public String encode() {
     String content = createdAt.toInstant().toString() + SEPARATOR + orderId;
@@ -22,7 +24,12 @@ public record OrderCursor(OffsetDateTime createdAt, long orderId) {
         .encodeToString(content.getBytes(StandardCharsets.UTF_8));
   }
 
-  /** Reads the text that {@link #encode()} wrote; any other text is an invalid argument. */
+  /**
+   * Reads the text that {@link #encode()} wrote; any other text is an invalid argument. A valid
+   * cursor always comes from a stored order, and Postgres does not hold the whole range of {@link
+   * Instant}, so a time outside the years 1 to 9999 is rejected here instead of failing in the
+   * query.
+   */
   public static OrderCursor decode(String text) {
     String content = new String(Base64.getUrlDecoder().decode(text), StandardCharsets.UTF_8);
     int separator = content.indexOf(SEPARATOR);
@@ -31,6 +38,9 @@ public record OrderCursor(OffsetDateTime createdAt, long orderId) {
     }
     try {
       Instant createdAt = Instant.parse(content.substring(0, separator));
+      if (createdAt.isBefore(EARLIEST_CURSOR_TIME) || createdAt.isAfter(LATEST_CURSOR_TIME)) {
+        throw new IllegalArgumentException("The cursor date is out of range");
+      }
       long orderId = Long.parseLong(content.substring(separator + 1));
       return new OrderCursor(createdAt.atOffset(ZoneOffset.UTC), orderId);
     } catch (DateTimeException e) {

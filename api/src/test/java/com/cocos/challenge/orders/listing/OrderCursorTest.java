@@ -45,7 +45,9 @@ class OrderCursorTest {
         "not-a-date|12",
         "2026-11-08T14:02:15.483921Z|twelve",
         "2026-11-08T14:02:15.483921Z|",
-        "|12"
+        "|12",
+        "+999999999-12-31T23:59:59Z|1",
+        "-999999999-01-01T00:00:00Z|1"
       })
   void rejectsValidBase64WithOtherContent(String content) {
     String text =

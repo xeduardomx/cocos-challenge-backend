@@ -1,5 +1,6 @@
 package com.cocos.challenge.orders.web;
 
+import static java.util.Comparator.reverseOrder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cocos.challenge.shared.domain.OrderSide;
@@ -8,8 +9,10 @@ import com.cocos.challenge.support.ApiClient.ApiResponse;
 import com.cocos.challenge.support.IntegrationTest;
 import com.cocos.challenge.support.TestData;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,9 +71,9 @@ class OrderListingIT {
     data.pendingAt(user, PAMP, 2, PRICE, SOME_TIME);
 
     ApiResponse all = api.get(LIST, user);
-    List<Long> walked = walk(user, 1, "");
+    List<Long> walked = walk(user, 1);
 
-    assertThat(ids(all)).hasSize(2).isSortedAccordingTo(java.util.Comparator.reverseOrder());
+    assertThat(ids(all)).hasSize(2).isSortedAccordingTo(reverseOrder());
     assertThat(walked).containsExactlyElementsOf(ids(all));
   }
 
@@ -140,10 +143,10 @@ class OrderListingIT {
       data.pendingAt(user, PAMP, 1, PRICE, SOME_TIME.plusNanos(i * 1000L));
     }
 
-    List<Long> walked = walk(user, 2, "");
+    List<Long> walked = walk(user, 2);
 
     assertThat(walked).hasSize(5).doesNotHaveDuplicates();
-    assertThat(walked).isSortedAccordingTo(java.util.Comparator.reverseOrder());
+    assertThat(walked).isSortedAccordingTo(reverseOrder());
   }
 
   @Test
@@ -174,6 +177,20 @@ class OrderListingIT {
   }
 
   @Test
+  void rejectsACursorWithADateThatTheDatabaseCannotHold() {
+    String content = "+999999999-12-31T23:59:59Z|1";
+    String cursor =
+        Base64.getUrlEncoder()
+            .withoutPadding()
+            .encodeToString(content.getBytes(StandardCharsets.UTF_8));
+
+    ApiResponse response = api.get(LIST_PAGE, USER_ONE, 5, cursor);
+
+    assertThat(response.status()).isEqualTo(400);
+    assertThat(field(response)).isEqualTo("cursor");
+  }
+
+  @Test
   void rejectsAPageSizeOutOfRange() {
     for (int limit : new int[] {101, 0}) {
       ApiResponse response = api.get(LIST_WITH_LIMIT, USER_ONE, limit);
@@ -201,9 +218,9 @@ class OrderListingIT {
   }
 
   /** Follows nextCursor until the end and returns the ids in the order they came. */
-  private List<Long> walk(long userId, int limit, String firstCursor) {
+  private List<Long> walk(long userId, int limit) {
     List<Long> walked = new ArrayList<>();
-    String cursor = firstCursor;
+    String cursor = "";
     do {
       ApiResponse page =
           cursor.isEmpty()
