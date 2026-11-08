@@ -1,5 +1,6 @@
 package com.cocos.challenge.support;
 
+import com.cocos.challenge.orders.OrderType;
 import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.shared.domain.OrderStatus;
 import java.math.BigDecimal;
@@ -18,8 +19,6 @@ public class TestData {
 
   private static final long ARS = 66;
   private static final BigDecimal CASH_PRICE = BigDecimal.ONE;
-  private static final String ORDER_TYPE_MARKET = "MARKET";
-  private static final String ORDER_TYPE_LIMIT = "LIMIT";
 
   private static final String INSERT_USER =
       "insert into users (email, accountNumber) values (:email, :accountNumber) returning id";
@@ -53,15 +52,15 @@ public class TestData {
   /** A deposit is {@code amount} pesos at price 1. */
   public void deposit(long userId, int amount) {
     insertOrder(
-        userId, ARS, OrderSide.CASH_IN, OrderStatus.FILLED, ORDER_TYPE_MARKET, amount, CASH_PRICE);
+        userId, ARS, OrderSide.CASH_IN, OrderStatus.FILLED, OrderType.MARKET, amount, CASH_PRICE);
   }
 
   public void fill(long userId, long instrumentId, OrderSide side, int size, BigDecimal price) {
-    insertOrder(userId, instrumentId, side, OrderStatus.FILLED, ORDER_TYPE_MARKET, size, price);
+    insertOrder(userId, instrumentId, side, OrderStatus.FILLED, OrderType.MARKET, size, price);
   }
 
   public void pending(long userId, long instrumentId, OrderSide side, int size, BigDecimal price) {
-    insertOrder(userId, instrumentId, side, OrderStatus.NEW, ORDER_TYPE_LIMIT, size, price);
+    insertOrder(userId, instrumentId, side, OrderStatus.NEW, OrderType.LIMIT, size, price);
   }
 
   /** Records a day without trades: open, high and low stay empty. */
@@ -80,7 +79,7 @@ public class TestData {
       long instrumentId,
       OrderSide side,
       OrderStatus status,
-      String type,
+      OrderType type,
       int size,
       BigDecimal price) {
     jdbc.sql(INSERT_ORDER)
@@ -90,7 +89,7 @@ public class TestData {
         .param("price", price)
         .param("side", side.name())
         .param("status", status.name())
-        .param("type", type)
+        .param("type", type.name())
         .update();
   }
 }
