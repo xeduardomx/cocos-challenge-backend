@@ -35,7 +35,8 @@ public class OrderQueryService {
       long userId, @Nullable OrderStatus status, @Nullable Integer limit, @Nullable String cursor) {
     accounts.ensureExists(userId);
     int size = pageSize(limit);
-    OrderSortKey after = cursor == null ? null : sortKeyIn(cursor);
+    // a blank cursor counts as none, as a blank limit or status does: the first page
+    OrderSortKey after = cursor == null || cursor.isBlank() ? null : sortKeyIn(cursor);
     // one more than the page: if it arrives, there is a next page (A-7)
     List<StoredOrder> found = orders.findPage(userId, status, after, size + SENTINEL);
     if (found.size() <= size) {

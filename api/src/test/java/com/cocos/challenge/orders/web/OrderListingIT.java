@@ -16,6 +16,8 @@ import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import tools.jackson.databind.JsonNode;
@@ -174,6 +176,16 @@ class OrderListingIT {
     assertThat(response.json().get("type").asString()).isEqualTo(VALIDATION_ERROR);
     assertThat(field(response)).isEqualTo("cursor");
     assertThat(response.json().get("detail").asString()).isEqualTo(BAD_CURSOR_TEXT);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"", "   "})
+  void takesABlankCursorAsTheFirstPage(String cursor) {
+    ApiResponse response = api.get(LIST_PAGE, USER_ONE, 5, cursor);
+
+    assertThat(response.status()).isEqualTo(200);
+    assertThat(ids(response)).containsExactly(11L, 10L, 9L, 8L, 7L);
+    assertThat(response.json().get("nextCursor").isNull()).isFalse();
   }
 
   @Test
