@@ -1,4 +1,4 @@
-/** The orders: submission, evaluation and the rules that decide their status. */
+/** The orders: submission, evaluation, cancellation and listing, and the model they share. */
 @NullMarked
 package com.cocos.challenge.orders;
 

@@ -2,8 +2,11 @@ package com.cocos.challenge.shared.error;
 
 import com.cocos.challenge.shared.display.DisplayProperties;
 import com.cocos.challenge.shared.web.RequestIds;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +26,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.databind.exc.InvalidFormatException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /** Turns every error into a Problem Details response (RFC 7). */
@@ -39,6 +42,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
   private static final String MALFORMED_KEY = "request.malformed";
   private static final String UNKNOWN_FIELD_KEY = "request.unknown-field";
   private static final String INVALID_VALUE_KEY = "request.invalid-value";
+  private static final String INVALID_VALUE_OPTIONS_KEY = "request.invalid-value-options";
+  private static final String OPTIONS_SEPARATOR = ", ";
+  private static final String UNREADABLE_PARAMETERS_KEY = "request.unreadable-parameters";
   private static final String UNEXPECTED_KEY = "error.unexpected";
 
   private final MessageSource messages;
@@ -62,6 +68,19 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ex.retryAfter()
         .ifPresent(wait -> headers.set(HttpHeaders.RETRY_AFTER, String.valueOf(wait.toSeconds())));
     return handleExceptionInternal(ex, problem, headers, type.status(), request);
+  }
+
+  /**
+   * Tomcat reads the parameters the first time one is asked for, and fails if it cannot: a value
+   * that is not UTF-8, a parameter without a name, or more parameters than it accepts. It does not
+   * say which one, so the problem names no field.
+   */
+  @ExceptionHandler(InvalidParameterException.class)
+  @Nullable ResponseEntity<Object> handleUnreadableParameters(
+      InvalidParameterException ex, WebRequest request) {
+    ProblemDetail problem = problem(ProblemType.VALIDATION_ERROR, text(UNREADABLE_PARAMETERS_KEY));
+    return handleExceptionInternal(
+        ex, problem, new HttpHeaders(), ProblemType.VALIDATION_ERROR.status(), request);
   }
 
   @ExceptionHandler(Exception.class)
@@ -91,11 +110,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
       HttpHeaders headers,
       HttpStatusCode status,
       WebRequest request) {
-    FieldViolation violation =
-        ex.getCause() instanceof MismatchedInputException mismatch
-            ? mismatchViolation(mismatch)
-            : new FieldViolation(BODY_FIELD, text(MALFORMED_KEY));
-    return validationProblem(ex, List.of(violation), headers, request);
+    return validationProblem(ex, List.of(bodyViolation(ex.getCause())), headers, request);
   }
 
   @Override
@@ -105,8 +120,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ex instanceof MethodArgumentTypeMismatchException argument
             ? argument.getName()
             : propertyNameOrDefault(ex);
-    FieldViolation violation = new FieldViolation(field, text(INVALID_VALUE_KEY, field));
-    return validationProblem(ex, List.of(violation), headers, request);
+    return validationProblem(
+        ex, List.of(invalidValue(field, ex.getRequiredType())), headers, request);
   }
 
   private @Nullable ResponseEntity<Object> validationProblem(
@@ -121,11 +136,35 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ex, problem, headers, ProblemType.VALIDATION_ERROR.status(), request);
   }
 
-  private FieldViolation mismatchViolation(MismatchedInputException mismatch) {
-    String field = lastPropertyName(mismatch);
-    String key =
-        mismatch instanceof UnrecognizedPropertyException ? UNKNOWN_FIELD_KEY : INVALID_VALUE_KEY;
-    return new FieldViolation(field, text(key, field));
+  /**
+   * Jackson gives the path of the value it could not read, such as a number that does not fit its
+   * field: the problem names that field. Only an error without a path is a malformed body.
+   */
+  private FieldViolation bodyViolation(@Nullable Throwable cause) {
+    if (!(cause instanceof JacksonException jackson) || jackson.getPath().isEmpty()) {
+      return new FieldViolation(BODY_FIELD, text(MALFORMED_KEY));
+    }
+    String field = lastPropertyName(jackson);
+    if (jackson instanceof UnrecognizedPropertyException) {
+      return new FieldViolation(field, text(UNKNOWN_FIELD_KEY, field));
+    }
+    Class<?> targetType =
+        jackson instanceof InvalidFormatException invalid ? invalid.getTargetType() : null;
+    return invalidValue(field, targetType);
+  }
+
+  /**
+   * When the value had to be one of an enum, the text lists them: the client learns what to send.
+   */
+  private FieldViolation invalidValue(String field, @Nullable Class<?> targetType) {
+    if (targetType == null || !targetType.isEnum()) {
+      return new FieldViolation(field, text(INVALID_VALUE_KEY, field));
+    }
+    String options =
+        Arrays.stream(targetType.getEnumConstants())
+            .map(constant -> ((Enum<?>) constant).name())
+            .collect(Collectors.joining(OPTIONS_SEPARATOR));
+    return new FieldViolation(field, text(INVALID_VALUE_OPTIONS_KEY, field, options));
   }
 
   private static String lastPropertyName(JacksonException exception) {

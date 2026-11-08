@@ -20,6 +20,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import tools.jackson.databind.JsonNode;
 
@@ -38,6 +39,9 @@ class OrderSubmissionIT {
   private static final Duration FAST = Duration.ofSeconds(1);
   private static final String VALIDATION_ERROR = "/problems/validation-error";
   private static final String INVALID_ORDER = "/problems/invalid-order";
+  private static final String ORDERS_OF_USER_ONE = "/users/" + USER_ONE + "/orders";
+  // src/test/resources has an English translation of the two texts the test checks
+  private static final String ENGLISH = "en";
 
   @LocalServerPort private int port;
   @Autowired private TestData data;
@@ -327,6 +331,14 @@ class OrderSubmissionIT {
             "{ " + id + pamp + market + "\"quantity\": 10, \"prise\": 900 }",
             VALIDATION_ERROR),
         Arguments.of(
+            "repeated quantity",
+            "{ " + id + pamp + market + "\"quantity\": 1, \"quantity\": 3 }",
+            VALIDATION_ERROR),
+        Arguments.of(
+            "amount written as text",
+            "{ " + id + pamp + market + "\"amount\": \"10000\" }",
+            VALIDATION_ERROR),
+        Arguments.of(
             "instrument that does not exist",
             "{ " + id + "\"instrumentId\": 999, " + market + "\"quantity\": 10 }",
             INVALID_ORDER),
@@ -354,6 +366,31 @@ class OrderSubmissionIT {
     assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS);
   }
 
+  static Stream<Arguments> numbersInPlaceOfAnEnumValue() {
+    // as positions, 1 would be SELL and LIMIT: both orders would be valid and recorded
+    return Stream.of(
+        Arguments.of(
+            "side",
+            order(UUID.randomUUID(), PAMP, "\"side\": 1, \"type\": \"MARKET\", \"quantity\": 10")),
+        Arguments.of(
+            "type",
+            order(
+                UUID.randomUUID(),
+                PAMP,
+                "\"side\": \"BUY\", \"type\": 1, \"quantity\": 10, \"price\": 900")));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("numbersInPlaceOfAnEnumValue")
+  void refusesANumberInPlaceOfAnEnumValue(String field, String json) {
+    ApiResponse response = submit(USER_ONE, json);
+
+    assertThat(response.status()).isEqualTo(400);
+    assertThat(response.json().get("type").asString()).isEqualTo(VALIDATION_ERROR);
+    assertThat(response.json().get("errors").get(0).get("field").asString()).isEqualTo(field);
+    assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS);
+  }
+
   @Test
   void explainsAValidationErrorInSpanish() {
     ApiResponse response =
@@ -364,6 +401,40 @@ class OrderSubmissionIT {
     assertThat(response.json().get("errors").get(0).get("field").asString())
         .isEqualTo("clientOrderId");
     assertThat(response.json().get("errors").get(0).get("message").asString())
+        .isEqualTo("Falta el identificador de la orden (clientOrderId).");
+  }
+
+  @Test
+  void listsTheValuesASideCanTake() {
+    ApiResponse response =
+        submit(
+            USER_ONE,
+            order(
+                UUID.randomUUID(),
+                PAMP,
+                "\"side\": \"COMPRA\", \"type\": \"MARKET\", \"quantity\": 10"));
+
+    JsonNode error = response.json().get("errors").get(0);
+    assertThat(error.get("field").asString()).isEqualTo("side");
+    assertThat(error.get("message").asString())
+        .isEqualTo(
+            "El valor de side no es válido: tiene que ser uno de BUY, SELL, CASH_IN, CASH_OUT.");
+  }
+
+  @Test
+  void answersInSpanishWhateverLanguageTheClientAsksFor() {
+    HttpHeaders english = new HttpHeaders();
+    english.set(HttpHeaders.ACCEPT_LANGUAGE, ENGLISH);
+    ApiClient englishClient = new ApiClient(port, english);
+    String withoutClientOrderId =
+        "{ \"instrumentId\": 47, \"side\": \"BUY\", \"type\": \"MARKET\", \"quantity\": 10 }";
+
+    ApiResponse rejected = englishClient.post(ORDERS_OF_USER_ONE, buy(PAMP, "\"amount\": 700000"));
+    ApiResponse refused = englishClient.post(ORDERS_OF_USER_ONE, withoutClientOrderId);
+
+    assertThat(rejected.json().get("rejectionMessage").asString())
+        .isEqualTo("No alcanzan los pesos disponibles para esta orden.");
+    assertThat(refused.json().get("errors").get(0).get("message").asString())
         .isEqualTo("Falta el identificador de la orden (clientOrderId).");
   }
 
@@ -397,6 +468,31 @@ class OrderSubmissionIT {
 
     assertThat(response.status()).isEqualTo(400);
     assertThat(response.json().get("type").asString()).isEqualTo(VALIDATION_ERROR);
+    assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS);
+  }
+
+  static Stream<Arguments> numbersThatDoNotFit() {
+    String tooLong = "99999999999999999999";
+    return Stream.of(
+        Arguments.of("quantity", buy(PAMP, "\"quantity\": 3000000000")),
+        Arguments.of("quantity", buy(PAMP, "\"quantity\": " + tooLong)),
+        Arguments.of(
+            "instrumentId",
+            "{ \"clientOrderId\": \"%s\", \"instrumentId\": %s, "
+                    .formatted(UUID.randomUUID(), tooLong)
+                + "\"side\": \"BUY\", \"type\": \"MARKET\", \"quantity\": 10 }"));
+  }
+
+  @ParameterizedTest(name = "{1}")
+  @MethodSource("numbersThatDoNotFit")
+  void namesTheFieldOfANumberThatDoesNotFit(String field, String json) {
+    ApiResponse response = submit(USER_ONE, json);
+
+    assertThat(response.status()).isEqualTo(400);
+    JsonNode error = response.json().get("errors").get(0);
+    assertThat(error.get("field").asString()).isEqualTo(field);
+    assertThat(error.get("message").asString())
+        .isEqualTo("El valor de " + field + " no es válido.");
     assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS);
   }
 

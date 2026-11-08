@@ -35,5 +35,11 @@ del usuario 1, como el RFC (sección 6.2).
   contrato.
 - Los controllers llevan las anotaciones de la documentación. Se limitan a lo que la especificación no puede deducir:
   descripciones y ejemplos.
+- springdoc 3.2.0 trae Jackson 2 (`jackson-databind` 2.21, a través de `swagger-core`) para armar su propio modelo de
+  la especificación. La API sigue leyendo y escribiendo JSON con Jackson 3: lo prueban los tests que buscan en la
+  respuesta el texto exacto de los números, como `"totalValue":889756.00` (encontrado al implementar, fase 5).
+- Para que la especificación muestre los errores como Problem Details, la configuración de OpenAPI les asigna el
+  esquema `Problem` a todas las respuestas que no son 2xx. Sin eso, springdoc los mostraba con el esquema de la
+  respuesta exitosa.
 - **Cuándo revisarla:** si springdoc dejara de seguir a Spring Boot en una actualización. La alternativa sería generar
   la especificación en el build, o escribirla a mano.

@@ -2,6 +2,7 @@ package com.cocos.challenge.orders.listing;
 
 import com.cocos.challenge.account.AccountService;
 import com.cocos.challenge.orders.OrderRepository;
+import com.cocos.challenge.orders.OrderSortKey;
 import com.cocos.challenge.orders.StoredOrder;
 import com.cocos.challenge.shared.domain.OrderStatus;
 import com.cocos.challenge.shared.error.InvalidRequestException;
@@ -34,7 +35,8 @@ public class OrderQueryService {
       long userId, @Nullable OrderStatus status, @Nullable Integer limit, @Nullable String cursor) {
     accounts.ensureExists(userId);
     int size = pageSize(limit);
-    OrderCursor after = cursor == null ? null : decoded(cursor);
+    // a blank cursor counts as none, as a blank limit or status does: the first page
+    OrderSortKey after = cursor == null || cursor.isBlank() ? null : sortKeyIn(cursor);
     // one more than the page: if it arrives, there is a next page (A-7)
     List<StoredOrder> found = orders.findPage(userId, status, after, size + SENTINEL);
     if (found.size() <= size) {
@@ -56,11 +58,14 @@ public class OrderQueryService {
     return limit;
   }
 
-  private static OrderCursor decoded(String cursor) {
+  /** The cursor is what the client sees; the repository only needs the key it carries. */
+  private static OrderSortKey sortKeyIn(String cursor) {
+    OrderCursor decoded;
     try {
-      return OrderCursor.decode(cursor);
+      decoded = OrderCursor.decode(cursor);
     } catch (IllegalArgumentException e) {
       throw new InvalidRequestException(CURSOR_FIELD, CURSOR_INVALID_KEY);
     }
+    return new OrderSortKey(decoded.createdAt(), decoded.orderId());
   }
 }
