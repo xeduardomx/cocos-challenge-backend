@@ -49,7 +49,7 @@ siempre hacia adelante.
   - anotó la versión 1, aplicó la 2, y una segunda corrida no hizo nada;
   - una migración que falla se deshace entera;
   - sin `group`, una migración que falla deja aplicadas las anteriores; con `group`, no queda ninguna;
-  - una base vacía no se puede migrar, porque la versión 2 necesita las tablas de `database.sql`. Falla y se deshace.
+  - una base vacía no se puede migrar, porque las migraciones necesitan las tablas de `database.sql`. Falla y se deshace todo.
 - Apuntar la API a Neon no lo migra por accidente.
 - En una tabla grande, cambiar el tipo de una columna o crear un índice habría que planificarlo aparte (RFC,
   sección 3.6).

@@ -20,8 +20,8 @@
 - A favor: es la menor cantidad de piezas que resuelve el problema, y todo lo de una función está junto: un cambio en
   el envío toca un solo paquete.
 - En contra: el service usa el repository directamente, sin una interfaz en el medio. Para probar un service sin base
-  habría que simular el repository. Acá no hace falta: los services se prueban contra Postgres real a propósito,
-  porque ahí está lo delicado.
+  habría que simular el repository. Acá casi no hace falta: lo delicado de los services se prueba contra Postgres real a
+  propósito, y la simulación queda para casos puntuales.
 
 **B. Hexagonal (puertos y adaptadores), o Clean Architecture, que sigue la misma idea.** El núcleo define interfaces
 ("puertos") para todo lo de afuera, y afuera se implementan ("adaptadores"): uno para HTTP, otro para la base. El
@@ -34,7 +34,7 @@ núcleo no conoce Spring ni la base.
   - Hay que copiar datos entre el modelo del núcleo y el de cada borde (la fila de la base, el JSON).
   - Lo más delicado no se puede probar con una implementación falsa: el bloqueo y la transacción hay que probarlos
     contra Postgres igual.
-- Ejemplo, mandar una orden: con A son `OrderController` → `OrderService` → `OrderRepository`. Con B se suman un
+- Ejemplo, mandar una orden: con A son `OrderController` → `OrderSubmissionService` → `OrderRepository`. Con B se suman un
   puerto de entrada (el caso de uso), un puerto de salida (el repositorio) con su adaptador para la base, y la
   conversión entre la orden del núcleo y la fila de `orders`.
 

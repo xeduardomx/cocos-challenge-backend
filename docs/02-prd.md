@@ -50,8 +50,8 @@
 **Además:**
 
 - **Una colección de Postman** con el recorrido completo: buscar, enviar, reintentar la misma orden, listar y cancelar.
-  El enunciado la pide como opcional. Cada envío genera solo su identificador, y el pedido de reintento repite el del
-  último envío, para mostrar que no se crea otra orden (R-2).
+  El enunciado la pide como opcional. Cada envío genera solo su identificador, y el pedido de reintento repite una
+  compra anterior, para mostrar que no se crea otra orden (R-2).
 - **Métricas para soporte:** se detallan en la sección 4.
 
 **Qué no hace, a propósito**
@@ -88,10 +88,10 @@ Además, el valor sería inventado: el enunciado no da ninguno. Por practicidad,
 Los casos usan los datos de `database.sql`. Ahí, el usuario 1 tiene $753.000 en la cuenta, compras pendientes por
 $125.500 (órdenes 5 y 7) y tres posiciones: 500 METR, 40 PAMP y −10 BMA. Cuando un caso usa otros datos, lo aclara.
 Cada caso parte de los datos originales: lo que graba un caso no lo ve el siguiente. Cómo lo logran los tests se
-define en el RFC (sección 6).
+define en el RFC (sección 10.2).
 
 Los requisitos llevan un código de tres letras por función (POR, BUS, ENV, CAN, LIS y GEN), para no confundirlos con
-los del análisis. Los tests de la fase 5 los citan.
+los del análisis. El plan (fase 4) los cita, tarea por tarea.
 
 ### 3.1 Portfolio
 

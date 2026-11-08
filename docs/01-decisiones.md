@@ -298,7 +298,8 @@ pagar 0,6 centavos, así que es una cuenta, no un precio operado. La base lo gua
      permite ejecutarlo.
   4. **Tests independientes:** cada test arma sus propios datos (su usuario con su depósito `CASH_IN`). Si todos
      usaran al usuario 1, se pisarían entre sí y el resultado dependería del orden en que corren. Los números de
-     referencia del usuario 1 se verifican en tests que solo leen.
+     referencia del usuario 1 se verifican en tests que solo leen. **Resuelto en el RFC (sección 10.2):** antes de cada
+     test la base vuelve a los datos originales, así que los casos del usuario 1 también pueden escribir.
   5. **El email no se devuelve ni se loguea:** el portfolio no lo necesita y es un dato personal.
   6. **Test:** el portfolio del usuario 2 da $0 con la lista vacía, y el del usuario 99 da 404.
 
@@ -507,7 +508,7 @@ Cerrada en D-1: la posición de BMA (−10) se muestra tal cual, con rendimiento
      muestra 50 PAMP, PPC $929,17 ((40 × $930 + 10 × $925,85) ÷ 50) y pesos disponibles por $618.241,50. El valor
      total sigue en $889.756: comprar a precio de mercado no cambia el total, solo pasa plata de pesos a acciones.
   8. **Esta decisión es candidata a ADR en la fase 3** ("posiciones calculadas, no guardadas"), con la medición
-     formal.
+     formal. **Hecho:** ADR 0003; la medición del RFC (sección 3.5) dio 1,2 ms para un usuario de 10.000 órdenes.
 
 ### A-5 · Qué significa "similar" en la búsqueda
 
@@ -1069,6 +1070,7 @@ decisión y es la base del alcance del PRD.
 | El portal corre con la imagen de Docker de Zensical. La prueba con los documentos reales pasó, y Docusaurus no hizo falta | Fase 7; RFC, sección 11.6 |
 | Las páginas que existen solo en el portal van en `docs/portal/`, y sus diagramas y tablas se toman de su documento, sin copiarlos | Fase 7; RFC, sección 11.6 |
 | Los paneles del tablero que cuentan órdenes van en un solo color: el rojo por defecto de Grafana, desde 80, hacía parecer un problema a las órdenes ejecutadas | Fase 7; RFC, sección 8.3 |
+| Un texto de búsqueda que queda vacío al sacarle los acentos no encuentra nada: la lista viene vacía | Fase 8; RFC, sección 4.3 |
 
 **Cambios al modelo de datos:** decididos en el RFC (sección 3) y aplicados con migraciones en la fase 5, solo en la
 copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).
@@ -1122,7 +1124,7 @@ copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).
    "modelo y cambios a la base" en el RFC. La lista de abajo queda escrita como insumo.
 6. ~~**Repaso rápido de riesgos (R-1 a R-5) y supuestos (S-1 a S-5)**~~ Cerrado: R-2 con identificador de orden
    obligatorio; el resto, resuelto en otras decisiones o confirmado (ver "Riesgos y supuestos del análisis: repaso").
-7. **Repaso final de dudas sobre los conceptos.** Pospuesto a pedido del autor: se hace más adelante.
+7. ~~**Repaso final de dudas sobre los conceptos.**~~ Quedó como preparación personal del autor, fuera de estos documentos.
 8. ~~**Reescritura de `01-analisis.md`**~~ Hecha el 2026-11-06: resumen de todas las decisiones con el resumen del
    inventario, y números de referencia del usuario 1 recalculados en la copia local (con escenarios nuevos de envío,
    cancelación, listado y búsqueda). Se sacaron las preguntas para Cocos y el supuesto S-3, y se corrigieron
@@ -1131,8 +1133,7 @@ copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).
    vacío con la posición en 0 o negativa (A-2, decisión 5) e identificador nuevo para volver a mandar una orden
    rechazada (R-2). Se integra a `develop` con un PR.
 
-**Fase 1 cerrada.** Sigue la fase 2, el PRD, en la rama `docs/phase-2-prd`. El repaso de conceptos (punto 7) sigue
-pospuesto.
+**Fase 1 cerrada.** Sigue la fase 2, el PRD, en la rama `docs/phase-2-prd`.
 
 ### Ideas anotadas para fases siguientes
 
@@ -1174,5 +1175,5 @@ copia local.
 - **R-2:** columna para el identificador de la orden (vacía en las 11 órdenes viejas), única por (usuario,
   identificador); huella del pedido o pedido tal cual, para comparar el contenido en un reintento (recomendada: la
   huella).
-- **C-2, abierta:** ¿renombrar columnas (por ejemplo, `instrumentid` → `instrument_id`)? Propuesta: no, para que
+- **C-2, cerrada:** ¿renombrar columnas (por ejemplo, `instrumentid` → `instrument_id`)? No, para que
   cualquiera que consulte la base con los nombres que conoce siga pudiendo hacerlo.

@@ -10,7 +10,7 @@ docker compose up --build -d
 ./scripts/smoke-test.sh
 ```
 
-La prueba de humo espera a la API y verifica que Prometheus la lea, que Grafana tenga su tablero y que el usuario 1 dé
+Levantarla solo necesita Docker; los scripts y los ejemplos de esta página también usan `curl` y `jq`. La prueba de humo espera a la API y verifica que Prometheus la lea, que Grafana tenga su tablero y que el usuario 1 dé
 los números originales. Si todo está bien, termina con:
 
 ```text
@@ -70,7 +70,7 @@ reciben en `API_URL`, `PROMETHEUS_URL` y `GRAFANA_URL`.
 ### Una orden responde 503 `/problems/user-busy`
 
 ```json
-{"detail":"Tu cuenta está procesando otra orden. Intentá de nuevo.","status":503,"title":"La cuenta está ocupada","type":"/problems/user-busy"}
+{"detail":"Tu cuenta está procesando otra orden. Intentá de nuevo.","instance":"/users/2/orders","status":503,"title":"La cuenta está ocupada","type":"/problems/user-busy","requestId":"mi-pedido-3"}
 ```
 
 Otra operación tiene el turno de ese usuario desde hace más de 2 segundos. La respuesta trae `Retry-After: 1`, y
@@ -102,8 +102,8 @@ docker compose logs api --no-log-prefix | grep EL_REQUEST_ID | jq -c 'select(.lo
 
 ### La base no responde
 
-Cada pedido espera hasta 30 segundos por una conexión y termina en un 500, con
-`CannotGetJdbcConnectionException` en los logs. `/actuator/health` tampoco contesta rápido: en la prueba no respondió en
+Cada pedido espera hasta 30 segundos por una conexión y termina en un 500, con un error de conexión en los logs
+(`CannotCreateTransactionException` en un envío). `/actuator/health` tampoco contesta rápido: en la prueba no respondió en
 10 segundos. `docker compose ps` muestra si Postgres está corriendo.
 
 Para recuperarla, se baja y se levanta todo:
@@ -114,8 +114,8 @@ docker compose up --build -d
 ```
 
 **No alcanza con reiniciar solo Postgres.** Sus datos viven en memoria, así que vuelve a cargar `database.sql` sin las
-migraciones, que la API aplica solo al arrancar. El portfolio funciona, pero cada envío da 500, con
-`BadSqlGrammarException` en los logs.
+migraciones, que la API aplica solo al arrancar. El portfolio funciona, pero la búsqueda, el envío, el listado y la
+cancelación dan 500.
 
 ### Grafana no muestra la latencia o los errores
 
@@ -136,6 +136,6 @@ La colección espera los datos originales, y la primera corrida ya los cambió. 
 | Tarea | Comando | Qué necesita |
 |---|---|---|
 | Correr todos los tests | `cd api && ./mvnw verify` | Java 25 y Docker |
-| Recorrer la API con Postman | `./scripts/run-postman.sh` | todo levantado, con los datos originales |
+| Recorrer la API con Postman | `./scripts/run-postman.sh` | todo levantado, con los datos originales, y `curl` y `jq` |
 | Medir el tiempo de respuesta | `./scripts/run-load-test.sh` | Docker con unos 2 GB libres; levanta y baja todo solo |
 | Ver este portal en local | `./scripts/portal.sh` | Docker; queda en <http://localhost:8000> |

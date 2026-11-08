@@ -205,7 +205,7 @@ El modelo de Cocos se mantiene: las cuatro tablas, sus columnas y sus nombres (C
   los suyos.
 
 Todo se probó en la copia local (Postgres 18.6, con `database.sql`). La forma exacta está en
-[`mediciones/03-esquema.sql`](mediciones/03-esquema.sql), el borrador verificado del que sale la migración de la
+[`mediciones/03-esquema.sql`](mediciones/03-esquema.sql), el borrador verificado del que salieron las migraciones de la
 fase 5. Cómo se aplican las migraciones, y qué pasa con Neon, está en la sección 3.6. Lo que esta sección marca como
 probado tiene su script y su salida en [`mediciones/`](mediciones/); las trampas y Flyway, en
 [`03-pruebas-resultados.md`](mediciones/03-pruebas-resultados.md).
@@ -456,8 +456,8 @@ se prueba todos los días.
   el grupo con el que Neon da permisos a los usuarios del proyecto. Su documentación dice que sus roles solo pueden
   instalar las extensiones que Neon soporta, y `unaccent` es una; no dice explícitamente qué rol puede. Se confirma
   en la fase 8, al migrar: si no pudiera, la migración falla y se deshace entera (ver "Todo o nada").
-- **Una base vacía, sin `database.sql`, no se puede migrar:** la versión 2 falla porque las tablas no existen, y se
-  deshace (probado en la copia local). Copiar `database.sql` como versión 1 lo resolvería, pero la copia local seguiría otro camino que
+- **Una base vacía, sin `database.sql`, no se puede migrar:** la primera migración que toca una tabla falla porque no existen, y se
+  deshace todo (probado en la copia local, con el borrador como una sola versión). Copiar `database.sql` como versión 1 lo resolvería, pero la copia local seguiría otro camino que
   Neon.
 
 **Todo o nada.** Postgres deshace entera una migración que falla. Se probó con una regla que los datos rompen: no
@@ -556,6 +556,8 @@ Una consulta, con las reglas de A-5:
 
 - **El texto y los datos se normalizan igual, en la base:** `lower(unaccent(...))` de los dos lados.
 - **Cada palabra tiene que aparecer** en el ticker o en el nombre, en cualquier orden.
+- **Un texto que queda vacío al normalizarlo,** por ejemplo uno hecho solo de marcas de acento, pasa la validación y no
+  encuentra nada: la lista viene vacía (encontrado en la revisión final, fase 8).
 - **Sin comodines:** se busca con `strpos` y `starts_with` en lugar de `LIKE`, así `%` y `_` son texto común sin
   tener que escaparlos (A-5, decisión 10).
 - **El orden:** ticker igual, ticker que empieza así, ticker que lo contiene, nombre que empieza así y el resto. Los
@@ -913,7 +915,7 @@ con `"quantity": null`, `"price": null` y `"amount": 1000000.00`.
 | `instrumentId` | obligatorio. El activo tiene que existir y no ser ARS |
 | `side` | `BUY` o `SELL`. `CASH_IN` y `CASH_OUT` dan 400 |
 | `type` | `MARKET` o `LIMIT` |
-| `quantity` o `amount` | exactamente uno de los dos. `quantity`, un entero de 1 a 2.147.483.647; `amount`, mayor a 0 y con hasta 2 decimales |
+| `quantity` o `amount` | exactamente uno de los dos. `quantity`, un entero de 1 a 2.147.483.647; `amount`, mayor a 0, con hasta 2 decimales y hasta 18 dígitos enteros |
 | `price` | obligatorio en `LIMIT` y prohibido en `MARKET`. Mayor a 0, con hasta 2 decimales y hasta 99.999.999,99 |
 | por monto | la cantidad calculada tiene que dar de 1 a 2.147.483.647, y una a mercado necesita que el activo cotice |
 | cualquier otro campo | 400: un campo mal escrito, como `prise`, no se ignora en silencio |
@@ -953,6 +955,9 @@ Va en el cuerpo, como `clientOrderId`, y es un UUID (sección 3.3). No va en un 
 borrador del IETF), porque es un dato de la orden: se graba, vuelve en la respuesta y en el listado, y el cliente lo
 usa para encontrar su orden si perdió la respuesta (R-2, decisión 4). Es el mismo lugar que le dan el `ClOrdID` de FIX
 y el `client_order_id` de Coinbase.
+
+Jackson también lee un UUID escrito en Base64, con 24 caracteres. Es el mismo identificador en otra forma: no cambia nada
+y se deja así (encontrado en la revisión final, fase 8). Cualquier otro texto da 400.
 
 ### 6.6 Los números configurables
 
@@ -1139,7 +1144,7 @@ usuario extremo tarda entre 0,66 y 0,94 segundos por portfolio. Los números, la
   agregaría:** con Spring Security como servidor de recursos OAuth2, el usuario sale del token y no de la dirección
   (`/users/{userId}` pasa a `/me`). Las consultas ya filtran siempre por usuario, así que no habría que cambiarlas.
 - **Validación en el borde:** el pedido se valida antes de llegar a la lógica (secciones 6.2 y 7.2), con topes para
-  cada número (el monto, por la cantidad que da). Jackson 3, el que trae Spring Boot 4, acepta por defecto campos
+  cada número (el monto, con el suyo y por la cantidad que da). Jackson 3, el que trae Spring Boot 4, acepta por defecto campos
   desconocidos y convierte un `2.5` en `2` sin avisar si el campo es entero. Se apagan las dos cosas:
   `spring.jackson.deserialization.fail-on-unknown-properties: true` y `accept-float-as-int: false`. Así, 2,5 acciones
   dan 400 (caso 14 del envío), en lugar de comprar 2 (principio 2). Con el mismo principio, al implementar (fase 5) se
@@ -1248,11 +1253,16 @@ En cada push y en cada PR:
    usa el Docker de la máquina de GitHub) y el piso de cobertura.
 2. La imagen de Docker de la API se construye.
 3. **Prueba de humo:** `docker compose up`, esperar a que la API esté lista, verificar que Prometheus la lea y que
-   Grafana tenga el tablero y su fuente de datos, y pedir el portfolio del usuario 1, que tiene que dar los números
-   de POR (caso 3 de GEN). Después corre la colección de Postman con Newman, la herramienta
+   Grafana tenga el tablero y su fuente de datos, y pedir el portfolio del usuario 1, que tiene que dar sus pesos
+   disponibles y su valor total (caso 3 de GEN). Después corre la colección de Postman con Newman, la herramienta
    de línea de comandos de Postman (11.5), y al final `docker compose down`.
 
 Un PR se mergea solo con todo en verde.
+
+**Desvío (fases 5 a 8).** El workflow está escrito (`.github/workflows/ci.yml`), pero GitHub Actions está bloqueado en
+esta cuenta y sus jobs no llegaron a arrancar. Los PR de las tareas se mergearon sin esa marca verde, con los mismos pasos
+corridos en local: `./mvnw verify`, `docker compose up`, la prueba de humo y la colección de Postman. El resultado, sobre
+un clon limpio, está en [`mediciones/08-verificacion-final.md`](mediciones/08-verificacion-final.md).
 
 ### 11.3 Docker y `docker compose up`
 
@@ -1331,8 +1341,8 @@ for MkDocs, del mismo equipo y con licencia MIT. Dibuja los diagramas de Mermaid
 - Se publica en GitHub Pages, construido por CI desde `main` (`.github/workflows/portal.yml`; el repo es público desde el
   2026-11-08).
 
-**Dónde quedó (fase 7):** <https://xeduardomx.github.io/cocos-challenge-backend/>. La cuenta de GitHub tiene Actions
-bloqueado por un tema de facturación, así que ese workflow todavía no corrió. Mientras tanto, el sitio generado se sube
+**Dónde quedó (fase 7):** <https://xeduardomx.github.io/cocos-challenge-backend/>. GitHub Actions está bloqueado en
+esta cuenta (sección 11.2), así que ese workflow todavía no corrió. Mientras tanto, el sitio generado se sube
 a mano a la rama `gh-pages`, y GitHub Pages lo publica desde ahí. Cuando Actions vuelva a correr, Pages se cambia para
 publicar desde el workflow.
 
@@ -1354,9 +1364,6 @@ siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celu
   medición, de secciones marcadas con un comentario de HTML, que GitHub no muestra. Si una sección desaparece, el portal
   no se genera.
 - **El CSS propio es una sola regla** (`docs/portal/portal.css`): más ancho para las tablas y los diagramas del RFC.
-
-Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Grafana) y su orden quedan para el plan
-(fase 4).
 
 ## 12. Decisiones de esta fase y ADR
 
@@ -1402,7 +1409,7 @@ Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Gra
 | Los casos simultáneos inyectan una pausa desde el test, sin tocar el código de la API | el test falla siempre sin el turno, no solo por casualidad | sección 10.3 |
 | Piso de cobertura: 85 % de líneas y 80 % de ramas | que no baje sin que nadie lo note | sección 10.4 |
 | Spotless con google-java-format, Error Prone y NullAway con JSpecify, y JaCoCo, todos frenando el build | probados juntos con Java 25; Checkstyle, SpotBugs, PMD y SonarCloud repiten o necesitan cuentas externas | sección 11.1 |
-| CI con build, tests, imagen y una prueba de humo con el compose y la colección de Postman | el caso 3 de GEN se prueba solo en cada push | sección 11.2 |
+| CI con build, tests, imagen y una prueba de humo con el compose y la colección de Postman | el caso 3 de GEN se prueba solo en cada push | sección 11.2, con su desvío |
 | Compose con Postgres (datos en memoria), API, Prometheus y Grafana; el chequeo de salud de Postgres pregunta por red | cada `up` arranca de los datos originales, y la API no arranca antes de tiempo | sección 11.3 |
 | El portal se arma con Zensical, con Docusaurus como alternativa si la prueba de la fase 7 fallaba. La prueba pasó | Material for MkDocs dejó de recibir correcciones el 2026-11-05 | sección 11.6 |
 

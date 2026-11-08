@@ -175,7 +175,7 @@ Ver D-1: se muestra tal cual.
 - La pregunta que decidía era si calcular es lento. Se midió (sección 1): con un índice por usuario, 3 ms para un
   usuario con 10.000 órdenes.
 - "Cuando una orden se ejecuta, actualizar el listado de posiciones" se cumple solo, porque el listado se arma con
-  las órdenes del momento. Candidata a ADR en el RFC.
+  las órdenes del momento. Quedó en el ADR 0003.
 
 ### A-5. "Similar" en la búsqueda: contiene, palabra por palabra
 
@@ -363,7 +363,6 @@ no hay acciones compradas a ningún precio (A-2).
 - **RFC (fase 3):** arquitectura; contratos de API (direcciones, códigos HTTP, formato de fechas); el mecanismo para
   procesar de a una las órdenes de un usuario (R-1); los cambios al esquema con sus migraciones (sección 5); el modo
   de redondeo, el tamaño de página, el largo máximo de la búsqueda y el formato del identificador de orden.
-- **Pendiente del análisis:** un repaso final de dudas sobre los conceptos, pospuesto a pedido del autor.
 
 ## Anexo: consultas de verificación
 
