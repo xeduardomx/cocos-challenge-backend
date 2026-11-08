@@ -32,13 +32,14 @@ La base se arma con `docs/00-fuentes/database.sql` y las migraciones de la API, 
 volúmenes.
 
 En Grafana, las órdenes y la espera del turno se ven desde el primer pedido. La latencia y los errores de cada función
-aparecen desde el segundo, con al menos 15 segundos entre los dos: Prometheus necesita dos lecturas para calcularlos.
+y código aparecen desde el segundo, con al menos 15 segundos entre los dos: Prometheus necesita dos lecturas para
+calcularlos.
 
 Para bajar todo: `docker compose down`.
 
 ## Prueba de humo
 
-Con todo levantado, verifica que Prometheus lea la API, que Grafana tenga el tablero, y pide el portfolio del usuario 1 con sus números:
+Con todo levantado, verifica que Prometheus lea la API, que Grafana tenga el tablero y su fuente de datos, y pide el portfolio del usuario 1 con sus números:
 
 ```bash
 ./scripts/smoke-test.sh

@@ -1339,8 +1339,8 @@ Antes de la tarea 17: `git checkout develop && git pull && git checkout -b feat/
 >   (RFC 8.2). El 503 también escribe un `ERROR` con stack trace, y "sin stack trace" se prueba leyendo el JSON, porque en
 >   ECS el stack va adentro de la línea (RFC 8.1).
 > - **Tarea 18:** los paneles por función excluyen `/actuator/*` y agrupan también por método, el de órdenes muestra solo
->   las combinaciones mayores que 0, y Prometheus y Grafana escuchan en `127.0.0.1` con sus puertos configurables (RFC
->   8.3 y 11.3).
+>   las combinaciones mayores que 0, Prometheus y Grafana escuchan en `127.0.0.1` con sus puertos configurables (RFC
+>   8.3 y 11.3), y la prueba de humo verifica también la fuente de datos (RFC 11.2).
 > - **Tarea 19:** hay un calentamiento, los envíos son también del usuario pesado, y la semilla deposita 100.000.000
 >   (`mediciones/06-tiempo-de-respuesta.md`).
 
