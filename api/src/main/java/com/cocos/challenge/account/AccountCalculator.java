@@ -35,8 +35,8 @@ public class AccountCalculator {
                 .reserve(entry.size());
           }
         }
-        default -> {
-          // Rejected and cancelled orders do not touch the account.
+        case REJECTED, CANCELLED -> {
+          // These orders do not touch the account.
         }
       }
     }

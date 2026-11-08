@@ -1,7 +1,6 @@
 package com.cocos.challenge.account;
 
-import java.sql.SQLException;
-import org.springframework.jdbc.UncategorizedSQLException;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,9 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 /** Loads the account of a user and takes the turn of a user to submit an order (RFC 5.2). */
 @Service
 public class AccountService {
-
-  /** The Postgres state of a lock wait that ran out; Spring does not map it to its own type. */
-  private static final String LOCK_NOT_AVAILABLE = "55P03";
 
   private final AccountRepository repository;
   private final AccountCalculator calculator;
@@ -45,12 +41,8 @@ public class AccountService {
       if (!repository.lockForTurn(userId, properties.turnTimeout())) {
         throw new UserNotFoundException(userId);
       }
-    } catch (UncategorizedSQLException e) {
-      if (e.getCause() instanceof SQLException cause
-          && LOCK_NOT_AVAILABLE.equals(cause.getSQLState())) {
-        throw new UserBusyException();
-      }
-      throw e;
+    } catch (CannotAcquireLockException e) {
+      throw new UserBusyException();
     }
   }
 }

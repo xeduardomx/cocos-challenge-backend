@@ -2,14 +2,23 @@ package com.cocos.challenge.account;
 
 import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.shared.domain.OrderStatus;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.util.List;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class AccountRepository {
+
+  /**
+   * The Postgres state of a lock wait that ran out. Spring's default translator does not classify
+   * it, so it is translated here.
+   */
+  private static final String LOCK_NOT_AVAILABLE = "55P03";
 
   private static final String TIMEOUT_UNIT = "ms";
   private static final String SET_LOCK_TIMEOUT =
@@ -48,15 +57,23 @@ public class AccountRepository {
 
   /**
    * Locks the row of the user until the end of the current transaction, waiting at most {@code
-   * timeout}. Returns false if the user does not exist. When the wait runs out, the database fails
-   * with SQL state 55P03.
+   * timeout}. Returns false if the user does not exist. When the wait runs out, it fails with
+   * {@link CannotAcquireLockException}.
    */
   public boolean lockForTurn(long userId, Duration timeout) {
     jdbc.sql(SET_LOCK_TIMEOUT)
         .param("timeout", timeout.toMillis() + TIMEOUT_UNIT)
         .query()
         .singleRow();
-    return jdbc.sql(LOCK_USER).param("userId", userId).query(Long.class).optional().isPresent();
+    try {
+      return jdbc.sql(LOCK_USER).param("userId", userId).query(Long.class).optional().isPresent();
+    } catch (DataAccessException e) {
+      if (e.getMostSpecificCause() instanceof SQLException cause
+          && LOCK_NOT_AVAILABLE.equals(cause.getSQLState())) {
+        throw new CannotAcquireLockException("Lock wait for user " + userId + " ran out", e);
+      }
+      throw e;
+    }
   }
 
   /** The FILLED and NEW orders of the user, oldest first. */

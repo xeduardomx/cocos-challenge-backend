@@ -4,8 +4,10 @@ import static com.cocos.challenge.shared.domain.OrderSide.BUY;
 import static com.cocos.challenge.shared.domain.OrderSide.CASH_IN;
 import static com.cocos.challenge.shared.domain.OrderSide.CASH_OUT;
 import static com.cocos.challenge.shared.domain.OrderSide.SELL;
+import static com.cocos.challenge.shared.domain.OrderStatus.CANCELLED;
 import static com.cocos.challenge.shared.domain.OrderStatus.FILLED;
 import static com.cocos.challenge.shared.domain.OrderStatus.NEW;
+import static com.cocos.challenge.shared.domain.OrderStatus.REJECTED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cocos.challenge.shared.domain.OrderSide;
@@ -78,6 +80,15 @@ class AccountCalculatorTest {
     assertThat(positionOf(account, BMA).quantity()).isEqualTo(-10);
     assertThat(positionOf(account, BMA).averagePrice()).isNull();
     assertThat(account.positions()).doesNotContainKey(ARS);
+  }
+
+  @Test
+  void ignoresRejectedAndCancelledOrders() {
+    List<AccountEntry> entries =
+        userOneWith(
+            entry(PAMP, BUY, CANCELLED, 50, "920"), entry(PAMP, SELL, REJECTED, 100, "950"));
+
+    assertThat(calculator.calculate(entries)).isEqualTo(calculator.calculate(userOne()));
   }
 
   @Test
