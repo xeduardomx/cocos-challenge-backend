@@ -400,6 +400,31 @@ class OrderSubmissionIT {
     assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS);
   }
 
+  static Stream<Arguments> numbersThatDoNotFit() {
+    String tooLong = "99999999999999999999";
+    return Stream.of(
+        Arguments.of("quantity", buy(PAMP, "\"quantity\": 3000000000")),
+        Arguments.of("quantity", buy(PAMP, "\"quantity\": " + tooLong)),
+        Arguments.of(
+            "instrumentId",
+            "{ \"clientOrderId\": \"%s\", \"instrumentId\": %s, "
+                    .formatted(UUID.randomUUID(), tooLong)
+                + "\"side\": \"BUY\", \"type\": \"MARKET\", \"quantity\": 10 }"));
+  }
+
+  @ParameterizedTest(name = "{1}")
+  @MethodSource("numbersThatDoNotFit")
+  void namesTheFieldOfANumberThatDoesNotFit(String field, String json) {
+    ApiResponse response = submit(USER_ONE, json);
+
+    assertThat(response.status()).isEqualTo(400);
+    JsonNode error = response.json().get("errors").get(0);
+    assertThat(error.get("field").asString()).isEqualTo(field);
+    assertThat(error.get("message").asString())
+        .isEqualTo("El valor de " + field + " no es válido.");
+    assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS);
+  }
+
   @ParameterizedTest(name = "{0}")
   @ValueSource(strings = {"1e400", "1e2147483647"})
   void refusesAHugeLimitPriceFast(String price) {

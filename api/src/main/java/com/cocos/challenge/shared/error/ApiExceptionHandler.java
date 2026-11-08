@@ -24,7 +24,6 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.exc.MismatchedInputException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /** Turns every error into a Problem Details response (RFC 7). */
@@ -105,11 +104,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
       HttpHeaders headers,
       HttpStatusCode status,
       WebRequest request) {
-    FieldViolation violation =
-        ex.getCause() instanceof MismatchedInputException mismatch
-            ? mismatchViolation(mismatch)
-            : new FieldViolation(BODY_FIELD, text(MALFORMED_KEY));
-    return validationProblem(ex, List.of(violation), headers, request);
+    return validationProblem(ex, List.of(bodyViolation(ex.getCause())), headers, request);
   }
 
   @Override
@@ -135,10 +130,17 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ex, problem, headers, ProblemType.VALIDATION_ERROR.status(), request);
   }
 
-  private FieldViolation mismatchViolation(MismatchedInputException mismatch) {
-    String field = lastPropertyName(mismatch);
+  /**
+   * Jackson gives the path of the value it could not read, such as a number that does not fit its
+   * field: the problem names that field. Only an error without a path is a malformed body.
+   */
+  private FieldViolation bodyViolation(@Nullable Throwable cause) {
+    if (!(cause instanceof JacksonException jackson) || jackson.getPath().isEmpty()) {
+      return new FieldViolation(BODY_FIELD, text(MALFORMED_KEY));
+    }
+    String field = lastPropertyName(jackson);
     String key =
-        mismatch instanceof UnrecognizedPropertyException ? UNKNOWN_FIELD_KEY : INVALID_VALUE_KEY;
+        jackson instanceof UnrecognizedPropertyException ? UNKNOWN_FIELD_KEY : INVALID_VALUE_KEY;
     return new FieldViolation(field, text(key, field));
   }
 
