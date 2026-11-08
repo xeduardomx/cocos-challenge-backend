@@ -5,6 +5,10 @@ import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import org.jspecify.annotations.Nullable;
 
+/**
+ * Checks that the fields of an order request agree with each other, and reports each case on its
+ * own field. It does not repeat what {@code @NotNull} reports.
+ */
 public class ConsistentOrderRequestValidator
     implements ConstraintValidator<ConsistentOrderRequest, SubmitOrderRequest> {
 

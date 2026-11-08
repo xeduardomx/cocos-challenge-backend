@@ -139,6 +139,15 @@ class QuantityResolverTest {
   }
 
   @Test
+  void sizesAnAmountAtTheLimitPriceOfAnInstrumentWithoutQuote() {
+    ResolvedOrder resolved =
+        resolver.resolve(
+            byAmount(PGR, OrderType.LIMIT, "1000", new BigDecimal("50.00")), PGR, null);
+
+    assertThat(resolved).isEqualTo(new ResolvedOrder(20, new BigDecimal("50.00")));
+  }
+
+  @Test
   void rejectsAnAmountThatBuysMoreSharesThanAnOrderCanHold() {
     assertThatThrownBy(() ->
             resolver.resolve(

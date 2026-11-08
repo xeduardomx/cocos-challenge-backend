@@ -20,6 +20,7 @@ public class QuantityResolver {
   private static final String QUANTITY_ZERO_KEY = "order.quantity-zero";
   private static final String QUANTITY_TOO_LARGE_KEY = "order.quantity-too-large";
   private static final String NO_PRICE_KEY = "order.no-price-for-amount";
+  private static final String MISSING_QUANTITY_AND_AMOUNT = "quantity or amount is required";
   private static final BigDecimal MAX_QUANTITY = BigDecimal.valueOf(OrderLimits.MAX_QUANTITY);
 
   private final DisplayFormatter formatter;
@@ -41,7 +42,7 @@ public class QuantityResolver {
     if (price == null) {
       throw new InvalidOrderException(NO_PRICE_KEY, instrument.ticker());
     }
-    BigDecimal amount = Objects.requireNonNull(command.amount(), "quantity or amount is required");
+    BigDecimal amount = Objects.requireNonNull(command.amount(), MISSING_QUANTITY_AND_AMOUNT);
     return new ResolvedOrder(quantityFor(amount, price, instrument), price);
   }
 

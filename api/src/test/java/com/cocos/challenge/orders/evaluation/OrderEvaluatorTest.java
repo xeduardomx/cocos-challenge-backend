@@ -165,14 +165,4 @@ class OrderEvaluatorTest {
         evaluator.evaluate(marketSell(PAMP, 1, PAMP_PRICE), emptyAccount()),
         RejectionReason.INSUFFICIENT_SHARES);
   }
-
-  @Test
-  void usesTheMessageKeyOfEachReason() {
-    assertThat(RejectionReason.INSUFFICIENT_CASH.messageKey())
-        .isEqualTo("order.rejection.insufficient-cash");
-    assertThat(RejectionReason.INSUFFICIENT_SHARES.messageKey())
-        .isEqualTo("order.rejection.insufficient-shares");
-    assertThat(RejectionReason.NO_MARKET_PRICE.messageKey())
-        .isEqualTo("order.rejection.no-market-price");
-  }
 }

@@ -13,10 +13,12 @@ import org.junit.jupiter.api.Test;
 
 class OrdersConfigurationTest {
 
+  private static final long PGR = 3;
+
   private final OrdersConfiguration configuration = new OrdersConfiguration();
 
   @Test
-  void checksTheQuoteBeforeTheCashAndTheCashBeforeTheShares() {
+  void checksTheQuoteBeforeTheCash() {
     OrderEvaluator evaluator =
         configuration.orderEvaluator(
             configuration.quotedInstrumentRule(),
@@ -26,9 +28,9 @@ class OrdersConfigurationTest {
     BigDecimal price = new BigDecimal("10.00");
 
     OrderCandidate unquotedPurchase =
-        new OrderCandidate(3, OrderSide.BUY, OrderType.LIMIT, 1, price, false);
+        new OrderCandidate(PGR, OrderSide.BUY, OrderType.LIMIT, 1, price, false);
     OrderCandidate quotedPurchase =
-        new OrderCandidate(3, OrderSide.BUY, OrderType.LIMIT, 1, price, true);
+        new OrderCandidate(PGR, OrderSide.BUY, OrderType.LIMIT, 1, price, true);
 
     OrderDecision unquoted = evaluator.evaluate(unquotedPurchase, empty);
     OrderDecision quoted = evaluator.evaluate(quotedPurchase, empty);

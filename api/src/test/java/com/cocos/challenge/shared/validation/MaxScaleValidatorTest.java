@@ -43,6 +43,11 @@ class MaxScaleValidatorTest {
   }
 
   @Test
+  void acceptsAHugeExponentWithZerosInTheMantissaWithoutOverflowing() {
+    assertThat(validator.isValid(new BigDecimal("100e2147483647"), context)).isTrue();
+  }
+
+  @Test
   void acceptsNull() {
     assertThat(validator.isValid(null, context)).isTrue();
   }

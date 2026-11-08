@@ -12,4 +12,11 @@ public record OrderCandidate(
     OrderType type,
     int quantity,
     @Nullable BigDecimal price,
-    boolean quoted) {}
+    boolean quoted) {
+
+  public OrderCandidate {
+    if (quoted && price == null) {
+      throw new IllegalArgumentException("a quoted order needs the price it is evaluated at");
+    }
+  }
+}

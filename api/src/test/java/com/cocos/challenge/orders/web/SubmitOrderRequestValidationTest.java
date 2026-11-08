@@ -1,6 +1,7 @@
 package com.cocos.challenge.orders.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import com.cocos.challenge.orders.OrderType;
 import com.cocos.challenge.shared.domain.OrderSide;
@@ -9,6 +10,7 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.Test;
 class SubmitOrderRequestValidationTest {
 
   private static final long PAMP = 47;
+  private static final Duration HUGE_NUMBER_TIMEOUT = Duration.ofSeconds(1);
   private static final ValidatorFactory FACTORY = Validation.buildDefaultValidatorFactory();
   private static final Validator VALIDATOR = FACTORY.getValidator();
 
@@ -221,13 +224,27 @@ class SubmitOrderRequestValidationTest {
 
   @Test
   void rejectsAnAmountWithAHugeExponentWithoutBuildingTheNumber() {
-    assertThat(violationsOf(marketBuyOf(null, new BigDecimal("1e999999999"))))
-        .containsExactly("amount -> {order.amount-too-large}");
+    assertTimeoutPreemptively(
+        HUGE_NUMBER_TIMEOUT,
+        () ->
+            assertThat(violationsOf(marketBuyOf(null, new BigDecimal("1e999999999"))))
+                .containsExactly("amount -> {order.amount-too-large}"));
   }
 
   @Test
   void rejectsAPriceWithAHugeExponentWithoutBuildingTheNumber() {
-    assertThat(violationsOf(limitBuyOf(10, new BigDecimal("1e2147483647"))))
+    assertTimeoutPreemptively(
+        HUGE_NUMBER_TIMEOUT,
+        () ->
+            assertThat(violationsOf(limitBuyOf(10, new BigDecimal("1e2147483647"))))
+                .containsExactly("price -> {order.price-too-large}"));
+  }
+
+  @Test
+  void rejectsAHugeExponentWithZerosInTheMantissaWithoutFailing() {
+    assertThat(violationsOf(marketBuyOf(null, new BigDecimal("100e2147483647"))))
+        .containsExactly("amount -> {order.amount-too-large}");
+    assertThat(violationsOf(limitBuyOf(10, new BigDecimal("100e2147483647"))))
         .containsExactly("price -> {order.price-too-large}");
   }
 
