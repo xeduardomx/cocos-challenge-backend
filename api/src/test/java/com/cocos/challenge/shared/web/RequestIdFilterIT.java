@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 import com.cocos.challenge.shared.display.DisplayProperties;
+import com.cocos.challenge.shared.error.ProblemProbeController;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,7 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 @EnableConfigurationProperties(DisplayProperties.class)
-@WebMvcTest
+@WebMvcTest(ProblemProbeController.class)
 class RequestIdFilterIT {
 
   @Autowired private MockMvc mockMvc;

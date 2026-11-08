@@ -32,6 +32,11 @@ public class InstrumentCatalog {
         .collect(Collectors.toMap(Instrument::id, Function.identity()));
   }
 
+  /** Searches by ticker or name; see {@link InstrumentRepository#search}. */
+  public List<Instrument> search(String text, int limit) {
+    return instruments.search(text, limit);
+  }
+
   public Optional<MarketPrice> findLatestPrice(long instrumentId) {
     return Optional.ofNullable(findLatestPrices(List.of(instrumentId)).get(instrumentId));
   }
