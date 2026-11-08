@@ -119,6 +119,7 @@ class ApiExceptionHandlerIT {
     mockMvc
         .perform(get("/probe/api-error"))
         .andExpect(status().isConflict())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.type").value("/problems/order-not-cancellable"))
         .andExpect(jsonPath("$.title").value("La orden no se puede cancelar"))
         .andExpect(jsonPath("$.detail").value("El campo extra no existe en este pedido."))
@@ -131,6 +132,7 @@ class ApiExceptionHandlerIT {
     mockMvc
         .perform(get("/probe/unexpected"))
         .andExpect(status().isInternalServerError())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.type").value("/problems/internal-error"))
         .andExpect(jsonPath("$.detail").value("Ocurrió un error inesperado."))
         .andExpect(jsonPath("$.requestId").isNotEmpty())
@@ -147,6 +149,7 @@ class ApiExceptionHandlerIT {
         // Spring omits a type of about:blank from the JSON: its absence means about:blank (RFC
         // 9457)
         .andExpect(jsonPath("$.type").doesNotExist())
-        .andExpect(jsonPath("$.title").value("Not Found"));
+        .andExpect(jsonPath("$.title").value("Not Found"))
+        .andExpect(jsonPath("$.requestId").isNotEmpty());
   }
 }

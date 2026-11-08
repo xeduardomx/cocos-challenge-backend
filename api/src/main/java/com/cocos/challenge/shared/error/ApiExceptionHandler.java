@@ -154,14 +154,23 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail problem = ProblemDetail.forStatusAndDetail(type.status(), detail);
     problem.setType(type.uri());
     problem.setTitle(text(type.titleKey()));
-    String requestId = RequestIds.current();
-    if (requestId != null) {
-      problem.setProperty(RequestIds.MDC_KEY, requestId);
-    }
     return problem;
   }
 
   private String text(String key, String... args) {
     return messages.getMessage(key, args, locale);
+  }
+
+  /**
+   * Every response goes through here, including the ones Spring builds, so the id is added once.
+   */
+  @Override
+  protected ResponseEntity<Object> createResponseEntity(
+      @Nullable Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
+    String requestId = RequestIds.current();
+    if (body instanceof ProblemDetail problem && requestId != null) {
+      problem.setProperty(RequestIds.MDC_KEY, requestId);
+    }
+    return super.createResponseEntity(body, headers, statusCode, request);
   }
 }
