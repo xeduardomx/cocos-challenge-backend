@@ -1054,6 +1054,12 @@ decisión y es la base del alcance del PRD.
 | Un `X-Request-Id` del cliente se usa solo si tiene letras, números y guiones, y hasta 64 caracteres; si no, la API genera uno. Así un valor del cliente no puede romper los logs | Plan, tarea 3 |
 | La hora de una orden es la del momento en que se graba, con el reloj de la base | D-10; RFC, sección 3.4 |
 | Las divisiones (PPC, rendimientos) se redondean una sola vez, al final, a 2 decimales, con `HALF_UP` | RFC, sección 4.5 |
+| JSON estricto también para claves repetidas, números escritos como texto y números en lugar de un enum (`"side": 1` grababa una venta): los tres dan 400. Un número que no entra en su tipo, un valor de un enum que no existe (con la lista de los válidos) o un texto mal codificado dan 400 con el campo y un texto que dice qué está mal | Fase 5, revisión final; RFC, sección 9 |
+| Búsqueda: sin `query`, o con un carácter nulo, 400 en `query`, igual que un texto vacío | Fase 5; RFC, sección 4.3 |
+| Listado: un cursor con una fecha fuera de los años 1 a 9999 da 400; un cursor vacío cuenta como ausente | Fase 5; RFC, sección 4.4 |
+| La espera del turno tiene un mínimo de 1 ms, porque Postgres toma 0 como "sin límite" | Fase 5; RFC, sección 6.6 |
+| Con el turno tomado, ninguna orden de ese usuario se puede grabar (la clave foránea también bloquea su fila). Se mantiene `FOR UPDATE` | Fase 5, decisión del autor; RFC, sección 5.3 |
+| `docker compose`: la API y Postgres escuchan solo en `127.0.0.1`, con los puertos configurables (`API_PORT`, `POSTGRES_PORT`) | Fase 5; RFC, sección 11.3 |
 
 **Cambios al modelo de datos:** decididos en el RFC (sección 3) y todavía sin aplicar: se aplican con migraciones en
 la fase 5, solo en la copia local, y a Neon se le aplican, si se decide, en la fase 8 (ADR 0006).

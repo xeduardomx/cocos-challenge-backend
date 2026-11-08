@@ -67,7 +67,9 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
   primero, mejor.
 - **Merge siempre con merge commit (`--no-ff`), nunca squash:** el squash borra el camino, y el camino se evalúa.
 - **Commits** con Conventional Commits, en inglés y chicos. Commits y push, solo cuando el autor los pide.
-- **Repo:** en el GitHub personal del autor, privado mientras se trabaja y público en la fase 8, al entregar.
+- **Repo:** en el GitHub personal del autor. Público desde el 2026-11-08 (antes de la fase 8, como estaba previsto):
+  el CI en un repo privado consume los minutos de Actions de la cuenta, y en uno público no tiene costo. Antes de
+  abrirlo se revisó todo el historial: sin credenciales ni datos personales.
 
 ## Vara de calidad (no negociable)
 

@@ -554,7 +554,9 @@ Una consulta, con las reglas de A-5:
 - **El orden:** ticker igual, ticker que empieza así, ticker que lo contiene, nombre que empieza así y el resto. Los
   empates van por ticker con `COLLATE "C"`, para que Neon y la copia local den el mismo orden (E-7).
 - **Afuera la moneda** (ARS), y como mucho el tope de resultados (BUS-5). El largo del texto se valida antes de
-  llegar a la base (BUS-6, sección 6).
+  llegar a la base (BUS-6, sección 6). También antes de la base: sin el parámetro `query`, o con un carácter nulo
+  (que Postgres no acepta en un texto), la respuesta es 400 en `query`, igual que con un texto vacío. Precisado al
+  implementar (fase 5).
 - **Cada resultado lleva su último precio** y su variación diaria (4.2).
 
 Se midió con la versión de verificación del análisis, que ordena con `LIKE`: 0,06 ms con los 65 activos y entre 11 y
@@ -575,7 +577,10 @@ limit :pageSize + 1
 - Usa el índice de la sección 3.5. Se pide una orden más que el tamaño de página: si llega, hay página siguiente
   (A-7).
 - **El cursor** es la fecha, con sus microsegundos, y el id de la última orden de la página, codificados en base64url
-  (un texto opaco para el cliente). Uno que no se puede leer da 400 (LIS-6).
+  (un texto opaco para el cliente). Uno que no se puede leer da 400 (LIS-6). También uno con una fecha fuera de los
+  años 1 a 9999: un cursor válido sale siempre de una orden grabada, y Postgres no acepta todas las fechas que se
+  pueden escribir. Un cursor vacío (`cursor=`) cuenta como ausente, igual que `limit=` y `status=`. Precisado al
+  implementar (fase 5).
 - Los depósitos y retiros se traducen a monto en pesos en Java (LIS-5, D-9).
 
 ### 4.5 Precisión y redondeo (GEN-7)
@@ -707,6 +712,15 @@ la orden del primero (prueba E: una sola orden). Sin el turno, lo frena la regla
 clave duplicada, una sola orden). Esa regla queda como red: si la API alguna vez recibe ese error, deshace la transacción
 (Postgres no acepta más comandos en una transacción que tuvo un error) y vuelve a empezar desde el paso 1, como un
 reintento.
+
+**Con el turno tomado, nadie puede grabar una orden de ese usuario** (encontrado al implementar, fase 5). El chequeo de
+la clave foránea de `orders` hacia `users` pide un lock `FOR KEY SHARE` sobre la fila del usuario, que choca con el
+`FOR UPDATE` del turno. Así, todo `insert` en `orders` de ese usuario espera a que termine la orden en curso, venga de
+la API o de otro sistema. La red de unicidad solo se alcanza por un camino que no tome el turno, y el test la prueba
+así: apaga el turno con un espía y verifica el choque y el reintento contra Postgres. Se evaluó un lock más liviano,
+`FOR NO KEY UPDATE`, que no frenaría esos `insert`. Se mantiene `FOR UPDATE` (decisión del autor, 2026-11-08): la API no
+tiene otro camino que grabe órdenes, la espera sería de milisegundos, y el lock fuerte también pone en fila a un camino
+futuro que se olvide de tomar el turno.
 
 **La huella** es el SHA-256 de una forma fija del pedido: `v1`, el activo, el lado, el tipo, la cantidad, el monto y el
 precio límite, separados por `|`. Lo que no viene queda vacío, y los números se escriben sin ceros de más, así
@@ -939,6 +953,9 @@ Van en `application.yml`, con `@ConfigurationProperties` (`CLAUDE.md`):
 | Tamaño de página máximo (LIS-3) | 100 | un pedido más grande da 400 |
 | Espera máxima del turno (sección 5.2) | 2 segundos | el turno dura milisegundos |
 
+La espera del turno tiene un mínimo de 1 ms, que se valida al arrancar: Postgres toma un `lock_timeout` de 0 como
+"sin límite" (precisado al implementar, fase 5).
+
 ### 6.7 La especificación OpenAPI
 
 Se publica, generada desde el código con springdoc-openapi: la especificación en `/v3/api-docs` y una página para
@@ -958,7 +975,7 @@ Spring Boot 4.1.2, la misma versión que usa la API.
 Todos los errores usan Problem Details (RFC 9457), con `Content-Type: application/problem+json`. Spring lo trae, y se
 prende con `spring.mvc.problemdetails.enabled: true` (por defecto viene apagado). A los campos estándar se suman tres:
 `requestId`, el id del pedido que también está en los logs (sección 8); `errors`, la lista de campos con problemas,
-en un 400; y `currentStatus`, el estado actual de la orden, en un 409.
+en un 400 que tiene un campo concreto (un texto mal codificado en la dirección no lo tiene, y va sin `errors`); y `currentStatus`, el estado actual de la orden, en un 409.
 
 ```json
 {
@@ -1000,7 +1017,7 @@ Siguen los dos tipos de error del recorrido de un pedido (sección 2, pasos 2 y 
 | 422 | `/problems/client-order-id-reused` | el identificador ya se usó con otro contenido (R-2) | "Ese identificador ya se usó en otra orden. Para una orden nueva, generá uno nuevo." |
 | 503 | `/problems/user-busy` | el envío no consiguió el turno del usuario en 2 segundos. Trae el encabezado `Retry-After: 1` | "Tu cuenta está procesando otra orden. Intentá de nuevo." |
 | 500 | `/problems/internal-error` | cualquier error inesperado | "Ocurrió un error inesperado." |
-| 404, 405, 406 y 415 | `about:blank` | los errores de HTTP que resuelve Spring antes de llegar a la API: una dirección que no existe, un método no permitido, un formato de respuesta que no puede dar o uno de pedido que no acepta | lo arma Spring |
+| 404, 405, 406 y 415 | `about:blank` | los errores de HTTP que resuelve Spring antes de llegar a la API: una dirección que no existe, un método no permitido, un formato de respuesta que no puede dar o uno de pedido que no acepta | lo arma Spring, en inglés y sin el campo `type` (el RFC 9457 dice que, si falta, vale `about:blank`); la API le suma el `requestId` |
 
 Un error que no pasa por Spring MVC, por ejemplo dentro de un filtro, sale por la página de error de Spring Boot, con
 otro formato. Por eso el único filtro, el que pone el id del pedido, no hace nada que pueda fallar.
@@ -1080,7 +1097,11 @@ del objetivo, como límite documentado (A-4): su portfolio lee unas 850.000 órd
   cada número (el monto, por la cantidad que da). Jackson 3, el que trae Spring Boot 4, acepta por defecto campos
   desconocidos y convierte un `2.5` en `2` sin avisar si el campo es entero. Se apagan las dos cosas:
   `spring.jackson.deserialization.fail-on-unknown-properties: true` y `accept-float-as-int: false`. Así, 2,5 acciones
-  dan 400 (caso 14 del envío), en lugar de comprar 2 (principio 2).
+  dan 400 (caso 14 del envío), en lugar de comprar 2 (principio 2). Con el mismo principio, al implementar (fase 5) se
+  apagaron dos cosas más que Jackson acepta por defecto: una clave repetida (`{"quantity": 1, "quantity": 3}` compraba
+  3), un número escrito como texto (`"quantity": "10"`) y un número en lugar del valor de un enum (`"side": 1`
+  grababa una venta). Las tres dan 400. Un número que no entra en su tipo, o un
+  texto mal codificado en la dirección, también dan 400, con el campo y un texto que dice qué está mal.
 - **SQL siempre con parámetros:** `JdbcClient` con parámetros con nombre. Ninguna consulta se arma pegando texto que
   viene del pedido.
 - **Secretos por variables de entorno,** nunca en el repo: `.env` está ignorado por git. La API recibe la dirección
@@ -1216,7 +1237,9 @@ flowchart LR
 - **Prometheus y Grafana** se configuran con archivos del repo: qué leer, la fuente de datos y el tablero (sección
   8.3). Grafana deja ver el tablero sin usuario y contraseña, porque es solo local.
 - **Puertos:** la API en 8080 (con la página de OpenAPI), Grafana en 3000 y Prometheus en 9090. Postgres, en el 5433
-  de la máquina, para mirarlo con `psql` sin chocar con un Postgres instalado.
+  de la máquina, para mirarlo con `psql` sin chocar con un Postgres instalado. La API y Postgres escuchan solo en
+  `127.0.0.1`, porque la API no tiene autenticación (sección 9), y sus puertos se cambian con `API_PORT` y
+  `POSTGRES_PORT` si ya están ocupados (precisado al implementar, fase 5).
 - **Solo la API y la base:** `docker compose up api` levanta la API con lo que necesita.
 
 ### 11.4 La configuración
