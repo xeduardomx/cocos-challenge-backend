@@ -1,0 +1,96 @@
+package com.cocos.challenge.orders;
+
+import com.cocos.challenge.shared.domain.OrderSide;
+import com.cocos.challenge.shared.domain.OrderStatus;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.OffsetDateTime;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class OrderRepository {
+
+  private static final String SELECT =
+      """
+      select o.id, o.userid, o.instrumentid, i.ticker, o.side, o.type, o.size, o.price, o.status,
+             o.clientorderid, o.requestfingerprint, o.rejectionreason, o.datetime
+      """;
+  private static final String FIND_BY_CLIENT_ORDER_ID =
+      SELECT
+          + """
+          from orders o join instruments i on i.id = o.instrumentid
+          where o.userid = :userId and o.clientorderid = :clientOrderId
+          """;
+  // the insert and the ticker lookup are one statement: no second query for the ticker
+  private static final String INSERT =
+      """
+      with o as (
+        insert into orders (userid, instrumentid, side, type, size, price, status,
+                            clientorderid, requestfingerprint, rejectionreason)
+        values (:userId, :instrumentId, :side, :type, :size, :price, :status,
+                :clientOrderId, :requestFingerprint, :rejectionReason)
+        returning *)
+      """
+          + SELECT
+          + "from o join instruments i on i.id = o.instrumentid";
+
+  private static final RowMapper<StoredOrder> ORDER_MAPPER = OrderRepository::toOrder;
+
+  private final JdbcClient jdbc;
+
+  public OrderRepository(JdbcClient jdbc) {
+    this.jdbc = jdbc;
+  }
+
+  public Optional<StoredOrder> findByClientOrderId(long userId, UUID clientOrderId) {
+    return jdbc.sql(FIND_BY_CLIENT_ORDER_ID)
+        .param("userId", userId)
+        .param("clientOrderId", clientOrderId)
+        .query(ORDER_MAPPER)
+        .optional();
+  }
+
+  /**
+   * Records the order. A client order id that the user already used fails with {@link
+   * org.springframework.dao.DuplicateKeyException}.
+   */
+  public StoredOrder insert(NewOrder order) {
+    return jdbc.sql(INSERT)
+        .param("userId", order.userId())
+        .param("instrumentId", order.instrumentId())
+        .param("side", order.side().name())
+        .param("type", order.type().name())
+        .param("size", order.size())
+        .param("price", order.price())
+        .param("status", order.status().name())
+        .param("clientOrderId", order.clientOrderId())
+        .param("requestFingerprint", order.requestFingerprint())
+        .param(
+            "rejectionReason",
+            order.rejectionReason() == null ? null : order.rejectionReason().name())
+        .query(ORDER_MAPPER)
+        .single();
+  }
+
+  private static StoredOrder toOrder(ResultSet rs, int rowNum) throws SQLException {
+    String rejectionReason = rs.getString("rejectionreason");
+    return new StoredOrder(
+        rs.getLong("id"),
+        rs.getLong("userid"),
+        rs.getLong("instrumentid"),
+        rs.getString("ticker"),
+        OrderSide.valueOf(rs.getString("side")),
+        OrderType.valueOf(rs.getString("type")),
+        rs.getInt("size"),
+        rs.getBigDecimal("price"),
+        OrderStatus.valueOf(rs.getString("status")),
+        rs.getObject("clientorderid", UUID.class),
+        rs.getString("requestfingerprint"),
+        rejectionReason == null ? null : RejectionReason.valueOf(rejectionReason),
+        rs.getObject("datetime", OffsetDateTime.class));
+  }
+}
