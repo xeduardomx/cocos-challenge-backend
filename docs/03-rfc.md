@@ -1111,6 +1111,8 @@ La decisión, con sus alternativas, está en el [ADR 0007](adr/0007-metricas-con
   La latencia y los errores, desde el segundo de cada función y código, con una lectura de Prometheus (15 segundos) en
   el medio: Spring crea esas series con el primer pedido, y `rate()` necesita dos muestras (precisado al implementar,
   fase 6).
+  Los dos paneles que cuentan órdenes van en un solo color, porque por defecto Grafana pinta de rojo todo lo que pasa de
+  80, y una barra de órdenes ejecutadas parecía un problema (encontrado al armar el portal, fase 7).
 - **En producción con New Relic,** se cambia el registro de Micrometer (`micrometer-registry-new-relic`, con la clave
   y la cuenta por variables de entorno). Las métricas y su código no cambian.
 - **Alternativas:** New Relic de verdad, con una cuenta gratuita, obligaría a quien evalúa a tener una cuenta y una
@@ -1326,7 +1328,27 @@ for MkDocs, del mismo equipo y con licencia MIT. Dibuja los diagramas de Mermaid
 - **El riesgo:** Zensical está en beta (0.1.0). La fase 7 arranca con una prueba corta, armando el portal con estos
   documentos. Si algo no se ve bien, la alternativa es Docusaurus (3.10.2, con un tema oficial para Mermaid): es
   estable, pero necesita Node y más configuración.
-- Se publica en GitHub Pages, construido por CI (el repo es público desde el 2026-11-08).
+- Se publica en GitHub Pages, construido por CI desde `main` (`.github/workflows/portal.yml`; el repo es público desde el
+  2026-11-08).
+
+**Resultado de la prueba (fase 7): pasó, y Docusaurus no hizo falta.** Con estos documentos, Zensical 0.1.0 dibuja los
+siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celular no hay scroll horizontal.
+
+**Cómo quedó armado (fase 7):**
+
+- **Alcanza con Docker,** como para la API. `scripts/portal.sh` corre la imagen `zensical/zensical:0.1.0`, que levanta
+  el portal en la máquina o lo genera en `site/`, que no se sube. `zensical.toml`, en la raíz, dice cómo mostrar `docs/`.
+- **Un enlace a una sección funciona en GitHub y en el portal,** porque las anclas se generan como las de GitHub, con
+  acentos. Los enlaces a archivos de afuera de `docs/` apuntan a GitHub. Al generarlo, el portal se frena si un enlace
+  lleva a una página o a una sección que no existe (`--strict`). Los enlaces a carpetas y a archivos de afuera no los
+  mira: esos se revisaron en el sitio generado.
+- **Cada página nueva vive donde se la ve.** La portada y los índices de `adr/` y `mediciones/` son archivos
+  `README.md`, que GitHub también muestra al entrar a esas carpetas. Lo que existe solo en el portal (diagramas, runbook
+  y métricas) está en `docs/portal/`.
+- **Los diagramas y las tablas de métricas no se copian.** Una extensión del generador los toma del RFC y de la
+  medición, de secciones marcadas con un comentario de HTML, que GitHub no muestra. Si una sección desaparece, el portal
+  no se genera.
+- **El CSS propio es una sola regla** (`docs/portal/portal.css`): más ancho para las tablas y los diagramas del RFC.
 
 Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Grafana) y su orden quedan para el plan
 (fase 4).
@@ -1377,7 +1399,7 @@ Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Gra
 | Spotless con google-java-format, Error Prone y NullAway con JSpecify, y JaCoCo, todos frenando el build | probados juntos con Java 25; Checkstyle, SpotBugs, PMD y SonarCloud repiten o necesitan cuentas externas | sección 11.1 |
 | CI con build, tests, imagen y una prueba de humo con el compose y la colección de Postman | el caso 3 de GEN se prueba solo en cada push | sección 11.2 |
 | Compose con Postgres (datos en memoria), API, Prometheus y Grafana; el chequeo de salud de Postgres pregunta por red | cada `up` arranca de los datos originales, y la API no arranca antes de tiempo | sección 11.3 |
-| El portal se arma con Zensical, con Docusaurus como alternativa si la prueba de la fase 7 falla | Material for MkDocs dejó de recibir correcciones el 2026-11-05 | sección 11.6 |
+| El portal se arma con Zensical, con Docusaurus como alternativa si la prueba de la fase 7 fallaba. La prueba pasó | Material for MkDocs dejó de recibir correcciones el 2026-11-05 | sección 11.6 |
 
 **ADR**
 
