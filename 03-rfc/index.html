@@ -1882,6 +1882,8 @@
       
         
       
+        
+      
     
     
     
@@ -2058,6 +2060,33 @@
     
   
   Tiempo de respuesta con volumen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/08-verificacion-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Verificación final
 
     
   </span>
@@ -3121,7 +3150,7 @@ test de cada una primero.</p>
   los suyos.</li>
 </ul>
 <p>Todo se probó en la copia local (Postgres 18.6, con <code>database.sql</code>). La forma exacta está en
-<a href="../mediciones/03-esquema.sql"><code>mediciones/03-esquema.sql</code></a>, el borrador verificado del que sale la migración de la
+<a href="../mediciones/03-esquema.sql"><code>mediciones/03-esquema.sql</code></a>, el borrador verificado del que salieron las migraciones de la
 fase 5. Cómo se aplican las migraciones, y qué pasa con Neon, está en la sección 3.6. Lo que esta sección marca como
 probado tiene su script y su salida en <a href="../mediciones/"><code>mediciones/</code></a>; las trampas y Flyway, en
 <a href="../mediciones/03-pruebas-resultados/"><code>03-pruebas-resultados.md</code></a>.</p>
@@ -3496,8 +3525,8 @@ se prueba todos los días.</p>
   el grupo con el que Neon da permisos a los usuarios del proyecto. Su documentación dice que sus roles solo pueden
   instalar las extensiones que Neon soporta, y <code>unaccent</code> es una; no dice explícitamente qué rol puede. Se confirma
   en la fase 8, al migrar: si no pudiera, la migración falla y se deshace entera (ver "Todo o nada").</li>
-<li><strong>Una base vacía, sin <code>database.sql</code>, no se puede migrar:</strong> la versión 2 falla porque las tablas no existen, y se
-  deshace (probado en la copia local). Copiar <code>database.sql</code> como versión 1 lo resolvería, pero la copia local seguiría otro camino que
+<li><strong>Una base vacía, sin <code>database.sql</code>, no se puede migrar:</strong> la primera migración que toca una tabla falla porque no existen, y se
+  deshace todo (probado en la copia local, con el borrador como una sola versión). Copiar <code>database.sql</code> como versión 1 lo resolvería, pero la copia local seguiría otro camino que
   Neon.</li>
 </ul>
 <p><strong>Todo o nada.</strong> Postgres deshace entera una migración que falla. Se probó con una regla que los datos rompen: no
@@ -3597,6 +3626,8 @@ porque no hay precio para calcular la cantidad (ENV-6). La búsqueda la muestra 
 <ul>
 <li><strong>El texto y los datos se normalizan igual, en la base:</strong> <code>lower(unaccent(...))</code> de los dos lados.</li>
 <li><strong>Cada palabra tiene que aparecer</strong> en el ticker o en el nombre, en cualquier orden.</li>
+<li><strong>Un texto que queda vacío al normalizarlo,</strong> por ejemplo uno hecho solo de marcas de acento, pasa la validación y no
+  encuentra nada: la lista viene vacía (encontrado en la revisión final, fase 8).</li>
 <li><strong>Sin comodines:</strong> se busca con <code>strpos</code> y <code>starts_with</code> en lugar de <code>LIKE</code>, así <code>%</code> y <code>_</code> son texto común sin
   tener que escaparlos (A-5, decisión 10).</li>
 <li><strong>El orden:</strong> ticker igual, ticker que empieza así, ticker que lo contiene, nombre que empieza así y el resto. Los
@@ -3993,7 +4024,7 @@ con <code>"quantity": null</code>, <code>"price": null</code> y <code>"amount": 
 </tr>
 <tr>
 <td><code>quantity</code> o <code>amount</code></td>
-<td>exactamente uno de los dos. <code>quantity</code>, un entero de 1 a 2.147.483.647; <code>amount</code>, mayor a 0 y con hasta 2 decimales</td>
+<td>exactamente uno de los dos. <code>quantity</code>, un entero de 1 a 2.147.483.647; <code>amount</code>, mayor a 0, con hasta 2 decimales y hasta 18 dígitos enteros</td>
 </tr>
 <tr>
 <td><code>price</code></td>
@@ -4072,6 +4103,8 @@ con <code>"quantity": null</code>, <code>"price": null</code> y <code>"amount": 
 borrador del IETF), porque es un dato de la orden: se graba, vuelve en la respuesta y en el listado, y el cliente lo
 usa para encontrar su orden si perdió la respuesta (R-2, decisión 4). Es el mismo lugar que le dan el <code>ClOrdID</code> de FIX
 y el <code>client_order_id</code> de Coinbase.</p>
+<p>Jackson también lee un UUID escrito en Base64, con 24 caracteres. Es el mismo identificador en otra forma: no cambia nada
+y se deja así (encontrado en la revisión final, fase 8). Cualquier otro texto da 400.</p>
 <h3 id="66-los-números-configurables">6.6 Los números configurables<a class="headerlink" href="#66-los-números-configurables" title="Permanent link">&para;</a></h3>
 <p>Van en <code>application.yml</code>, con <code>@ConfigurationProperties</code> (<code>CLAUDE.md</code>):</p>
 <table>
@@ -4357,7 +4390,7 @@ usuario extremo tarda entre 0,66 y 0,94 segundos por portfolio. Los números, la
   agregaría:</strong> con Spring Security como servidor de recursos OAuth2, el usuario sale del token y no de la dirección
   (<code>/users/{userId}</code> pasa a <code>/me</code>). Las consultas ya filtran siempre por usuario, así que no habría que cambiarlas.</li>
 <li><strong>Validación en el borde:</strong> el pedido se valida antes de llegar a la lógica (secciones 6.2 y 7.2), con topes para
-  cada número (el monto, por la cantidad que da). Jackson 3, el que trae Spring Boot 4, acepta por defecto campos
+  cada número (el monto, con el suyo y por la cantidad que da). Jackson 3, el que trae Spring Boot 4, acepta por defecto campos
   desconocidos y convierte un <code>2.5</code> en <code>2</code> sin avisar si el campo es entero. Se apagan las dos cosas:
   <code>spring.jackson.deserialization.fail-on-unknown-properties: true</code> y <code>accept-float-as-int: false</code>. Así, 2,5 acciones
   dan 400 (caso 14 del envío), en lugar de comprar 2 (principio 2). Con el mismo principio, al implementar (fase 5) se
@@ -4518,11 +4551,15 @@ cobertura no dice si los tests son buenos; eso lo dicen los casos del PRD, cada 
    usa el Docker de la máquina de GitHub) y el piso de cobertura.</li>
 <li>La imagen de Docker de la API se construye.</li>
 <li><strong>Prueba de humo:</strong> <code>docker compose up</code>, esperar a que la API esté lista, verificar que Prometheus la lea y que
-   Grafana tenga el tablero y su fuente de datos, y pedir el portfolio del usuario 1, que tiene que dar los números
-   de POR (caso 3 de GEN). Después corre la colección de Postman con Newman, la herramienta
+   Grafana tenga el tablero y su fuente de datos, y pedir el portfolio del usuario 1, que tiene que dar sus pesos
+   disponibles y su valor total (caso 3 de GEN). Después corre la colección de Postman con Newman, la herramienta
    de línea de comandos de Postman (11.5), y al final <code>docker compose down</code>.</li>
 </ol>
 <p>Un PR se mergea solo con todo en verde.</p>
+<p><strong>Desvío (fases 5 a 8).</strong> El workflow está escrito (<code>.github/workflows/ci.yml</code>), pero GitHub Actions está bloqueado en
+esta cuenta y sus jobs no llegaron a arrancar. Los PR de las tareas se mergearon sin esa marca verde, con los mismos pasos
+corridos en local: <code>./mvnw verify</code>, <code>docker compose up</code>, la prueba de humo y la colección de Postman. El resultado, sobre
+un clon limpio, está en <a href="../mediciones/08-verificacion-final/"><code>mediciones/08-verificacion-final.md</code></a>.</p>
 <h3 id="113-docker-y-docker-compose-up">11.3 Docker y <code>docker compose up</code><a class="headerlink" href="#113-docker-y-docker-compose-up" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart LR
     quien([Quien evalúa]) --&gt;|docker compose up| api
@@ -4590,6 +4627,10 @@ for MkDocs, del mismo equipo y con licencia MIT. Dibuja los diagramas de Mermaid
 <li>Se publica en GitHub Pages, construido por CI desde <code>main</code> (<code>.github/workflows/portal.yml</code>; el repo es público desde el
   2026-11-08).</li>
 </ul>
+<p><strong>Dónde quedó (fase 7):</strong> <a href="https://xeduardomx.github.io/cocos-challenge-backend/">https://xeduardomx.github.io/cocos-challenge-backend/</a>. GitHub Actions está bloqueado en
+esta cuenta (sección 11.2), así que ese workflow todavía no corrió. Mientras tanto, el sitio generado se sube
+a mano a la rama <code>gh-pages</code>, y GitHub Pages lo publica desde ahí. Cuando Actions vuelva a correr, Pages se cambia para
+publicar desde el workflow.</p>
 <p><strong>Resultado de la prueba (fase 7): pasó, y Docusaurus no hizo falta.</strong> Con estos documentos, Zensical 0.1.0 dibuja los
 siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celular no hay scroll horizontal.</p>
 <p><strong>Cómo quedó armado (fase 7):</strong></p>
@@ -4608,8 +4649,6 @@ siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celu
   no se genera.</li>
 <li><strong>El CSS propio es una sola regla</strong> (<code>docs/portal/portal.css</code>): más ancho para las tablas y los diagramas del RFC.</li>
 </ul>
-<p>Los archivos concretos (<code>Dockerfile</code>, compose, workflows y configuración de Grafana) y su orden quedan para el plan
-(fase 4).</p>
 <h2 id="12-decisiones-de-esta-fase-y-adr">12. Decisiones de esta fase y ADR<a class="headerlink" href="#12-decisiones-de-esta-fase-y-adr" title="Permanent link">&para;</a></h2>
 <p><strong>Decisiones de esta fase</strong></p>
 <table>
@@ -4814,7 +4853,7 @@ siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celu
 <tr>
 <td>CI con build, tests, imagen y una prueba de humo con el compose y la colección de Postman</td>
 <td>el caso 3 de GEN se prueba solo en cada push</td>
-<td>sección 11.2</td>
+<td>sección 11.2, con su desvío</td>
 </tr>
 <tr>
 <td>Compose con Postgres (datos en memoria), API, Prometheus y Grafana; el chequeo de salud de Postgres pregunta por red</td>

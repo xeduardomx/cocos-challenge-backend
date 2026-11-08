@@ -1690,6 +1690,8 @@
       
         
       
+        
+      
     
     
     
@@ -1866,6 +1868,33 @@
     
   
   Tiempo de respuesta con volumen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/08-verificacion-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Verificación final
 
     
   </span>
@@ -2772,7 +2801,8 @@ pagar 0,6 centavos, así que es una cuenta, no un precio operado. La base lo gua
      permite ejecutarlo.</li>
 <li><strong>Tests independientes:</strong> cada test arma sus propios datos (su usuario con su depósito <code>CASH_IN</code>). Si todos
      usaran al usuario 1, se pisarían entre sí y el resultado dependería del orden en que corren. Los números de
-     referencia del usuario 1 se verifican en tests que solo leen.</li>
+     referencia del usuario 1 se verifican en tests que solo leen. <strong>Resuelto en el RFC (sección 10.2):</strong> antes de cada
+     test la base vuelve a los datos originales, así que los casos del usuario 1 también pueden escribir.</li>
 <li><strong>El email no se devuelve ni se loguea:</strong> el portfolio no lo necesita y es un dato personal.</li>
 <li><strong>Test:</strong> el portfolio del usuario 2 da $0 con la lista vacía, y el del usuario 99 da 404.</li>
 </ul>
@@ -3001,7 +3031,7 @@ miles de órdenes. Queda documentada como evolución posible, sin hacerla.
  muestra 50 PAMP, PPC $929,17 ((40 × $930 + 10 × $925,85) ÷ 50) y pesos disponibles por $618.241,50. El valor
  total sigue en $889.756: comprar a precio de mercado no cambia el total, solo pasa plata de pesos a acciones.
   8. <strong>Esta decisión es candidata a ADR en la fase 3</strong> ("posiciones calculadas, no guardadas"), con la medición
- formal.</p>
+ formal. <strong>Hecho:</strong> ADR 0003; la medición del RFC (sección 3.5) dio 1,2 ms para un usuario de 10.000 órdenes.</p>
 </li>
 </ul>
 <h3 id="a-5--qué-significa-similar-en-la-búsqueda">A-5 · Qué significa "similar" en la búsqueda<a class="headerlink" href="#a-5--qué-significa-similar-en-la-búsqueda" title="Permanent link">&para;</a></h3>
@@ -4160,6 +4190,10 @@ decisión y es la base del alcance del PRD.</p>
 <td>Los paneles del tablero que cuentan órdenes van en un solo color: el rojo por defecto de Grafana, desde 80, hacía parecer un problema a las órdenes ejecutadas</td>
 <td>Fase 7; RFC, sección 8.3</td>
 </tr>
+<tr>
+<td>Un texto de búsqueda que queda vacío al sacarle los acentos no encuentra nada: la lista viene vacía</td>
+<td>Fase 8; RFC, sección 4.3</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Cambios al modelo de datos:</strong> decididos en el RFC (sección 3) y aplicados con migraciones en la fase 5, solo en la
@@ -4333,7 +4367,7 @@ copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).</p>
    "modelo y cambios a la base" en el RFC. La lista de abajo queda escrita como insumo.</li>
 <li>~~<strong>Repaso rápido de riesgos (R-1 a R-5) y supuestos (S-1 a S-5)</strong>~~ Cerrado: R-2 con identificador de orden
    obligatorio; el resto, resuelto en otras decisiones o confirmado (ver "Riesgos y supuestos del análisis: repaso").</li>
-<li><strong>Repaso final de dudas sobre los conceptos.</strong> Pospuesto a pedido del autor: se hace más adelante.</li>
+<li>~~<strong>Repaso final de dudas sobre los conceptos.</strong>~~ Quedó como preparación personal del autor, fuera de estos documentos.</li>
 <li>~~<strong>Reescritura de <code>01-analisis.md</code></strong>~~ Hecha el 2026-11-06: resumen de todas las decisiones con el resumen del
    inventario, y números de referencia del usuario 1 recalculados en la copia local (con escenarios nuevos de envío,
    cancelación, listado y búsqueda). Se sacaron las preguntas para Cocos y el supuesto S-3, y se corrigieron
@@ -4342,8 +4376,7 @@ copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).</p>
    vacío con la posición en 0 o negativa (A-2, decisión 5) e identificador nuevo para volver a mandar una orden
    rechazada (R-2). Se integra a <code>develop</code> con un PR.</li>
 </ol>
-<p><strong>Fase 1 cerrada.</strong> Sigue la fase 2, el PRD, en la rama <code>docs/phase-2-prd</code>. El repaso de conceptos (punto 7) sigue
-pospuesto.</p>
+<p><strong>Fase 1 cerrada.</strong> Sigue la fase 2, el PRD, en la rama <code>docs/phase-2-prd</code>.</p>
 <h3 id="ideas-anotadas-para-fases-siguientes">Ideas anotadas para fases siguientes<a class="headerlink" href="#ideas-anotadas-para-fases-siguientes" title="Permanent link">&para;</a></h3>
 <ul>
 <li>~~<strong>Fase 7 (portal) o README:</strong> "Las decisiones clave en 12 preguntas", cada una con su respuesta corta y el enlace a
@@ -4382,7 +4415,7 @@ copia local.</p>
 <li><strong>R-2:</strong> columna para el identificador de la orden (vacía en las 11 órdenes viejas), única por (usuario,
   identificador); huella del pedido o pedido tal cual, para comparar el contenido en un reintento (recomendada: la
   huella).</li>
-<li><strong>C-2, abierta:</strong> ¿renombrar columnas (por ejemplo, <code>instrumentid</code> → <code>instrument_id</code>)? Propuesta: no, para que
+<li><strong>C-2, cerrada:</strong> ¿renombrar columnas (por ejemplo, <code>instrumentid</code> → <code>instrument_id</code>)? No, para que
   cualquiera que consulte la base con los nombres que conoce siga pudiendo hacerlo.</li>
 </ul>
 

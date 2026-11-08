@@ -1297,6 +1297,8 @@
       
         
       
+        
+      
     
     
     
@@ -1473,6 +1475,33 @@
     
   
   Tiempo de respuesta con volumen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/08-verificacion-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Verificación final
 
     
   </span>
@@ -1757,8 +1786,8 @@
 <li>A favor: es la menor cantidad de piezas que resuelve el problema, y todo lo de una función está junto: un cambio en
   el envío toca un solo paquete.</li>
 <li>En contra: el service usa el repository directamente, sin una interfaz en el medio. Para probar un service sin base
-  habría que simular el repository. Acá no hace falta: los services se prueban contra Postgres real a propósito,
-  porque ahí está lo delicado.</li>
+  habría que simular el repository. Acá casi no hace falta: lo delicado de los services se prueba contra Postgres real a
+  propósito, y la simulación queda para casos puntuales.</li>
 </ul>
 <p><strong>B. Hexagonal (puertos y adaptadores), o Clean Architecture, que sigue la misma idea.</strong> El núcleo define interfaces
 ("puertos") para todo lo de afuera, y afuera se implementan ("adaptadores"): uno para HTTP, otro para la base. El
@@ -1771,7 +1800,7 @@ núcleo no conoce Spring ni la base.</p>
 <li>Hay que copiar datos entre el modelo del núcleo y el de cada borde (la fila de la base, el JSON).</li>
 <li>Lo más delicado no se puede probar con una implementación falsa: el bloqueo y la transacción hay que probarlos
     contra Postgres igual.</li>
-<li>Ejemplo, mandar una orden: con A son <code>OrderController</code> → <code>OrderService</code> → <code>OrderRepository</code>. Con B se suman un
+<li>Ejemplo, mandar una orden: con A son <code>OrderController</code> → <code>OrderSubmissionService</code> → <code>OrderRepository</code>. Con B se suman un
   puerto de entrada (el caso de uso), un puerto de salida (el repositorio) con su adaptador para la base, y la
   conversión entre la orden del núcleo y la fila de <code>orders</code>.</li>
 </ul>

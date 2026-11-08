@@ -1375,6 +1375,8 @@
       
         
       
+        
+      
     
     
     
@@ -1554,6 +1556,33 @@
     
   
   Tiempo de respuesta con volumen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/08-verificacion-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Verificación final
 
     
   </span>
@@ -1865,7 +1894,7 @@ repositorio y van contra la copia local: ninguno toca la base de Cocos.</p>
 <div class="language-bash highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build<span class="w"> </span>-d
 ./scripts/smoke-test.sh
 </code></pre></div>
-<p>La prueba de humo espera a la API y verifica que Prometheus la lea, que Grafana tenga su tablero y que el usuario 1 dé
+<p>Levantarla solo necesita Docker; los scripts y los ejemplos de esta página también usan <code>curl</code> y <code>jq</code>. La prueba de humo espera a la API y verifica que Prometheus la lea, que Grafana tenga su tablero y que el usuario 1 dé
 los números originales. Si todo está bien, termina con:</p>
 <div class="language-text highlight"><pre><span></span><code>Smoke test passed: Prometheus scrapes the API, Grafana has the dashboard and a healthy data source, and user 1 has cash 627500 and total value 889756.
 </code></pre></div>
@@ -1929,7 +1958,7 @@ escriben ninguna.</p>
 <p>Las otras son <code>API_PORT</code> (8080), <code>PROMETHEUS_PORT</code> (9090) y <code>GRAFANA_PORT</code> (3000). Con otro puerto, los scripts lo
 reciben en <code>API_URL</code>, <code>PROMETHEUS_URL</code> y <code>GRAFANA_URL</code>.</p>
 <h3 id="una-orden-responde-503-problemsuser-busy">Una orden responde 503 <code>/problems/user-busy</code><a class="headerlink" href="#una-orden-responde-503-problemsuser-busy" title="Permanent link">&para;</a></h3>
-<div class="language-json highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"detail"</span><span class="p">:</span><span class="s2">"Tu cuenta está procesando otra orden. Intentá de nuevo."</span><span class="p">,</span><span class="nt">"status"</span><span class="p">:</span><span class="mi">503</span><span class="p">,</span><span class="nt">"title"</span><span class="p">:</span><span class="s2">"La cuenta está ocupada"</span><span class="p">,</span><span class="nt">"type"</span><span class="p">:</span><span class="s2">"/problems/user-busy"</span><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"detail"</span><span class="p">:</span><span class="s2">"Tu cuenta está procesando otra orden. Intentá de nuevo."</span><span class="p">,</span><span class="nt">"instance"</span><span class="p">:</span><span class="s2">"/users/2/orders"</span><span class="p">,</span><span class="nt">"status"</span><span class="p">:</span><span class="mi">503</span><span class="p">,</span><span class="nt">"title"</span><span class="p">:</span><span class="s2">"La cuenta está ocupada"</span><span class="p">,</span><span class="nt">"type"</span><span class="p">:</span><span class="s2">"/problems/user-busy"</span><span class="p">,</span><span class="nt">"requestId"</span><span class="p">:</span><span class="s2">"mi-pedido-3"</span><span class="p">}</span>
 </code></pre></div>
 <p>Otra operación tiene el turno de ese usuario desde hace más de 2 segundos. La respuesta trae <code>Retry-After: 1</code>, y
 reintentar con el mismo <code>clientOrderId</code> es seguro: no compra dos veces
@@ -1949,16 +1978,16 @@ qué transacciones están abiertas y desde cuándo:</p>
 <div class="language-bash highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>api<span class="w"> </span>--no-log-prefix<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>EL_REQUEST_ID<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-c<span class="w"> </span><span class="s1">'select(.log.level == "ERROR") | {message, problemType, httpStatus, error: .error.type}'</span>
 </code></pre></div>
 <h3 id="la-base-no-responde">La base no responde<a class="headerlink" href="#la-base-no-responde" title="Permanent link">&para;</a></h3>
-<p>Cada pedido espera hasta 30 segundos por una conexión y termina en un 500, con
-<code>CannotGetJdbcConnectionException</code> en los logs. <code>/actuator/health</code> tampoco contesta rápido: en la prueba no respondió en
+<p>Cada pedido espera hasta 30 segundos por una conexión y termina en un 500, con un error de conexión en los logs
+(<code>CannotCreateTransactionException</code> en un envío). <code>/actuator/health</code> tampoco contesta rápido: en la prueba no respondió en
 10 segundos. <code>docker compose ps</code> muestra si Postgres está corriendo.</p>
 <p>Para recuperarla, se baja y se levanta todo:</p>
 <div class="language-bash highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>down
 docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build<span class="w"> </span>-d
 </code></pre></div>
 <p><strong>No alcanza con reiniciar solo Postgres.</strong> Sus datos viven en memoria, así que vuelve a cargar <code>database.sql</code> sin las
-migraciones, que la API aplica solo al arrancar. El portfolio funciona, pero cada envío da 500, con
-<code>BadSqlGrammarException</code> en los logs.</p>
+migraciones, que la API aplica solo al arrancar. El portfolio funciona, pero la búsqueda, el envío, el listado y la
+cancelación dan 500.</p>
 <h3 id="grafana-no-muestra-la-latencia-o-los-errores">Grafana no muestra la latencia o los errores<a class="headerlink" href="#grafana-no-muestra-la-latencia-o-los-errores" title="Permanent link">&para;</a></h3>
 <p>No es una falla. Las órdenes y la espera del turno se ven desde el primer pedido. La latencia y los errores de cada
 función aparecen desde el segundo, con al menos 15 segundos entre los dos, porque Prometheus necesita dos lecturas.</p>
@@ -1985,12 +2014,12 @@ función aparecen desde el segundo, con al menos 15 segundos entre los dos, porq
 <tr>
 <td>Recorrer la API con Postman</td>
 <td><code>./scripts/run-postman.sh</code></td>
-<td>todo levantado, con los datos originales</td>
+<td>todo levantado, con los datos originales, y <code>curl</code> y <code>jq</code></td>
 </tr>
 <tr>
 <td>Medir el tiempo de respuesta</td>
 <td><code>./scripts/run-load-test.sh</code></td>
-<td>Docker con unos 2 GB libres; levanta y baja todo solo</td>
+<td>Docker con unos 4 GB libres, porque la base vive en memoria; levanta y baja todo solo</td>
 </tr>
 <tr>
 <td>Ver este portal en local</td>

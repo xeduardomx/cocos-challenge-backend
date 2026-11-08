@@ -1297,6 +1297,8 @@
       
         
       
+        
+      
     
     
     
@@ -1473,6 +1475,33 @@
     
   
   Tiempo de respuesta con volumen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/08-verificacion-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Verificación final
 
     
   </span>
@@ -1783,7 +1812,7 @@ siempre hacia adelante.</p>
 <li>anotó la versión 1, aplicó la 2, y una segunda corrida no hizo nada;</li>
 <li>una migración que falla se deshace entera;</li>
 <li>sin <code>group</code>, una migración que falla deja aplicadas las anteriores; con <code>group</code>, no queda ninguna;</li>
-<li>una base vacía no se puede migrar, porque la versión 2 necesita las tablas de <code>database.sql</code>. Falla y se deshace.</li>
+<li>una base vacía no se puede migrar, porque las migraciones necesitan las tablas de <code>database.sql</code>. Falla y se deshace todo.</li>
 <li>Apuntar la API a Neon no lo migra por accidente.</li>
 <li>En una tabla grande, cambiar el tipo de una columna o crear un índice habría que planificarlo aparte (RFC,
   sección 3.6).</li>

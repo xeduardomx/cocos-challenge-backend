@@ -1381,6 +1381,8 @@
       
         
       
+        
+      
     
     
     
@@ -1557,6 +1559,33 @@
     
   
   Tiempo de respuesta con volumen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/08-verificacion-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Verificación final
 
     
   </span>
@@ -1895,8 +1924,8 @@ en el RFC (fase 3).</p>
 <p><strong>Además:</strong></p>
 <ul>
 <li><strong>Una colección de Postman</strong> con el recorrido completo: buscar, enviar, reintentar la misma orden, listar y cancelar.
-  El enunciado la pide como opcional. Cada envío genera solo su identificador, y el pedido de reintento repite el del
-  último envío, para mostrar que no se crea otra orden (R-2).</li>
+  El enunciado la pide como opcional. Cada envío genera solo su identificador, y el pedido de reintento repite una
+  compra anterior, para mostrar que no se crea otra orden (R-2).</li>
 <li><strong>Métricas para soporte:</strong> se detallan en la sección 4.</li>
 </ul>
 <p><strong>Qué no hace, a propósito</strong></p>
@@ -1990,9 +2019,9 @@ con una comisión fija por orden, cambiarían:</p>
 <p>Los casos usan los datos de <code>database.sql</code>. Ahí, el usuario 1 tiene $753.000 en la cuenta, compras pendientes por
 $125.500 (órdenes 5 y 7) y tres posiciones: 500 METR, 40 PAMP y −10 BMA. Cuando un caso usa otros datos, lo aclara.
 Cada caso parte de los datos originales: lo que graba un caso no lo ve el siguiente. Cómo lo logran los tests se
-define en el RFC (sección 6).</p>
+define en el RFC (sección 10.2).</p>
 <p>Los requisitos llevan un código de tres letras por función (POR, BUS, ENV, CAN, LIS y GEN), para no confundirlos con
-los del análisis. Los tests de la fase 5 los citan.</p>
+los del análisis. El plan (fase 4) los cita, tarea por tarea.</p>
 <h3 id="31-portfolio">3.1 Portfolio<a class="headerlink" href="#31-portfolio" title="Permanent link">&para;</a></h3>
 <p><em>Para qué:</em> que el inversor sepa cuánto vale su cuenta, cuánto puede invertir y cómo le va con cada acción.</p>
 <table>
