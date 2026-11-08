@@ -25,6 +25,23 @@ public class OrderRepository {
           from orders o join instruments i on i.id = o.instrumentid
           where o.userid = :userId and o.clientorderid = :clientOrderId
           """;
+  private static final String FIND_BY_ID =
+      SELECT
+          + """
+          from orders o join instruments i on i.id = o.instrumentid
+          where o.userid = :userId and o.id = :orderId
+          """;
+  // the update locks the row of the order: a second cancellation waits and then finds it no longer
+  // NEW
+  private static final String CANCEL_IF_NEW =
+      """
+      with o as (
+        update orders set status = 'CANCELLED'
+        where id = :orderId and userid = :userId and status = 'NEW'
+        returning *)
+      """
+          + SELECT
+          + "from o join instruments i on i.id = o.instrumentid";
   // the insert and the ticker lookup are one statement: no second query for the ticker
   private static final String INSERT =
       """
@@ -50,6 +67,23 @@ public class OrderRepository {
     return jdbc.sql(FIND_BY_CLIENT_ORDER_ID)
         .param("userId", userId)
         .param("clientOrderId", clientOrderId)
+        .query(ORDER_MAPPER)
+        .optional();
+  }
+
+  public Optional<StoredOrder> findById(long userId, long orderId) {
+    return jdbc.sql(FIND_BY_ID)
+        .param("userId", userId)
+        .param("orderId", orderId)
+        .query(ORDER_MAPPER)
+        .optional();
+  }
+
+  /** Cancels the order if it is the user's and still NEW; empty when no row changed. */
+  public Optional<StoredOrder> cancelIfNew(long userId, long orderId) {
+    return jdbc.sql(CANCEL_IF_NEW)
+        .param("userId", userId)
+        .param("orderId", orderId)
         .query(ORDER_MAPPER)
         .optional();
   }
