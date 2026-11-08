@@ -44,13 +44,23 @@ public class ApiClient {
     return client.get().uri(URI.create(baseUrl + encodedPath)).exchange(ApiClient::toResponse);
   }
 
+  /** For a response that is not JSON, such as the scrape of Prometheus: only its raw body. */
+  public ApiResponse getText(String path) {
+    return client.get().uri(path).exchange(ApiClient::toTextResponse);
+  }
+
   /** Sends the text as the body, untouched: for numbers and values Java cannot represent. */
   public ApiResponse post(String path, String rawJson) {
+    return post(path, MediaType.APPLICATION_JSON, rawJson);
+  }
+
+  /** Sends the body with this content type: for a body the API does not accept. */
+  public ApiResponse post(String path, MediaType contentType, String body) {
     return client
         .post()
         .uri(path)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(rawJson)
+        .contentType(contentType)
+        .body(body)
         .exchange(ApiClient::toResponse);
   }
 
@@ -58,10 +68,25 @@ public class ApiClient {
       org.springframework.http.HttpRequest request,
       RestClient.RequestHeadersSpec.ConvertibleClientHttpResponse response)
       throws java.io.IOException {
-    String body =
-        new String(response.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    String body = bodyOf(response);
     JsonNode json = body.isBlank() ? MAPPER.missingNode() : MAPPER.readTree(body);
     return new ApiResponse(response.getStatusCode().value(), response.getHeaders(), body, json);
+  }
+
+  private static ApiResponse toTextResponse(
+      org.springframework.http.HttpRequest request,
+      RestClient.RequestHeadersSpec.ConvertibleClientHttpResponse response)
+      throws java.io.IOException {
+    return new ApiResponse(
+        response.getStatusCode().value(),
+        response.getHeaders(),
+        bodyOf(response),
+        MAPPER.missingNode());
+  }
+
+  private static String bodyOf(RestClient.RequestHeadersSpec.ConvertibleClientHttpResponse response)
+      throws java.io.IOException {
+    return new String(response.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
   }
 
   /** A response with its raw body and the body read as JSON. */

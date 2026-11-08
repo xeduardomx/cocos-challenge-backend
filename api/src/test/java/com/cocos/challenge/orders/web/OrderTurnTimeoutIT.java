@@ -2,14 +2,20 @@ package com.cocos.challenge.orders.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.cocos.challenge.account.UserBusyException;
+import com.cocos.challenge.shared.web.RequestIds;
 import com.cocos.challenge.support.ApiClient;
 import com.cocos.challenge.support.ApiClient.ApiResponse;
 import com.cocos.challenge.support.Concurrency;
 import com.cocos.challenge.support.Concurrency.HeldTurn;
 import com.cocos.challenge.support.IntegrationTest;
+import com.cocos.challenge.support.LogLines;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -21,6 +27,7 @@ import org.springframework.test.context.TestPropertySource;
  * a slow machine.
  */
 @IntegrationTest
+@ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(properties = "cocos.account.turn-timeout=200ms")
 class OrderTurnTimeoutIT {
 
@@ -36,18 +43,19 @@ class OrderTurnTimeoutIT {
     return jdbc.sql("select count(*) from orders").query(Integer.class).single();
   }
 
+  private static String marketBuy() {
+    return """
+    { "clientOrderId": "%s", "instrumentId": %d, "side": "BUY", "type": "MARKET", \
+    "quantity": 10 }\
+    """
+        .formatted(UUID.randomUUID(), PAMP);
+  }
+
   @Test
   void answersBusyWhenTheTurnIsNotFree() throws InterruptedException {
-    String request =
-        """
-        { "clientOrderId": "%s", "instrumentId": %d, "side": "BUY", "type": "MARKET", \
-        "quantity": 10 }\
-        """
-            .formatted(UUID.randomUUID(), PAMP);
-
     ApiResponse response;
     try (HeldTurn held = concurrency.holdTurn(USER_ONE)) {
-      response = new ApiClient(port).post("/users/" + USER_ONE + "/orders", request);
+      response = new ApiClient(port).post("/users/" + USER_ONE + "/orders", marketBuy());
     }
 
     assertThat(response.status()).isEqualTo(503);
@@ -56,5 +64,28 @@ class OrderTurnTimeoutIT {
     assertThat(response.json().get("detail").asString())
         .isEqualTo("Tu cuenta está procesando otra orden. Intentá de nuevo.");
     assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS);
+  }
+
+  @Test
+  void writesTheBusyTurnAsOneErrorWithItsStackTrace(CapturedOutput output)
+      throws InterruptedException {
+    String requestId = UUID.randomUUID().toString();
+    HttpHeaders headers = new HttpHeaders();
+    headers.set(RequestIds.HEADER, requestId);
+
+    ApiResponse response;
+    try (HeldTurn held = concurrency.holdTurn(USER_ONE)) {
+      response = new ApiClient(port, headers).post("/users/" + USER_ONE + "/orders", marketBuy());
+    }
+
+    assertThat(response.status()).isEqualTo(503);
+    assertThat(LogLines.errorsOfRequest(output, requestId))
+        .singleElement()
+        .satisfies(line -> {
+          assertThat(LogLines.level(line)).isEqualTo("ERROR");
+          assertThat(line.get("httpStatus").asInt()).isEqualTo(503);
+          assertThat(line.get("problemType").asString()).isEqualTo("/problems/user-busy");
+          assertThat(LogLines.stackTrace(line)).contains(UserBusyException.class.getName());
+        });
   }
 }

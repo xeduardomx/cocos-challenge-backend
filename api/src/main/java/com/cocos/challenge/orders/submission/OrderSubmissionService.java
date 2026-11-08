@@ -1,5 +1,7 @@
 package com.cocos.challenge.orders.submission;
 
+import com.cocos.challenge.orders.OrderEventLogger;
+import com.cocos.challenge.orders.OrderMetrics;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
@@ -9,18 +11,35 @@ import org.springframework.stereotype.Service;
  * the first. Any other insert of an order of the user waits for the turn too, because its foreign
  * key check takes a key share lock on the row of the user. The retry is the safety net for a path
  * without the turn: when the uniqueness rule stops an insert, its transaction is already rolled
- * back, so it starts again once and finds the order of the other.
+ * back, so it starts again once and finds the order of the other. An order is counted and logged
+ * here, once its transaction is confirmed.
  */
 @Service
 public class OrderSubmissionService {
 
   private final OrderSubmissionTransaction transaction;
+  private final OrderMetrics metrics;
+  private final OrderEventLogger eventLogger;
 
-  public OrderSubmissionService(OrderSubmissionTransaction transaction) {
+  public OrderSubmissionService(
+      OrderSubmissionTransaction transaction, OrderMetrics metrics, OrderEventLogger eventLogger) {
     this.transaction = transaction;
+    this.metrics = metrics;
+    this.eventLogger = eventLogger;
   }
 
   public SubmissionResult submit(SubmitOrderCommand command) {
+    SubmissionResult result = attempt(command);
+    if (result.replayed()) {
+      metrics.recordReplayed();
+    } else {
+      metrics.recordCreated(result.order());
+    }
+    eventLogger.logProcessed(result.order(), result.replayed());
+    return result;
+  }
+
+  private SubmissionResult attempt(SubmitOrderCommand command) {
     try {
       return transaction.submit(command);
     } catch (DuplicateKeyException e) {
