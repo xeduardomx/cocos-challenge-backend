@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Endpoints that exist only to make the handler produce each kind of error. */
 @RestController
-class ProblemProbeController {
+public class ProblemProbeController {
 
   // Any key without arguments will do: the test only needs to see the text come out of the bundle
   static final String VIOLATION_KEY = "{request.malformed}";
