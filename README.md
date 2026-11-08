@@ -31,6 +31,9 @@ La base se arma con `docs/00-fuentes/database.sql` y las migraciones de la API, 
 `docker compose up` arranca con los datos originales. Prometheus y Grafana también arrancan de cero: no dejan
 volúmenes.
 
+En Grafana, las órdenes y la espera del turno se ven desde el primer pedido. La latencia y los errores de cada función
+aparecen desde el segundo, con al menos 15 segundos entre los dos: Prometheus necesita dos lecturas para calcularlos.
+
 Para bajar todo: `docker compose down`.
 
 ## Prueba de humo
@@ -54,8 +57,9 @@ una segunda corrida sin bajar y volver a levantar falla. Para usarla desde Postm
 
 ## Tiempo de respuesta con volumen
 
-Levanta todo de cero, carga 2 millones de órdenes, mide las cinco funciones con k6 y baja todo al terminar. El resultado
-está en `docs/mediciones/06-tiempo-de-respuesta.md`:
+Levanta todo de cero, carga 2 millones de órdenes, mide las cinco funciones con k6 y baja todo al terminar. Tarda unos
+minutos y necesita unos 2 GB libres de memoria para Docker, porque la base vive en memoria. El resultado está en
+`docs/mediciones/06-tiempo-de-respuesta.md`:
 
 ```bash
 ./scripts/run-load-test.sh

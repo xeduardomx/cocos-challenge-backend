@@ -94,10 +94,10 @@ El detalle se trabaja en el bloque del esquema, que se hace en el RFC (fase 3).
      usuario compra 5 BMA, la fila pasaría de −10 a −5, la regla la rechazaría, y el usuario no podría comprar.
    - Un trigger duplicaría la lógica de la aplicación, escondida en la base y con el mismo problema de órdenes
      simultáneas.
-4. **Hallazgo:** la orden 11 vendió 30 con 20 en la cuenta, y nada la frenó. El mismo −10 deja el caso más peligroso,
-   dos ventas simultáneas sin bloqueo: con 20 acciones llegan dos ventas de 15, las dos ven "tiene 20", las dos pasan
-   y la posición queda en −10. Se demuestra con un test:
-   dos ventas de 15 en paralelo, una `FILLED` y otra `REJECTED`, posición final 5.
+4. **Hallazgo:** la orden 11 vendió 30 con 20 en la cuenta, y nada la frenó. Dos ventas simultáneas sin bloqueo dejarían
+   el mismo resultado: con 20 acciones llegan dos ventas de 15, las dos ven "tiene 20", las dos pasan y la posición
+   queda en −10. Se demuestra con un test: dos ventas de 15 en paralelo, una `FILLED` y otra `REJECTED`, posición
+   final 5.
 5. **Sin aviso especial** en la respuesta del portfolio: el −10 ya lo dice.
 
 ### Base de Neon: se trata como producción
@@ -1064,7 +1064,7 @@ decisión y es la base del alcance del PRD.
 | La métrica de órdenes se llama `orders_recorded_total` (OpenMetrics reserva `_created`), y los contadores existen en 0 desde el arranque, para que `increase()` vea la primera orden | Fase 6; RFC, sección 8.2 |
 | Cada error escribe una sola línea: `WARN` en un 4xx y `ERROR` con stack trace en un 5xx, también el 503 de turno ocupado | Fase 6; RFC, sección 8.1 |
 | Prometheus y Grafana escuchan solo en `127.0.0.1`, con los puertos configurables (`PROMETHEUS_PORT`, `GRAFANA_PORT`), y sus datos viven en memoria | Fase 6; RFC, sección 11.3 |
-| Los paneles por función no incluyen `/actuator/*`, y el tablero es la página de inicio de Grafana | Fase 6; RFC, sección 8.3 |
+| Los paneles por función no incluyen `/actuator/*` y distinguen el método (el envío y el listado comparten dirección); el tablero es la página de inicio de Grafana | Fase 6; RFC, sección 8.3 |
 | Medición con k6: nueve escenarios, 10 pedidos por segundo cada uno, con calentamiento. La semilla de volumen deposita 100.000.000 por usuario: con 1.000.000 se rechazaba el 37 % de las compras de los típicos y todas las del pesado | Fase 6; `mediciones/06-tiempo-de-respuesta.md` |
 
 **Cambios al modelo de datos:** decididos en el RFC (sección 3) y aplicados con migraciones en la fase 5, solo en la

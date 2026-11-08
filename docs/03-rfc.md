@@ -15,7 +15,7 @@ medidos. Lo central:
 
 - **La plata y las acciones nunca se gastan dos veces.** Cada envío toma el turno de su usuario, un lock sobre su
   fila, y cada orden trae un identificador que convierte un reintento en la misma orden. Probado en la copia local:
-  sin turno, dos ventas simultáneas reproducen la orden 11 (sección 5).
+  sin turno, dos ventas simultáneas dejan el mismo −10 que la orden 11 (sección 5).
 - **La cuenta se calcula desde las órdenes, en un solo lugar y en Java,** con un solo índice nuevo para las consultas:
   1,2 ms en la base para un usuario de 10.000 órdenes, con 2 millones en la tabla (secciones 3.5 y 4).
 - **La base no acepta datos imposibles:** reglas que miran una fila, verificadas contra los datos de hoy, y tres
@@ -63,8 +63,8 @@ chocan, gana el de más arriba.
 
 1. **La plata y las acciones nunca se gastan dos veces,** ni con dos órdenes al mismo tiempo (R-1) ni con un
    reintento (R-2). Es el riesgo más serio del challenge: la orden 11 vendió 30 BMA con 20 en la cuenta y dejó la
-   posición en −10. El mismo −10 dejan dos ventas de 15 que llegan juntas y ven las dos "tiene 20" (D-1). Una opción
-   más simple que deje abierta esa puerta no sirve.
+   posición en −10, y dos ventas de 15 que llegan juntas y ven las dos "tiene 20" dejarían el mismo resultado (D-1).
+   Una opción más simple que deje abierta esa puerta no sirve.
 2. **Nunca se cambia lo que el usuario autorizó.** Un precio con más de 2 decimales se rechaza en vez de redondearse
    (D-4), y en una orden por monto la cantidad se corta para abajo, así nunca supera lo pedido (A-6).
 3. **La base no acepta datos imposibles.** Las reglas que se ven en una sola fila, como una orden sin usuario o un
@@ -638,7 +638,7 @@ BMA a la vez, teniendo 20 (el caso 1 de GEN):
 
 | Prueba | Venta 1 | Venta 2 | Posición final |
 |---|---|---|---|
-| A. Sin turno | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10**: es la orden 11, reproducida |
+| A. Sin turno | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10**: el mismo resultado que la orden 11 |
 | B. Con turno | `FILLED` (vio 20) | `REJECTED` (vio 5) | **5**, lo correcto |
 | C. Con turno, en `REPEATABLE READ` | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10** |
 
@@ -1090,8 +1090,11 @@ La decisión, con sus alternativas, está en el [ADR 0007](adr/0007-metricas-con
 - **Grafana** arranca con la fuente de datos y un tablero ya cargados desde archivos del repo: al levantar el compose,
   el tablero está listo, sin configurar nada a mano, y es la página de inicio. Muestra las órdenes por estado, tipo y
   lado, los rechazos por motivo, la latencia (percentil 95) y los errores por función, y la espera del turno. Los
-  paneles por función no incluyen `/actuator/*`: si no, se llenarían con la lectura de Prometheus (precisado al
-  implementar, fase 6).
+  paneles por función no incluyen `/actuator/*`, porque se llenarían con la lectura de Prometheus, y distinguen el
+  método: el envío y el listado comparten dirección. Las órdenes y la espera del turno se ven desde el primer pedido.
+  La latencia y los errores, desde el segundo de cada función y código, con una lectura de Prometheus (15 segundos) en
+  el medio: Spring crea esas series con el primer pedido, y `rate()` necesita dos muestras (precisado al implementar,
+  fase 6).
 - **En producción con New Relic,** se cambia el registro de Micrometer (`micrometer-registry-new-relic`, con la clave
   y la cuenta por variables de entorno). Las métricas y su código no cambian.
 - **Alternativas:** New Relic de verdad, con una cuenta gratuita, obligaría a quien evalúa a tener una cuenta y una
@@ -1226,8 +1229,9 @@ En cada push y en cada PR:
 1. `./mvnw verify` con Temurin 25: formato, compilación con Error Prone y NullAway, todos los tests (Testcontainers
    usa el Docker de la máquina de GitHub) y el piso de cobertura.
 2. La imagen de Docker de la API se construye.
-3. **Prueba de humo:** `docker compose up`, esperar a que la API esté lista y pedir el portfolio del usuario 1, que
-   tiene que dar los números de POR (caso 3 de GEN). Después corre la colección de Postman con Newman, la herramienta
+3. **Prueba de humo:** `docker compose up`, esperar a que la API esté lista, verificar que Prometheus la lea y que
+   Grafana tenga el tablero y su fuente de datos, y pedir el portfolio del usuario 1, que tiene que dar los números
+   de POR (caso 3 de GEN). Después corre la colección de Postman con Newman, la herramienta
    de línea de comandos de Postman (11.5), y al final `docker compose down`.
 
 Un PR se mergea solo con todo en verde.
@@ -1333,7 +1337,7 @@ Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Gra
 | La búsqueda usa `strpos` y `starts_with`, sin `LIKE` | `%` y `_` quedan como texto común sin escaparlos | sección 4.3 |
 | El cursor es la fecha con microsegundos y el id, en base64url | no pierde precisión al pasar de página, y el cliente no depende de su forma | sección 4.4 |
 | Divisiones con 34 dígitos y un solo redondeo al final, con `HALF_UP` | se redondea solo el número que se muestra; los números del PRD dan igual con los dos modos | sección 4.5 |
-| El turno del usuario es un lock sobre su fila de `users`, en `READ COMMITTED`, con espera máxima de 2 segundos | probado: sin turno se reproduce la orden 11; en `REPEATABLE READ`, también | sección 5.2, ADR 0004 |
+| El turno del usuario es un lock sobre su fila de `users`, en `READ COMMITTED`, con espera máxima de 2 segundos | probado: sin turno, dos ventas dejan el mismo −10 que la orden 11; en `REPEATABLE READ`, también | sección 5.2, ADR 0004 |
 | El reintento se reconoce dentro del turno, con la huella `v1` del pedido; la regla de unicidad queda como red | probado: dos pedidos con el mismo identificador crean una sola orden | sección 5.3, ADR 0005 |
 | La cancelación no toma el turno: es un solo `UPDATE` condicionado | solo libera reservas, y dos cancelaciones simultáneas no ganan las dos (probado) | sección 5.4 |
 | Direcciones con el usuario en la ruta, cancelación con `POST .../cancel` y sin versión en la ruta | no hay autenticación (S-5), y la orden cancelada no se borra | sección 6.1 |

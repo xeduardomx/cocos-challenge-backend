@@ -1070,7 +1070,7 @@ Rama `task/5-10-user-turn`.
     propiedad vale para todo el contexto: con 200 ms, los tests con pausa podrían dar 503 en una máquina lenta.
 
 - [ ] **Paso 2: correrlos.** `./mvnw -B test -Dtest='OrderConcurrencyIT,OrderTurnTimeoutIT'` tiene que fallar. En el
-  primero, la posición queda en −10: es la orden 11, reproducida.
+  primero, la posición queda en −10: el mismo resultado que la orden 11.
 
 - [ ] **Paso 3: tomar el turno.** Agregar `accountService.takeTurn(command.userId())` como primera línea de la
   transacción.
@@ -1333,8 +1333,16 @@ Al terminar la tarea 16: PR de `feat/phase-5-implementation` a `develop`, con me
 Antes de la tarea 17: `git checkout develop && git pull && git checkout -b feat/phase-6-observability`, y push.
 
 > Al ejecutar: la rama salió de `feat/phase-5-implementation`, porque el autor dejó abierto el PR de la fase 5 hasta
-> saber si GitHub desbloquea el CI. Y el contador `orders.created` pasó a `orders.recorded`: lo explica el RFC, sección
-> 8.2. Los nombres de las tareas 17 y 18 ya están corregidos.
+> saber si GitHub desbloquea el CI. Las tareas 17 a 19 cambiaron en lo siguiente, y lo construido es lo que vale:
+>
+> - **Tarea 17:** el contador `orders.created` pasó a `orders.recorded` y los contadores existen en 0 desde el arranque
+>   (RFC 8.2). El 503 también escribe un `ERROR` con stack trace, y "sin stack trace" se prueba leyendo el JSON, porque en
+>   ECS el stack va adentro de la línea (RFC 8.1).
+> - **Tarea 18:** los paneles por función excluyen `/actuator/*` y agrupan también por método, el de órdenes muestra solo
+>   las combinaciones mayores que 0, y Prometheus y Grafana escuchan en `127.0.0.1` con sus puertos configurables (RFC
+>   8.3 y 11.3).
+> - **Tarea 19:** hay un calentamiento, los envíos son también del usuario pesado, y la semilla deposita 100.000.000
+>   (`mediciones/06-tiempo-de-respuesta.md`).
 
 ### Tarea 17: logs estructurados y métricas
 
@@ -1405,8 +1413,8 @@ Rama `task/6-18-grafana-dashboard`.
   - órdenes por estado, tipo y lado: `sum by (status, type, side) (increase(orders_recorded_total[$__range]))`;
   - rechazos por motivo: `sum by (reason) (increase(orders_recorded_total{status="REJECTED"}[$__range]))`;
   - latencia p95 por función:
-    `histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket[5m])))`;
-  - errores por función: `sum by (uri, status) (rate(http_server_requests_seconds_count{status=~"4..|5.."}[5m]))`;
+    `histogram_quantile(0.95, sum by (le, method, uri) (rate(http_server_requests_seconds_bucket{uri!~"/actuator/.*"}[5m])))`;
+  - errores por función: `sum by (method, uri, status) (rate(http_server_requests_seconds_count{uri!~"/actuator/.*",status=~"4..|5.."}[5m]))`;
   - espera del turno, p95: `histogram_quantile(0.95, sum by (le) (rate(orders_turn_wait_seconds_bucket[5m])))`.
 - Modificar `docker-compose.yml` para agregar dos servicios:
   - `prometheus` (`prom/prometheus:v3.16.0`, puerto 9090);
@@ -1466,7 +1474,7 @@ Al terminar la tarea 19: PR de `feat/phase-6-observability` a `develop`, con mer
 ## Fuera de este plan
 
 - **El portal HTML de la fase 7,** con Zensical (RFC 11.6).
-- **El README completo, la revisión final, el repo público y el mail de la fase 8.**
+- **El README completo, la revisión final y el mail de la fase 8.**
 - **Si a Neon se le aplican las migraciones,** que se decide en la fase 8 (ADR 0006).
 
 ## Cobertura del RFC y del PRD

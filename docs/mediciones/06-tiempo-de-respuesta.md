@@ -101,7 +101,7 @@ docker compose down
 
 ## Resultado con volumen
 
-k6 terminó con código 0, con los nueve umbrales cumplidos. En cada escenario, pedidos y tiempos en milisegundos:
+k6 terminó con código 0, con los nueve umbrales de tiempo y los demás cumplidos. En cada escenario, pedidos y tiempos en milisegundos:
 
 | Escenario | Pedidos | p50 (ms) | p95 (ms) | p99 (ms) | Máximo (ms) | p95 de la corrida anterior (ms) |
 |---|---|---|---|---|---|---|
