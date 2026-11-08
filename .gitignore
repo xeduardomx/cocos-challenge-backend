@@ -8,6 +8,10 @@ target/
 build/
 out/
 
+# Portal (generated from docs/)
+site/
+.cache/
+
 # IDE / SO
 .idea/
 *.iml
