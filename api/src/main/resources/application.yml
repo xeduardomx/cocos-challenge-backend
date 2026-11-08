@@ -7,3 +7,12 @@ spring:
     baseline-version: 1
     baseline-description: database.sql de Cocos
     group: true
+  jackson.deserialization:
+    fail-on-unknown-properties: true
+    accept-float-as-int: false
+  mvc.problemdetails.enabled: true
+  messages.fallback-to-system-locale: false
+cocos:
+  display:
+    time-zone: America/Argentina/Buenos_Aires
+    locale: es-AR
