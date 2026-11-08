@@ -15,6 +15,8 @@ spring:
       accept-float-as-int: false
     mapper.allow-coercion-of-scalars: false
     read.strict-duplicate-detection: true
+    # Without it a number is taken as the position of an enum value: "side": 1 would sell
+    datatype.enum.fail-on-numbers-for-enums: true
   mvc.problemdetails.enabled: true
   messages.fallback-to-system-locale: false
 cocos:

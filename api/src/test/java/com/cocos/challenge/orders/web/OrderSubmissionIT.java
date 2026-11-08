@@ -366,6 +366,31 @@ class OrderSubmissionIT {
     assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS);
   }
 
+  static Stream<Arguments> numbersInPlaceOfAnEnumValue() {
+    // as positions, 1 would be SELL and LIMIT: both orders would be valid and recorded
+    return Stream.of(
+        Arguments.of(
+            "side",
+            order(UUID.randomUUID(), PAMP, "\"side\": 1, \"type\": \"MARKET\", \"quantity\": 10")),
+        Arguments.of(
+            "type",
+            order(
+                UUID.randomUUID(),
+                PAMP,
+                "\"side\": \"BUY\", \"type\": 1, \"quantity\": 10, \"price\": 900")));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("numbersInPlaceOfAnEnumValue")
+  void refusesANumberInPlaceOfAnEnumValue(String field, String json) {
+    ApiResponse response = submit(USER_ONE, json);
+
+    assertThat(response.status()).isEqualTo(400);
+    assertThat(response.json().get("type").asString()).isEqualTo(VALIDATION_ERROR);
+    assertThat(response.json().get("errors").get(0).get("field").asString()).isEqualTo(field);
+    assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS);
+  }
+
   @Test
   void explainsAValidationErrorInSpanish() {
     ApiResponse response =
