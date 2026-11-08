@@ -5,6 +5,7 @@ import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.shared.domain.OrderStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -25,7 +26,8 @@ public class TestData {
   private static final String INSERT_ORDER =
       """
       insert into orders (instrumentId, userId, size, price, side, status, type, datetime)
-      values (:instrumentId, :userId, :size, :price, :side, :status, :type, clock_timestamp())
+      values (:instrumentId, :userId, :size, :price, :side, :status, :type,
+              coalesce(cast(:datetime as timestamptz), clock_timestamp()))
       """;
   private static final String INSERT_PRICE =
       """
@@ -52,15 +54,37 @@ public class TestData {
   /** A deposit is {@code amount} pesos at price 1. */
   public void deposit(long userId, int amount) {
     insertOrder(
-        userId, ARS, OrderSide.CASH_IN, OrderStatus.FILLED, OrderType.MARKET, amount, CASH_PRICE);
+        userId,
+        ARS,
+        OrderSide.CASH_IN,
+        OrderStatus.FILLED,
+        OrderType.MARKET,
+        amount,
+        CASH_PRICE,
+        null);
   }
 
   public void fill(long userId, long instrumentId, OrderSide side, int size, BigDecimal price) {
-    insertOrder(userId, instrumentId, side, OrderStatus.FILLED, OrderType.MARKET, size, price);
+    insertOrder(
+        userId, instrumentId, side, OrderStatus.FILLED, OrderType.MARKET, size, price, null);
   }
 
   public void pending(long userId, long instrumentId, OrderSide side, int size, BigDecimal price) {
-    insertOrder(userId, instrumentId, side, OrderStatus.NEW, OrderType.LIMIT, size, price);
+    insertOrder(userId, instrumentId, side, OrderStatus.NEW, OrderType.LIMIT, size, price, null);
+  }
+
+  /** A pending LIMIT order with the given time, instead of the time of the insert. */
+  public void pendingAt(
+      long userId, long instrumentId, int size, BigDecimal price, OffsetDateTime datetime) {
+    insertOrder(
+        userId,
+        instrumentId,
+        OrderSide.BUY,
+        OrderStatus.NEW,
+        OrderType.LIMIT,
+        size,
+        price,
+        datetime);
   }
 
   /** Records a day without trades: open, high and low stay empty. */
@@ -81,7 +105,8 @@ public class TestData {
       OrderStatus status,
       OrderType type,
       int size,
-      BigDecimal price) {
+      BigDecimal price,
+      @Nullable OffsetDateTime datetime) {
     jdbc.sql(INSERT_ORDER)
         .param("instrumentId", instrumentId)
         .param("userId", userId)
@@ -90,6 +115,7 @@ public class TestData {
         .param("side", side.name())
         .param("status", status.name())
         .param("type", type.name())
+        .param("datetime", datetime)
         .update();
   }
 }

@@ -20,3 +20,6 @@ cocos:
   search:
     max-results: 20
     max-query-length: 50
+  orders.page:
+    default-size: 20
+    max-size: 100
