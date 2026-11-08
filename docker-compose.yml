@@ -32,3 +32,33 @@ services:
       SPRING_FLYWAY_ENABLED: "true"
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    depends_on:
+      - api
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    # Not a volume: the image would leave an anonymous one behind after `down`. Every `up` starts empty.
+    tmpfs:
+      - /prometheus:uid=65534,gid=65534
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+
+  grafana:
+    image: grafana/grafana:13.3.0
+    depends_on:
+      - prometheus
+    environment:
+      # No login, read only, and only on this machine: Grafana has no authentication here.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/cocos-api.json
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro
+    tmpfs:
+      # exec: Grafana runs its bundled plugins (the Prometheus one) from this folder, and a tmpfs is noexec by default.
+      - /var/lib/grafana:exec,uid=472,gid=0
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
