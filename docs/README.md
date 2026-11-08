@@ -27,6 +27,7 @@ Cada fase cerró con su documento, y ese documento se aprobó antes de seguir.
 | 5. Implementación, con el test primero | la API y sus tests |
 | 6. Observabilidad y medición | [métricas](portal/metricas.md) y [mediciones](mediciones/README.md) |
 | 7. Este portal | se genera desde los mismos documentos, así nunca dicen cosas distintas |
+| 8. Revisión final | [verificación sobre un clon limpio](mediciones/08-verificacion-final.md) |
 
 ## Las decisiones clave en 12 preguntas
 

@@ -137,5 +137,5 @@ La colección espera los datos originales, y la primera corrida ya los cambió. 
 |---|---|---|
 | Correr todos los tests | `cd api && ./mvnw verify` | Java 25 y Docker |
 | Recorrer la API con Postman | `./scripts/run-postman.sh` | todo levantado, con los datos originales, y `curl` y `jq` |
-| Medir el tiempo de respuesta | `./scripts/run-load-test.sh` | Docker con unos 2 GB libres; levanta y baja todo solo |
+| Medir el tiempo de respuesta | `./scripts/run-load-test.sh` | Docker con unos 4 GB libres, porque la base vive en memoria; levanta y baja todo solo |
 | Ver este portal en local | `./scripts/portal.sh` | Docker; queda en <http://localhost:8000> |

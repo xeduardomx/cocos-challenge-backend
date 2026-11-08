@@ -10,4 +10,5 @@ la base de Cocos, y con los datos en memoria: los tiempos sirven como orden de m
 | [El último precio](04-resultados.md) | tres formas de pedir el último precio de 20 acciones, con 10 años de precios (RFC 4.2) | [`04-consultas.sql`](04-consultas.sql) |
 | [El turno del usuario](05-resultados.md) | dos ventas a la vez (sin turno, con turno y en `REPEATABLE READ`), dos pedidos con el mismo identificador y dos cancelaciones (RFC 5) | [`05-turno.sh`](05-turno.sh) |
 | [Tiempo de respuesta con volumen](06-tiempo-de-respuesta.md) | la API completa con k6 y 2 millones de órdenes (RFC 8.4) | `scripts/run-load-test.sh` |
+| [Verificación final](08-verificacion-final.md) | los pasos del CI, los ejemplos del README y la medición con volumen, sobre un clon limpio (RFC 11.2) | los comandos del README |
 | [Volver a los datos originales](10-resultados.md) | cuánto tarda restaurar la base antes de cada test (RFC 10.2) | [`10-volver-a-los-originales.sql`](10-volver-a-los-originales.sql) |
