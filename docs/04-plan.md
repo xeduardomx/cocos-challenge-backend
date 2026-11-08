@@ -80,10 +80,11 @@ Son cinco situaciones que el RFC implica, que ningún caso del PRD prueba y que 
 API. Cada una tiene su test en la tarea dueña del código.
 
 1. **Un valor de la dirección o de los parámetros que no es un número o un estado válido:** `/users/abc/portfolio`,
-   un `userId` de 25 dígitos, `limit=x`, `status=FOO` o `orderId=x`. Responde 400 `validation-error`, nunca 500.
+   un `userId` de más de 19 dígitos (no entra en un `long`), `limit=x`, `status=FOO` o `orderId=x`. Responde 400 `validation-error`, nunca 500.
    Tests en las tareas 7, 11 y 12.
-2. **Un número del cuerpo que no entra en Java ni en la base:** `"quantity": 3000000000` o `"price": 1e400`. Responde
-   400, nunca 500. Test en la tarea 9.
+2. **Un número del cuerpo que no entra en Java ni en la base:** `"quantity": 3000000000`, `"price": 1e400`, o un
+   exponente enorme como `"amount": 1e999999999` o `"price": 1e2147483647`. Responde 400 enseguida, nunca 500 ni una
+   respuesta que tarda: el número no llega a la huella ni a la división. Tests en las tareas 8 y 9.
 3. **Un texto de búsqueda con caracteres especiales de SQL:** `'`, `\` o `%`. Se busca como texto y responde 200,
    nunca 500. Test en la tarea 5.
 4. **Un reintento con el monto escrito de otra forma:** `10000`, `10000.00` o `1E+4`. Es el mismo pedido: responde 200
@@ -94,9 +95,12 @@ API. Cada una tiene su test en la tarea dueña del código.
 ## Cómo se trabaja cada tarea
 
 1. Se crea la rama de la tarea desde la de su fase: `git checkout -b task/5-NN-<nombre>`.
-2. Se siguen los pasos en orden: el test que falla, verlo fallar, el código mínimo y verlo pasar.
+2. Se siguen los pasos en orden: el test que falla, verlo fallar, el código mínimo y verlo pasar. Si un paso dice que
+   el test "tiene que fallar" y no dice por qué, falla porque todavía no existe lo que el test usa: no compila, o el
+   endpoint da 404.
 3. Desde `api/`, `./mvnw -B verify` tiene que dar `BUILD SUCCESS`: formato, Error Prone, NullAway, tests y cobertura.
-4. Commit, push y PR a la rama de la fase. Desde la tarea 16, el CI tiene que dar verde.
+4. Commit, push y PR a la rama de la fase. Al aprobar este plan, el autor autoriza estos commits y push para todas
+   las tareas; el merge de cada fase a `develop` lo aprueba él. Desde la tarea 16, el CI tiene que dar verde.
 5. Merge con merge commit.
 
 Un test que no levanta Spring ni Postgres se llama `*Test`; uno que los levanta, `*IT`. Los dos corren con
@@ -121,12 +125,12 @@ api/
     │   │                      AccountProperties, AccountConfiguration, UserNotFoundException, UserBusyException,
     │   │                      TurnMetrics
     │   ├── instruments/       Instrument, MarketPrice, InstrumentRepository, MarketPriceRepository, InstrumentCatalog
-    │   │   ├── search/        SearchProperties, InstrumentSearchService
+    │   │   ├── search/        SearchProperties, SearchResult, InstrumentSearchService
     │   │   └── web/           InstrumentController, InstrumentSearchResponse, InstrumentSummary
     │   ├── portfolio/         Portfolio, PositionValuation, PortfolioValuator, PortfolioService, PortfolioConfiguration
     │   │   └── web/           PortfolioController, PortfolioResponse, CashResponse, PositionResponse
     │   └── orders/            OrderType, RejectionReason, OrderLimits, StoredOrder, NewOrder, OrderRepository,
-    │       │                  OrderNotFoundException, OrdersConfiguration, OrderMetrics
+    │       │                  OrderNotFoundException, OrdersConfiguration, OrderMetrics, OrderEventLogger
     │       ├── submission/    SubmitOrderCommand, RequestFingerprint, QuantityResolver, ResolvedOrder, SubmissionResult,
     │       │                  OrderSubmissionService, OrderSubmissionTransaction, InvalidOrderException,
     │       │                  ClientOrderIdReusedException
@@ -134,10 +138,11 @@ api/
     │       │                  EnoughCashRule, EnoughSharesRule
     │       ├── cancellation/  OrderCancellationService, OrderNotCancellableException
     │       ├── listing/       OrderCursor, OrderPage, OrderPageProperties, OrderQueryService
-    │       └── web/           OrderController, SubmitOrderRequest, OrderResponse, OrderResponseMapper, OrderPageResponse
+    │       └── web/           OrderController, SubmitOrderRequest, ConsistentOrderRequest,
+    │                          ConsistentOrderRequestValidator, OrderResponse, OrderResponseMapper, OrderPageResponse
     ├── main/resources/        application.yml, messages.properties, db/migration/V2__… a V6__…
     └── test/java/com/cocos/challenge/
-        ├── support/           PostgresTestConfiguration, IntegrationTest, OriginalData, OriginalDataExtension,
+        ├── support/           PostgresContainer, IntegrationTest, OriginalData, OriginalDataExtension,
         │                      ApiClient, TestData, Concurrency
         └── (los mismos paquetes que main, con sus tests)
 docker-compose.yml   scripts/   postman/   observability/   perf/   .github/workflows/ci.yml   README.md
@@ -168,8 +173,19 @@ revisa ese paquete. Lo que puede faltar se marca con `@Nullable`.
 Los nombres siguen una sola convención:
 - las clases son sustantivos, y las que hacen algo terminan en lo que hacen (`*Calculator`, `*Evaluator`,
   `*Resolver`, `*Service`, `*Repository`);
-- los métodos son verbos;
+- los métodos que hacen algo son verbos (`calculate`, `evaluate`, `findEntries`, `roundMoney`). Los que devuelven un
+  dato o un valor derivado se llaman como el dato, igual que los accessors de un record (`availableCash()`,
+  `percentChange(...)`);
+- las claves de `messages.properties` son `<área>.<caso>`, con el caso en minúsculas y con guiones
+  (`order.quantity-zero`). Solo las familias tienen un nivel más (`problem.<slug>.title`, `order.rejection.<motivo>`);
 - los tests cuentan el comportamiento (`rejectsAPurchaseThatNeedsMoreThanTheAvailableCash`).
+
+**Dónde se valida (RFC 7.2).** El controller valida la forma con Bean Validation. Hay dos topes de forma que se
+validan en el service: el largo del texto de búsqueda y el tamaño de página. Se validan ahí porque son configurables,
+y una anotación no puede leer `application.yml`. Dan el mismo `validation-error`, con su campo.
+
+**Las excepciones no arman respuestas HTTP.** Una excepción de un service lleva su `ProblemType`, la clave de su
+texto y sus datos. El handler arma la respuesta y sus encabezados.
 
 ## Configuración (`application.yml`)
 
@@ -210,21 +226,67 @@ cocos:
 
 ## Textos (`messages.properties`)
 
-Cada clave la agrega la tarea que la usa. Los argumentos de un mensaje se pasan ya formateados como texto: los ids, con
-`String.valueOf`, y la plata, con `DisplayFormatter.money`. Así un id no sale como "1.234". Estos textos los fija el
-RFC; para el resto de las claves, la tarea dice qué tiene que decir el texto (GEN-6).
+Son todas las claves, agrupadas por la tarea que las agrega. Los textos que muestra el RFC (6.2 y 7) están tal cual;
+el resto sigue la misma regla: dicen qué falta o qué está mal, y cómo arreglarlo (GEN-6).
+
+Los argumentos de un mensaje (`{0}`) se pasan ya formateados como texto: los ids, con `String.valueOf`, y la plata,
+con `DisplayFormatter.formatMoney`. Así un id no sale como "1.234". Los textos de Bean Validation no llevan
+argumentos: los resuelve el `MessageSource` por su clave.
 
 ```properties
+# Tarea 3: los errores comunes
 problem.validation-error.title=El pedido no es válido
-order.limit-needs-price=Una orden LIMIT necesita precio límite.
-order.quantity-zero=Con ${0} no alcanza para una acción de {1} (${2}).
-order.not-cancellable=La orden {0} ya está {1}: solo se cancela una orden NEW.
-order.client-order-id-reused=Ese identificador ya se usó en otra orden. Para una orden nueva, generá uno nuevo.
-user.busy=Tu cuenta está procesando otra orden. Intentá de nuevo.
+problem.invalid-order.title=La orden no se puede armar
+problem.user-not-found.title=El usuario no existe
+problem.order-not-found.title=La orden no existe
+problem.order-not-cancellable.title=La orden no se puede cancelar
+problem.client-order-id-reused.title=El identificador ya se usó
+problem.user-busy.title=La cuenta está ocupada
+problem.internal-error.title=Error inesperado
+request.several-errors=El pedido tiene {0} errores: el detalle de cada uno está en errors.
+request.malformed=El cuerpo del pedido no es un JSON válido.
+request.unknown-field=El campo {0} no existe en este pedido.
+request.invalid-value=El valor de {0} no es válido.
 error.unexpected=Ocurrió un error inesperado.
+# Tarea 5: la búsqueda
+search.query-blank=Escribí algo para buscar.
+search.query-too-long=El texto de búsqueda puede tener hasta {0} caracteres.
+# Tarea 6: el usuario
+user.not-found=No existe el usuario {0}.
+user.busy=Tu cuenta está procesando otra orden. Intentá de nuevo.
+# Tarea 8: el pedido de una orden, la cantidad y los rechazos
+order.client-order-id-missing=Falta el identificador de la orden (clientOrderId).
+order.instrument-id-missing=Falta el activo (instrumentId).
+order.side-missing=Falta el lado: BUY o SELL.
+order.type-missing=Falta el tipo: MARKET o LIMIT.
+order.side-not-trade=El lado tiene que ser BUY o SELL: los depósitos y retiros no se mandan como orden.
+order.quantity-not-positive=La cantidad tiene que ser 1 o más.
+order.amount-not-positive=El monto tiene que ser mayor a 0.
+order.amount-too-many-decimals=El monto puede tener hasta 2 decimales.
+order.amount-too-large=El monto es demasiado grande para una orden.
+order.price-not-positive=El precio límite tiene que ser mayor a 0.
+order.price-too-many-decimals=El precio límite puede tener hasta 2 decimales.
+order.price-too-large=El precio límite es demasiado grande.
+order.quantity-and-amount=Mandá la cantidad o el monto, no los dos.
+order.quantity-or-amount-missing=Mandá la cantidad o el monto.
+order.limit-needs-price=Una orden LIMIT necesita precio límite.
+order.market-has-price=Una orden MARKET no lleva precio: se ejecuta al último precio.
+order.instrument-is-currency=ARS es la moneda de la cuenta: no se compra ni se vende.
+order.quantity-zero=Con ${0} no alcanza para una acción de {1} (${2}).
+order.quantity-too-large=Ese monto da más acciones que el máximo de una orden ({0}).
+order.no-price-for-amount={0} no cotiza: sin precio no se puede calcular la cantidad de un monto.
 order.rejection.insufficient-cash=No alcanzan los pesos disponibles para esta orden.
 order.rejection.insufficient-shares=No alcanzan las acciones disponibles para esta venta.
 order.rejection.no-market-price=El activo no cotiza.
+# Tarea 9: el envío
+order.instrument-not-found=No existe el activo {0}.
+order.client-order-id-reused=Ese identificador ya se usó en otra orden. Para una orden nueva, generá uno nuevo.
+# Tarea 11: la cancelación
+order.not-found=No existe la orden {0}.
+order.not-cancellable=La orden {0} ya está {1}: solo se cancela una orden NEW.
+# Tarea 12: el listado
+order-list.limit-out-of-range=El tamaño de página va de 1 a {0}.
+order-list.cursor-invalid=La marca de página no es válida: usá el nextCursor de la respuesta anterior.
 ```
 
 ## Datos de referencia
@@ -257,14 +319,18 @@ Rama `task/5-01-project-skeleton`.
 - Crear `api/pom.xml`, `api/mvnw`, `api/mvnw.cmd`, `api/.mvn/wrapper/maven-wrapper.properties`,
   `api/.mvn/jvm.config`, `api/src/main/java/com/cocos/challenge/CocosChallengeApplication.java`,
   `api/src/main/java/com/cocos/challenge/package-info.java`, `api/src/main/resources/application.yml`.
-- Test: `support/PostgresTestConfiguration.java`, `support/IntegrationTest.java`, `ApplicationStartupIT.java`.
+- Test: `support/PostgresContainer.java`, `support/IntegrationTest.java`, `ApplicationStartupIT.java`.
 
 **Interfaces:**
 - Produce:
   - `@IntegrationTest`, la anotación de todos los `*IT`: `@SpringBootTest(webEnvironment = RANDOM_PORT, properties =
-    "spring.flyway.enabled=true")`, más `@Import(PostgresTestConfiguration.class)`.
-  - `PostgresTestConfiguration`: un `PostgreSQLContainer` (`org.testcontainers.postgresql`) con `postgres:18` y
-    `@ServiceConnection`. Copia `../docs/00-fuentes/database.sql` a `/docker-entrypoint-initdb.d/01-database.sql`.
+    "spring.flyway.enabled=true")`, más `@ImportTestcontainers(PostgresContainer.class)`.
+  - `PostgresContainer`: una interfaz con un solo campo, `@ServiceConnection PostgreSQLContainer POSTGRES`
+    (`org.testcontainers.postgresql`), con `postgres:18`. Copia `database.sql`, que está en el classpath de los tests,
+    a `/docker-entrypoint-initdb.d/01-database.sql` (`MountableFile.forClasspathResource`).
+    - Es un campo estático, así que todos los contextos de Spring de la corrida usan el mismo Postgres (RFC 10.2),
+      aunque un test cambie una propiedad o espíe un bean. Un `@Bean` crearía un contenedor por contexto.
+    - Un test cambia una propiedad con `@TestPropertySource(properties = ...)`, que vale para toda la clase.
 
 - [ ] **Paso 1: armar el proyecto.**
   - **Wrapper:** desde `api/`, `mvn -N org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper -Dmaven=3.9.16`.
@@ -275,16 +341,23 @@ Rama `task/5-01-project-skeleton`.
       `google-java-format.version` 2.0.0, `spotless.version` 3.11.0 y `jacoco.version` 0.8.16;
     - dependencias: `spring-boot-starter-webmvc`, `-jdbc`, `-validation`, `-actuator` y `-flyway`, con
       `org.flywaydb:flyway-database-postgresql` y `org.postgresql:postgresql` (runtime);
-    - de test: `spring-boot-starter-test`, `spring-boot-starter-webmvc-test`, `spring-boot-testcontainers`,
-      `org.testcontainers:testcontainers-junit-jupiter` y `org.testcontainers:testcontainers-postgresql`.
+    - `org.jspecify:jspecify`, con la versión del parent (1.0.1), porque el código usa sus anotaciones;
+    - de test: `spring-boot-starter-test`, `spring-boot-starter-webmvc-test`, `spring-boot-testcontainers` y
+      `org.testcontainers:testcontainers-postgresql`;
+    - `testResources`: `src/test/resources` y `../docs/00-fuentes`, solo con `database.sql`. Así los tests leen el
+      archivo del repo sin copiarlo, desde Maven o desde el IDE.
   - **Plugins:**
+    - `spring-boot-maven-plugin`, sin versión (la maneja el parent). Su `repackage` arma el jar que arranca solo: sin
+      él, el jar no trae las dependencias y la imagen de la tarea 14 no arranca;
     - `maven-compiler-plugin`, con Error Prone y NullAway en `annotationProcessorPaths` y estos `compilerArgs`:
       `-XDcompilePolicy=simple`, `--should-stop=ifError=FLOW` y
       `-Xplugin:ErrorProne -XepOpt:NullAway:OnlyNullMarked=true -XepOpt:NullAway:JSpecifyMode=true -Xep:NullAway:ERROR`;
     - `.mvn/jvm.config` con los `--add-exports` y `--add-opens` de `jdk.compiler` que pide Error Prone. Son los mismos
       del proyecto de prueba de la sección 11.1 del RFC;
+    - `maven-dependency-plugin`, con el objetivo `properties`, para tener la ruta del jar de Mockito;
     - `maven-surefire-plugin`, que incluye `**/*Test.java` y `**/*IT.java`, con
-      `<argLine>@{argLine} -Duser.timezone=UTC</argLine>`;
+      `<argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar} -Duser.timezone=UTC</argLine>`. Mockito entra
+      como agente, como pide su documentación desde Java 21: si no, se conecta solo y avisa que dejará de funcionar;
     - `spotless-maven-plugin`, con `googleJavaFormat` 2.0.0 y `check` en `verify`;
     - `jacoco-maven-plugin`, con `prepare-agent`, `report` y `check` en `verify`. La regla `BUNDLE` pide
       `LINE COVEREDRATIO 0.85` y `BRANCH COVEREDRATIO 0.80`, y excluye `CocosChallengeApplication.class`.
@@ -313,7 +386,9 @@ Rama `task/5-01-project-skeleton`.
 Rama `task/5-02-schema-migrations`.
 
 **Archivos:**
-- Crear en `db/migration/`, partiendo del SQL probado de `docs/mediciones/03-esquema.sql` (RFC 3.2 a 3.5):
+- Crear en `db/migration/`, partiendo del SQL probado de `docs/mediciones/03-esquema.sql` (RFC 3.2 a 3.5). Las reglas
+  y el índice llevan los nombres de ese archivo (por ejemplo, `orders_user_clientorderid_key` y
+  `orders_user_datetime_idx`), porque la semilla de volumen de la tarea 19 los usa:
   - `V2__enable_unaccent.sql`;
   - `V3__add_single_row_rules.sql`, con los `NOT NULL`, los `CHECK` de valores y de precios y los `UNIQUE` de
     `instruments` y `marketdata`;
@@ -327,8 +402,8 @@ Rama `task/5-02-schema-migrations`.
 - Modificar `@IntegrationTest`: agregar `@ExtendWith(OriginalDataExtension.class)`.
 
 **Interfaces:**
-- Produce `OriginalData.restore(JdbcClient jdbc)`. La primera vez, guarda una foto de las cuatro tablas en el esquema
-  `originals`. Cada vez, vacía las tablas, las vuelve a llenar desde la foto y deja los contadores de ids en el máximo
+- Produce `OriginalData.restore(JdbcClient jdbc)`. Si la base no tiene el esquema `originals`, guarda ahí una foto de
+  las cuatro tablas: lo decide mirando la base, no una variable de la JVM. Cada vez, vacía las tablas, las vuelve a llenar desde la foto y deja los contadores de ids en el máximo
   de la foto. Es el SQL de `docs/mediciones/10-volver-a-los-originales.sql`.
 - Produce `OriginalDataExtension`, un `BeforeEachCallback` que toma el `DataSource` del contexto de Spring y llama a
   `restore`.
@@ -341,6 +416,7 @@ Rama `task/5-02-schema-migrations`.
       en Buenos Aires.
     - `rejectsImpossibleOrders`, parametrizado: cada uno de estos `insert` en `orders` lanza
       `DataIntegrityViolationException`:
+      - sin `userid`, sin `size` o sin `datetime` explícito en `null`;
       - `side` 'COMPRA', `type` 'STOP' o `status` 'DONE';
       - `size` 0, o `price` 0;
       - `price` vacío en una `FILLED`;
@@ -349,7 +425,8 @@ Rama `task/5-02-schema-migrations`.
       - `clientOrderId` sin `requestFingerprint`.
     - `rejectsARepeatedIdentifierForTheSameUser`, que lanza `DuplicateKeyException`, y
       `acceptsTheSameIdentifierForAnotherUser`.
-    - `rejectsTwoPricesForTheSameInstrumentAndDate` y `rejectsACloseOutsideTheDayRange`.
+    - `rejectsTwoPricesForTheSameInstrumentAndDate`, `rejectsACloseOutsideTheDayRange` y `rejectsAZeroClose`.
+    - `rejectsAnInstrumentWithoutTicker` y `rejectsARepeatedTicker`.
     - `stampsTheOrderTimeWhenItIsWritten`: en una transacción se lee `now()`, se espera 200 ms (`pg_sleep`) y se
       inserta una orden sin `datetime`. Su `datetime` tiene que ser mayor que ese `now()`.
     - `cancelsAnOldOrderWithoutIdentifier`: `update orders set status = 'CANCELLED' where id = 7` funciona. Es la trampa
@@ -375,10 +452,7 @@ Rama `task/5-03-errors-and-request-id`.
 - Crear `shared/error/` (`ProblemType`, `ApiException`, `InvalidRequestException`, `FieldViolation` y
   `ApiExceptionHandler`), `shared/web/` (`RequestIds` y `RequestIdFilter`), `shared/validation/` (`MaxScale` y
   `MaxScaleValidator`), `shared/display/` (`DisplayProperties`, `DisplayFormatter` y `DisplayConfiguration`), con sus `package-info.java`.
-- Crear `messages.properties` con:
-  - los títulos de los ocho problemas (`problem.<slug>.title`);
-  - `error.unexpected`;
-  - `request.malformed`, `request.unknown-field` y `request.invalid-value`. Los dos últimos dicen el campo.
+- Crear `messages.properties` con las claves de la tarea 3 de la sección "Textos".
 - Modificar `application.yml`: los bloques de la tarea 3.
 - Test: `shared/error/ApiExceptionHandlerIT.java` (con `@WebMvcTest` sobre un controller que existe solo en los tests,
   `ProblemProbeController`), `shared/web/RequestIdFilterIT.java`, `shared/validation/MaxScaleValidatorTest.java` y
@@ -388,21 +462,23 @@ Rama `task/5-03-errors-and-request-id`.
 - Produce:
   - `enum ProblemType`: `VALIDATION_ERROR` (400), `INVALID_ORDER` (400), `USER_NOT_FOUND` (404), `ORDER_NOT_FOUND`
     (404), `ORDER_NOT_CANCELLABLE` (409), `CLIENT_ORDER_ID_REUSED` (422, `HttpStatus.UNPROCESSABLE_CONTENT`),
-    `USER_BUSY` (503) e `INTERNAL_ERROR` (500). Cada uno tiene `URI type()`, que es `/problems/<slug>` con el slug del
+    `USER_BUSY` (503) e `INTERNAL_ERROR` (500). Cada uno tiene `URI uri()`, que es `/problems/<slug>` con el slug del
     RFC 7.3; `HttpStatus status()`; y `String titleKey()`, que es `problem.<slug>.title`.
   - `abstract class ApiException extends RuntimeException`. Su constructor es
-    `ApiException(ProblemType type, String detailKey, String... detailArgs)`, y expone `type()`, `detailKey()`,
-    `detailArgs()`, `Map<String, Object> properties()` y `HttpHeaders headers()`. Las dos últimas vienen vacías por
-    defecto.
+    `ApiException(ProblemType problemType, String detailKey, String... detailArgs)`, y expone `problemType()`,
+    `detailKey()`, `detailArgs()`, `Map<String, Object> properties()` y `Optional<Duration> retryAfter()`. Las dos
+    últimas vienen vacías por defecto. El handler convierte `retryAfter` en el encabezado `Retry-After`, en
+    segundos.
   - `final class InvalidRequestException extends ApiException` (`VALIDATION_ERROR`), con
     `InvalidRequestException(String field, String messageKey, String... args)`. El handler lo publica en `errors`.
   - `record FieldViolation(String field, String message)`.
-  - `RequestIds.HEADER = "X-Request-Id"`, `RequestIds.MDC_KEY = "requestId"` y `static String current()`.
+  - `RequestIds`: `HEADER = "X-Request-Id"`, `MDC_KEY = "requestId"`, `MAX_LENGTH = 64`, `ALLOWED_CHARACTERS`
+    (`[A-Za-z0-9-]`, como `Pattern`) y `static String current()`.
   - `@MaxScale(int value)` para `BigDecimal`. Un `null` es válido.
-  - `@ConfigurationProperties("cocos.display") record DisplayProperties(ZoneId timeZone, Locale locale)`.
+  - `@Validated @ConfigurationProperties("cocos.display") record DisplayProperties(@NotNull ZoneId timeZone, @NotNull Locale locale)`.
   - `DisplayFormatter(DisplayProperties)`, una clase de Java puro registrada en `DisplayConfiguration`:
     - `OffsetDateTime inDisplayZone(OffsetDateTime)`;
-    - `String money(BigDecimal)`: sin decimales si es entero, y con dos si no, con separadores de `es-AR`.
+    - `String formatMoney(BigDecimal)`: sin decimales si es entero, y con dos si no, con separadores de `es-AR`.
 
 - [ ] **Paso 1: escribir los tests que fallan.**
   - `ApiExceptionHandlerIT`:
@@ -410,9 +486,13 @@ Rama `task/5-03-errors-and-request-id`.
       `type` `/problems/validation-error` y `errors[0].field` con el campo.
     - `rejectsMalformedJson`.
     - `reportsEachBeanValidationViolation`: un `@Positive` que falla da `errors` con el texto de `messages.properties`.
-    - `mapsAnApiExceptionToItsProblem`: una subclase de prueba con `properties` `{"currentStatus": "FILLED"}` y el
-      encabezado `Retry-After: 1` da su código, su `type`, su `title`, el `detail` armado con sus argumentos, esa
-      propiedad y ese encabezado.
+    - `putsTheOnlyViolationInTheDetail`: con una violación, el `detail` es su mensaje (RFC 7.1); con dos, es
+      "El pedido tiene 2 errores: el detalle de cada uno está en errors.".
+    - `rejectsAPathValueOfTheWrongType`: `GET /probe/abc`, sobre un `@PathVariable long`, da 400 `validation-error`
+      con `errors[0].field` igual al nombre del parámetro.
+    - `mapsAnApiExceptionToItsProblem`: una subclase de prueba con `properties` `{"currentStatus": "FILLED"}` y
+      `retryAfter` de 1 segundo da su código, su `type`, su `title`, el `detail` armado con sus argumentos, esa
+      propiedad y el encabezado `Retry-After: 1`.
     - `hidesTheInternalsOfAnUnexpectedError`: un `IllegalStateException("secret")` da 500, `internal-error`, el
       `detail` "Ocurrió un error inesperado." y un `requestId`, y el cuerpo no contiene "secret".
     - `leavesSpringErrorsAsAboutBlank`: `GET /nope` da 404 con `type` `about:blank`.
@@ -421,7 +501,8 @@ Rama `task/5-03-errors-and-request-id`.
     cambia por uno generado. Solo se aceptan `[A-Za-z0-9-]` y hasta 64 caracteres.
   - `MaxScaleValidatorTest`: `1.00` es válido, `1.001` no, `1E+3` sí y `null` sí.
   - `DisplayFormatterTest`:
-    - `money(500)` da "500", `money(925.85)` da "925,85", `money(10000)` da "10.000" y `money(9258.50)` da "9.258,50";
+    - `formatMoney(500)` da "500", `formatMoney(925.85)` da "925,85", `formatMoney(10000)` da "10.000" y
+      `formatMoney(9258.50)` da "9.258,50";
     - `inDisplayZone(2023-07-12T15:31:20Z)` da `2023-07-12T12:31:20-03:00`.
 
 - [ ] **Paso 2: correrlos.** `./mvnw -B test -Dtest='ApiExceptionHandlerIT,RequestIdFilterIT,MaxScaleValidatorTest,DisplayFormatterTest'`
@@ -429,9 +510,12 @@ Rama `task/5-03-errors-and-request-id`.
 
 - [ ] **Paso 3: implementar las clases.**
   - **`ApiExceptionHandler`** extiende `ResponseEntityExceptionHandler`, con `@RestControllerAdvice`.
-    - Sobrescribe `handleMethodArgumentNotValid`, `handleHttpMessageNotReadable` y `handleHandlerMethodValidationException`,
-      y atiende `MethodArgumentTypeMismatchException`. Todos dan `VALIDATION_ERROR` con `errors`.
-    - Atiende `ApiException` con su tipo, sus propiedades y sus encabezados.
+    - Sobrescribe `handleMethodArgumentNotValid`, `handleHttpMessageNotReadable` y `handleTypeMismatch`. El último
+      atiende un valor de la dirección o de un parámetro que no se puede convertir, como `abc` en un `long` o `FOO` en
+      un estado. Los tres dan `VALIDATION_ERROR` con `errors`. Ningún controller valida parámetros con anotaciones,
+      así que `handleHandlerMethodValidationException` no se sobrescribe.
+    - En un `VALIDATION_ERROR`, con una sola violación el `detail` es su mensaje; con varias, `request.several-errors`.
+    - Atiende `ApiException` con su tipo y sus propiedades, y con `Retry-After` si trae `retryAfter`.
     - Atiende `Exception` como `INTERNAL_ERROR`: registra el stack trace y no lo devuelve.
     - Todos agregan `requestId`.
     - Arma los títulos y los detalles con `MessageSource`.
@@ -454,9 +538,9 @@ Rama `task/5-04-instrument-catalog`.
 
 **Interfaces:**
 - Produce:
-  - **`Decimals`:** `MONEY_SCALE = 2`, `ROUNDING = RoundingMode.HALF_UP`, `PRECISION = MathContext.DECIMAL128`, y estos
-    métodos:
-    - `BigDecimal money(BigDecimal)`, que lleva a 2 decimales con `HALF_UP`;
+  - **`Decimals`:** `MONEY_SCALE = 2`, `ROUNDING = RoundingMode.HALF_UP`, `PRECISION = MathContext.DECIMAL128` y
+    `ZERO_MONEY = BigDecimal.ZERO.setScale(MONEY_SCALE)`, y estos métodos:
+    - `BigDecimal roundMoney(BigDecimal)`, que lleva a 2 decimales con `HALF_UP`;
     - `BigDecimal divide(BigDecimal, BigDecimal)`, con `DECIMAL128`;
     - `BigDecimal percentChange(BigDecimal base, BigDecimal value)`, que es (value − base) ÷ base × 100, redondeado a
       2 decimales.
@@ -468,13 +552,13 @@ Rama `task/5-04-instrument-catalog`.
   - **`InstrumentCatalog`:**
     - `Optional<Instrument> find(long id)`;
     - `Map<Long, Instrument> findAll(Collection<Long> ids)`;
-    - `Optional<MarketPrice> latestPrice(long instrumentId)`;
-    - `Map<Long, MarketPrice> latestPrices(Collection<Long> instrumentIds)`.
+    - `Optional<MarketPrice> findLatestPrice(long instrumentId)`;
+    - `Map<Long, MarketPrice> findLatestPrices(Collection<Long> instrumentIds)`.
 
 - [ ] **Paso 1: escribir los tests que fallan.**
   - `DecimalsTest`:
     - `percentChange` da 0.44 entre 921.80 y 925.85; −0.87 entre 1047.17 y 1038.10; y −8.20 entre 250 y 229.50;
-    - `money(new BigDecimal("100.005"))` da 100.01, por `HALF_UP`.
+    - `roundMoney(new BigDecimal("100.005"))` da 100.01, por `HALF_UP`.
   - `InstrumentRepositoryIT`:
     - `findById(47)` da PAMP, "Pampa Holding S.A.", `ACCIONES`;
     - `findById(66).isCurrency()` es verdadero;
@@ -502,27 +586,29 @@ Rama `task/5-04-instrument-catalog`.
 Rama `task/5-05-instrument-search`.
 
 **Archivos:**
-- Crear `instruments/search/` (`SearchProperties` e `InstrumentSearchService`) e `instruments/web/`
+- Crear `instruments/search/` (`SearchProperties`, `SearchResult` e `InstrumentSearchService`) e `instruments/web/`
   (`InstrumentController`, `InstrumentSearchResponse` e `InstrumentSummary`), con sus `package-info.java`.
 - Modificar `InstrumentRepository`: agregar `List<Instrument> search(String text, int limit)`.
-- Modificar `application.yml` y `messages.properties`: agregar `search.query.blank` ("Escribí algo para buscar.") y
-  `search.query.too-long`, que dice el máximo.
+- Modificar `application.yml` (`cocos.search`) y `messages.properties` (las claves de la tarea 5).
 - Test: `instruments/web/InstrumentSearchIT.java`, por HTTP, y `support/ApiClient.java`.
 
 **Interfaces:**
 - Produce:
   - `@Validated @ConfigurationProperties("cocos.search") record SearchProperties(@Positive int maxResults, @Positive int maxQueryLength)`.
-  - `InstrumentSearchService.search(@Nullable String query) → List<InstrumentSummary>`. Si el texto está vacío o solo
-    tiene espacios, o pasa el máximo, lanza `InvalidRequestException("query", ...)`.
+  - `record SearchResult(Instrument instrument, @Nullable MarketPrice price)`, en `instruments/search`.
+  - `InstrumentSearchService.search(@Nullable String query) → List<SearchResult>`. El texto se mide sin los espacios
+    de los extremos (`strip()`). Si queda vacío (`search.query-blank`) o pasa el máximo (`search.query-too-long`),
+    lanza `InvalidRequestException("query", ...)`. El service no conoce la respuesta HTTP.
   - `GET /instruments?query=` → `InstrumentSearchResponse(List<InstrumentSummary> instruments)`, con
     `InstrumentSummary(long instrumentId, String ticker, String name, @Nullable BigDecimal lastPrice, @Nullable BigDecimal dailyChangePercent)`.
+    El controller lo arma con `InstrumentSummary.from(SearchResult)`.
   - `ApiClient`, para los tests: usa `RestClient` contra el puerto local y devuelve `ApiResponse(int status,
     HttpHeaders headers, String body, JsonNode json)`, sin lanzar errores en un 4xx o un 5xx. Lee los números como
     `BigDecimal` (`USE_BIG_DECIMAL_FOR_FLOATS`).
 
 - [ ] **Paso 1: escribir los tests que fallan.** `InstrumentSearchIT`, con los casos de BUS:
   - "banco" da `[BBAR, BHIP, BMA, BPAT]`.
-  - "rio" da `[BHIP, MOLI, OEST, RICH]`.
+  - "rio" da `[BHIP, MOLI, OEST, RICH]`, y "compania" trae INTR.
   - "grupo galicia" da `[GGAL]`, y "gas sur", `[CGPA2, TGSU2]`.
   - "pa" da exactamente `[PAMP, PATA, BPAT, CGPA2, INTR]`.
   - "y" trae YPFD primero.
@@ -530,7 +616,8 @@ Rama `task/5-05-instrument-search`.
   - "pesos" y "_" vienen vacíos.
   - "pamp" da `lastPrice` 925.85 y `dailyChangePercent` 0.44.
   - "pgr" da los dos en `null`.
-  - "" y "   " dan 400 `validation-error`, con `errors[0].field` "query"; 51 caracteres también dan 400; 50 dan 200.
+  - "" y "   " dan 400 `validation-error`, con `errors[0].field` "query"; 51 caracteres también dan 400; 50 dan 200,
+    también con espacios en los extremos.
   - **Foco de revisión 3:** "o'higgins", "\\" y "%" dan 200 con la lista vacía.
 
 - [ ] **Paso 2: correrlo.** `./mvnw -B test -Dtest=InstrumentSearchIT` tiene que fallar con 404, porque no existe el
@@ -555,7 +642,7 @@ Rama `task/5-05-instrument-search`.
     limit :limit
     ```
 
-  - **El servicio** completa cada resultado con `InstrumentCatalog.latestPrices`.
+  - **El servicio** completa cada resultado con `InstrumentCatalog.findLatestPrices`.
 
 - [ ] **Paso 4: correrlo.** Da `PASS`, y `./mvnw -B verify`, `BUILD SUCCESS`.
 
@@ -583,10 +670,11 @@ Rama `task/5-06-user-account`.
     - `enum OrderStatus { NEW, FILLED, REJECTED, CANCELLED }`.
   - **Records:**
     - `record AccountEntry(long instrumentId, OrderSide side, OrderStatus status, int size, BigDecimal price)`;
-    - `record Position(long instrumentId, int quantity, int reservedQuantity, @Nullable BigDecimal averagePrice)`, con
-      `int availableQuantity()`. El PPC es el exacto, sin redondear;
+    - `record Position(long instrumentId, long quantity, long reservedQuantity, @Nullable BigDecimal averagePrice)`,
+      con `long availableQuantity()`. El PPC es el exacto, sin redondear. Las cantidades van en `long`: cada orden
+      entra en un `INT`, pero la suma de varias puede no entrar;
     - `record Account(BigDecimal cashBalance, BigDecimal reservedCash, Map<Long, Position> positions)`, con
-      `BigDecimal availableCash()`, `int availableShares(long instrumentId)` y `List<Position> heldPositions()`, que
+      `BigDecimal availableCash()`, `long availableShares(long instrumentId)` y `List<Position> heldPositions()`, que
       deja las posiciones con cantidad distinta de 0.
   - **`AccountCalculator.calculate(List<AccountEntry>) → Account`.**
   - **`AccountRepository`:**
@@ -600,13 +688,14 @@ Rama `task/5-06-user-account`.
       abierta (`@Transactional(propagation = MANDATORY)`), porque el lock y su espera máxima duran lo que dura la
       transacción. Lo usa la tarea 10.
   - **`@Validated @ConfigurationProperties("cocos.account") record AccountProperties(@NotNull Duration turnTimeout)`.**
-  - **Excepciones:** `UserBusyException` lleva el encabezado `Retry-After` con `RETRY_AFTER_SECONDS = 1`.
+  - **Excepciones:** `UserBusyException` devuelve `retryAfter()` con `RETRY_AFTER = Duration.ofSeconds(1)`.
   - **`TestData`, para los tests:**
     - `long createUser()`;
-    - `void deposit(long userId, BigDecimal amount)`;
+    - `void deposit(long userId, int amount)`: un depósito son `size` pesos a precio 1 (D-9);
     - `void fill(long userId, long instrumentId, OrderSide side, int size, BigDecimal price)`;
     - `void pending(long userId, long instrumentId, OrderSide side, int size, BigDecimal price)`;
-    - `void addPrice(long instrumentId, LocalDate date, BigDecimal close, @Nullable BigDecimal previousClose)`.
+    - `void addPrice(long instrumentId, LocalDate date, BigDecimal close, @Nullable BigDecimal previousClose)`, que
+      graba un día sin operaciones: apertura, máximo y mínimo vacíos (D-5).
 
 - [ ] **Paso 1: escribir los tests que fallan.**
   - **`AccountCalculatorTest`.** Las entradas del usuario 1 se copian de `database.sql`: son las 9 órdenes `FILLED` y
@@ -624,12 +713,12 @@ Rama `task/5-06-user-account`.
       PPC 1502.80 (caso 4 de POR).
     - `restartsTheAveragePriceOnEveryPurchaseMadeAtOrBelowZero`: con −10, compra 5 a 1500 y después 15 a 1600, y queda
       en 10 con PPC 1600.
-    - `returnsAnEmptyAccountWithoutEntries`: todo en 0 y sin posiciones (caso 10 de POR).
+    - `returnsAnEmptyAccountWithoutEntries`: los pesos en 0.00, con escala 2, y sin posiciones (caso 10 de POR).
   - **`AccountRepositoryIT`:**
     - `findEntries(1)` trae 9 entradas, de las órdenes 1, 2, 4, 5, 7, 8, 9, 10 y 11, en ese orden;
     - `exists(1)` es verdadero, y `exists(99)`, falso;
     - `lockForTurn(99, ...)` da falso.
-  - **`AccountServiceIT`,** con `cocos.account.turn-timeout=200ms`:
+  - **`AccountServiceIT`,** con `@TestPropertySource(properties = "cocos.account.turn-timeout=200ms")`:
     - `load(99)` lanza `UserNotFoundException`;
     - `takeTurnFailsFastWhenAnotherTransactionHoldsIt`: otro hilo toma el lock del usuario 1, con una transacción
       propia abierta 2 segundos, y `takeTurn(1)`, dentro de una transacción de `TransactionTemplate`, lanza
@@ -642,6 +731,7 @@ Rama `task/5-06-user-account`.
 - [ ] **Paso 3: implementar.**
   - **`AccountCalculator` recorre las entradas en orden.** Este es el algoritmo que fija el RFC 4.1, y no sale de la
     firma:
+    - los pesos y las reservas arrancan en `Decimals.ZERO_MONEY`, así una cuenta vacía da `0.00` y no `0` (RFC 6.4);
     - una `FILLED` mueve los pesos en `size × price`: suman `CASH_IN` y `SELL`, y restan `CASH_OUT` y `BUY`;
     - en una compra `FILLED`, si la cantidad antes era menor o igual a 0, el PPC pasa a ser el precio de la compra. Si
       no, PPC = (PPC × cantidad + precio × size) ÷ (cantidad + size), con `DECIMAL128`. Después se suma la cantidad;
@@ -670,13 +760,13 @@ Rama `task/5-07-portfolio`.
 - Test: `portfolio/PortfolioValuatorTest.java` y `portfolio/web/PortfolioIT.java`.
 
 **Interfaces:**
-- Consume `AccountService.load`, `InstrumentCatalog.findAll` e `InstrumentCatalog.latestPrices`.
+- Consume `AccountService.load`, `InstrumentCatalog.findAll`, `InstrumentCatalog.findLatestPrices` y `TestData`.
 - Produce:
   - `PortfolioValuator.value(Account, Map<Long, Instrument>, Map<Long, MarketPrice>) → Portfolio`.
   - `record Portfolio(BigDecimal totalValue, BigDecimal cashBalance, BigDecimal reservedCash, BigDecimal availableCash, List<PositionValuation> positions)`.
     Las posiciones van ordenadas por ticker.
   - `PositionValuation`, con estos campos:
-    - `long instrumentId`, `String ticker`, `String name`, `int quantity` e `int reservedQuantity`;
+    - `long instrumentId`, `String ticker`, `String name`, `long quantity` y `long reservedQuantity`;
     - `@Nullable BigDecimal lastPrice` y `@Nullable BigDecimal marketValue`;
     - `@Nullable BigDecimal averagePrice`, redondeado a 2 decimales;
     - `@Nullable BigDecimal totalReturnPercent`, calculado con el PPC exacto;
@@ -694,10 +784,13 @@ Rama `task/5-07-portfolio`.
     - `valuesAPositionWithoutPriceAsEmpty`: una posición de PGR va sin precio ni valor, y no suma al total (caso 9 de
       POR).
   - **`PortfolioIT`, por HTTP:**
-    - casos 1 y 2 de POR: la respuesta completa del RFC 6.2, valor por valor, y el JSON con `"totalValue":889756.00`;
-    - caso 10: el usuario 2 da todo en 0 y la lista vacía, y el 99 da 404 `user-not-found`;
+    - casos 1 y 2 de POR: la respuesta completa del RFC 6.2, valor por valor, y el JSON con `"totalValue":889756.00`
+      y con `"averagePrice":null` en BMA: lo vacío aparece como campo (RFC 6.4);
+    - caso 10: el usuario 2 da todo en 0.00 (el JSON dice `"available":0.00`) y la lista vacía, y el 99 da 404
+      `user-not-found`;
     - caso 6: un usuario con BBAR, armado con `TestData`, ve −0.87;
-    - caso 7: con `TestData.addPrice(12, 2023-07-17, 20.50, 20.50)`, un usuario con DOME ve su variación en 0.00;
+    - caso 7: con `TestData.addPrice(12, 2023-07-17, 21.00, 21.00)`, un día sin operaciones con un cierre distinto
+      del último de `database.sql` (20.50), un usuario con DOME ve `lastPrice` 21.00 y variación 0.00;
     - caso 9: un usuario con PGR la ve sin valor;
     - caso 11: con una venta pendiente de 30 PAMP, PAMP muestra `reservedQuantity` 30;
     - **Foco de revisión 1:** `/users/abc/portfolio` y `/users/99999999999999999999999/portfolio` dan 400
@@ -721,12 +814,11 @@ Rama `task/5-08-order-evaluation`.
 
 **Archivos:**
 - Crear en `orders/`: `OrderType`, `RejectionReason`, `OrderLimits`, `OrdersConfiguration` y `package-info.java`.
-- Crear en `orders/web/`: `SubmitOrderRequest`.
+- Crear en `orders/web/`: `SubmitOrderRequest`, `ConsistentOrderRequest` y `ConsistentOrderRequestValidator`.
 - Crear en `orders/submission/`: `SubmitOrderCommand`, `QuantityResolver`, `ResolvedOrder` e `InvalidOrderException`.
 - Crear en `orders/evaluation/`: `OrderCandidate`, `OrderDecision`, `OrderEvaluator`, `RejectionRule`,
   `QuotedInstrumentRule`, `EnoughCashRule` y `EnoughSharesRule`.
-- Modificar `messages.properties`: las claves `order.*` del formulario, de la orden que no se puede armar y de los
-  motivos de rechazo. Cada texto dice qué falta o qué está mal (GEN-6).
+- Modificar `messages.properties`: las claves de la tarea 8 de la sección "Textos".
 - Test: `orders/web/SubmitOrderRequestValidationTest.java`, `orders/submission/QuantityResolverTest.java` y
   `orders/evaluation/OrderEvaluatorTest.java`.
 
@@ -736,41 +828,62 @@ Rama `task/5-08-order-evaluation`.
     - `enum OrderType { MARKET, LIMIT }`;
     - `enum RejectionReason { INSUFFICIENT_CASH, INSUFFICIENT_SHARES, NO_MARKET_PRICE }`, con `String messageKey()`
       (`order.rejection.<motivo en minúsculas y con guiones>`).
-  - **`OrderLimits`:** `PRICE_INTEGER_DIGITS = 8`, que es lo que entra en `NUMERIC(10,2)`, y
-    `MAX_QUANTITY = Integer.MAX_VALUE`, lo que entra en `INT` (RFC 3.2).
+  - **`OrderLimits`** (RFC 3.2 y 9):
+    - `MAX_QUANTITY = Integer.MAX_VALUE`, lo que entra en `INT`;
+    - `MAX_PRICE = "99999999.99"`, lo que entra en `NUMERIC(10,2)`;
+    - `MAX_AMOUNT = "999999999999999999.99"`, 18 dígitos enteros. Ningún monto válido llega ahí: el más grande que
+      todavía da una cantidad que entra es `MAX_QUANTITY × MAX_PRICE`, unos 2,1·10¹⁷. Por encima, la cantidad nunca
+      entra, y el tope corta el pedido antes de calcularla.
+    - Los dos topes de plata son textos porque los usa `@DecimalMax`.
   - **`record SubmitOrderRequest`:** tiene `UUID clientOrderId`, `Long instrumentId`, `OrderSide side`,
     `OrderType type`, `@Nullable Integer quantity`, `@Nullable BigDecimal amount` y `@Nullable BigDecimal price`.
-    - Sus anotaciones:
+    - Sus anotaciones, cada una con su clave de la sección "Textos":
       - `@NotNull` en los cuatro primeros;
       - `@Positive` en `quantity`, `amount` y `price`;
-      - `@MaxScale(Decimals.MONEY_SCALE)` en `amount`;
-      - `@Digits(integer = OrderLimits.PRICE_INTEGER_DIGITS, fraction = Decimals.MONEY_SCALE)` en `price`.
-    - Tres `@AssertTrue`:
-      - `isTradeSide()`, porque `CASH_IN` y `CASH_OUT` dan 400;
-      - `isQuantityOrAmountExclusive()`, que exige uno solo de los dos;
-      - `isPriceConsistentWithType()`, porque una `LIMIT` lleva precio y una `MARKET` no.
+      - `@MaxScale(Decimals.MONEY_SCALE)` en `amount` y en `price`;
+      - `@DecimalMax(OrderLimits.MAX_AMOUNT)` en `amount` y `@DecimalMax(OrderLimits.MAX_PRICE)` en `price`.
+        `@DecimalMax` compara con `compareTo`, así que un exponente enorme (`1e999999999`) da 400 sin armar el número
+        entero. `@Digits` no sirve como tope: resta la escala en un `int`, y con `1e2147483647` la cuenta desborda
+        y el número pasa.
+    - **`@ConsistentOrderRequest`,** una regla sobre la clase, con `ConsistentOrderRequestValidator`. Revisa cinco
+      casos, y cada uno reporta su campo (`addPropertyNode`) y su clave:
+      - el lado no es `BUY` ni `SELL` → `side`, `order.side-not-trade`;
+      - vienen cantidad y monto → `quantity`, `order.quantity-and-amount`;
+      - no viene ninguno de los dos → `quantity`, `order.quantity-or-amount-missing`;
+      - una `LIMIT` sin precio → `price`, `order.limit-needs-price`;
+      - una `MARKET` con precio → `price`, `order.market-has-price`.
+
+      Si falta el lado o el tipo, no revisa los casos que dependen de ellos: eso ya lo reporta `@NotNull`. No se usan
+      `@AssertTrue`, porque reportan el campo con el nombre del método (`priceConsistentWithType`) y con un solo
+      texto para dos errores distintos.
     - El método `SubmitOrderCommand toCommand(long userId)`.
   - **`record SubmitOrderCommand`:** `long userId`, `UUID clientOrderId`, `long instrumentId`, `OrderSide side`,
     `OrderType type`, `@Nullable Integer quantity`, `@Nullable BigDecimal amount` y `@Nullable BigDecimal limitPrice`.
   - **`QuantityResolver(DisplayFormatter)`, con `resolve(SubmitOrderCommand, Instrument, @Nullable MarketPrice) → ResolvedOrder(int quantity, @Nullable BigDecimal price)`.**
-    Recibe el formateador para armar los textos del error. Lanza `InvalidOrderException`:
+    Recibe el formateador para armar los textos del error. Lanza
+    `InvalidOrderException(String detailKey, String... detailArgs)`, que es un `ApiException` con `INVALID_ORDER`:
     - si el activo es ARS (`order.instrument-is-currency`);
     - si por monto la cantidad da 0 (`order.quantity-zero`);
     - si la cantidad pasa `MAX_QUANTITY` (`order.quantity-too-large`);
     - si es por monto y a mercado sin precio (`order.no-price-for-amount`).
   - **`record OrderCandidate(long instrumentId, OrderSide side, OrderType type, int quantity, @Nullable BigDecimal price, boolean quoted)`.**
-  - **`interface RejectionRule`,** con `Optional<RejectionReason> check(OrderCandidate, Account)`.
+  - **`@FunctionalInterface interface RejectionRule`,** con `Optional<RejectionReason> check(OrderCandidate, Account)`.
+    Es la única interfaz del dominio, porque es el único lugar con más de una implementación.
   - **`OrderEvaluator(List<RejectionRule> rules).evaluate(OrderCandidate, Account) → OrderDecision(OrderStatus status, @Nullable RejectionReason rejectionReason)`.**
     `OrdersConfiguration` lo arma con las reglas en este orden: `QuotedInstrumentRule`, `EnoughCashRule` y
     `EnoughSharesRule`.
 
 - [ ] **Paso 1: escribir los tests que fallan.**
   - **`SubmitOrderRequestValidationTest`,** con el `Validator` de Jakarta. Cada caso afirma el campo y la plantilla del
-    mensaje (`getMessageTemplate()`), por ejemplo `{order.quantity.positive}`:
+    mensaje (`getMessageTemplate()`), por ejemplo `quantity` con `{order.quantity-not-positive}`:
     - un pedido válido a mercado por cantidad no tiene violaciones;
     - los casos de pedido mal armado del caso 14 del envío: falta `clientOrderId`, el lado es `CASH_IN`, la cantidad es
-      0, el monto es −1, el monto es 100.555, el precio es 229.555 o 100000000.00, vienen cantidad y monto juntos o no
-      viene ninguno, es una `LIMIT` sin precio o es una `MARKET` con precio.
+      0, el monto es −1, el monto es 100.555, el precio es 0, 229.555 o 100000000.00, vienen cantidad y monto juntos o
+      no viene ninguno, es una `LIMIT` sin precio o es una `MARKET` con precio;
+    - cada caso de `@ConsistentOrderRequest` reporta su campo: `side`, `quantity` o `price`;
+    - un pedido por cantidad sin lado ni tipo da solo las dos violaciones de `@NotNull`;
+    - **foco de revisión 2:** `amount` `1e999999999` da `{order.amount-too-large}`, y `price` `1e2147483647`,
+      `{order.price-too-large}`.
   - **`QuantityResolverTest`:**
     - por cantidad, 10 a mercado da 10 a 925.85, y en una límite, al precio límite;
     - $10.000 a mercado en PAMP dan 10;
@@ -821,8 +934,8 @@ Rama `task/5-09-order-submission`.
   `orders/OrderRepositoryIT.java` y `orders/web/OrderSubmissionIT.java`.
 
 **Interfaces:**
-- Consume `AccountService.load`, `InstrumentCatalog.find`, `InstrumentCatalog.latestPrice`, `QuantityResolver` y
-  `OrderEvaluator`.
+- Consume `AccountService.load`, `InstrumentCatalog.find`, `InstrumentCatalog.findLatestPrice`, `QuantityResolver`,
+  `OrderEvaluator`, `InvalidOrderException`, `DisplayFormatter` y `TestData`.
 - Produce:
   - **`RequestFingerprint.of(SubmitOrderCommand) → RequestFingerprint(String value)`:**
     - el valor es el SHA-256 en hexadecimal de `v1|activo|lado|tipo|cantidad|monto|precio` (RFC 5.3);
@@ -842,8 +955,12 @@ Rama `task/5-09-order-submission`.
       `instruments` para traer el ticker en un solo paso.
   - **Envío y resultado:**
     - `record SubmissionResult(StoredOrder order, boolean replayed)`;
+    - `OrderSubmissionTransaction.submit(SubmitOrderCommand) → SubmissionResult`, la transacción del paso 3;
     - `OrderSubmissionService.submit(SubmitOrderCommand) → SubmissionResult`. Si salta `DuplicateKeyException`, llama
       una vez más a la transacción (RFC 5.3).
+  - **`OrderResponseMapper(MessageSource, DisplayFormatter)`,** con `OrderResponse toResponse(StoredOrder)`. Calcula
+    `amount`, arma `rejectionMessage` con la clave del motivo y pasa `datetime` a la zona de Buenos Aires. Lo usan las
+    tareas 9, 11 y 12.
   - **`POST /users/{userId}/orders`:** responde 201, o 200 si es un reintento, con `OrderResponse`. Tiene la forma del
     RFC 6.2:
     - `id`, `clientOrderId`, `instrumentId`, `ticker`, `side`, `type`, `quantity`, `price`, `amount`, `status`,
@@ -879,9 +996,15 @@ Rama `task/5-09-order-submission`.
       `INSUFFICIENT_SHARES`; vender 20 PAMP con una venta límite pendiente de 30 da `REJECTED`; 10 PGR a mercado dan
       `REJECTED`, `NO_MARKET_PRICE`, con precio y `amount` en `null`, y con límite también `REJECTED`; el usuario 2,
       comprando 1 PAMP, da `REJECTED`.
-    - Caso 14, parametrizado: cada pedido da 400 (`validation-error` o `invalid-order`), y `orders` sigue en 11 filas.
-      Además, el usuario 99 da 404 `user-not-found`. **Foco de revisión 2:** `"quantity": 3000000000` y
-      `"price": 1e400` también dan 400.
+    - Caso 14, parametrizado. Cada pedido da 400 con su `type`, y `orders` sigue en 11 filas:
+      - `validation-error`: falta `clientOrderId`; lado `COMPRA`; lado `CASH_IN`; `quantity` 2.5; cantidad 0; monto
+        −1; precio 0; precio 229.555; cantidad y monto juntos; ninguno de los dos; `LIMIT` sin precio; `MARKET` con
+        precio; un campo desconocido (`"prise"`);
+      - `invalid-order`: el activo 999, que no existe; ARS; $500 de PAMP; $10.000 de PGR a mercado.
+
+      Además, el usuario 99 da 404 `user-not-found`. **Foco de revisión 2:** `"quantity": 3000000000`,
+      `"price": 1e400`, `"amount": 1e999999999` y `"price": 1e2147483647` también dan 400 `validation-error`, cada uno
+      en menos de 1 segundo.
     - Caso 15: el mismo identificador con el mismo contenido da 200 y el mismo cuerpo, sin una fila más. Lo mismo con
       `"amount": 10000.00` y `1E+4` (**foco de revisión 4**).
     - Caso 17: otro contenido con el mismo identificador da 422 `client-order-id-reused`, sin una fila más.
@@ -913,7 +1036,7 @@ Rama `task/5-10-user-turn`.
 
 **Archivos:**
 - Modificar `OrderSubmissionTransaction`: llamar a `AccountService.takeTurn(userId)` como primer paso.
-- Test: `support/Concurrency.java` y `orders/web/OrderConcurrencyIT.java`.
+- Test: `support/Concurrency.java`, `orders/web/OrderConcurrencyIT.java` y `orders/web/OrderTurnTimeoutIT.java`.
 
 **Interfaces:**
 - Consume `AccountService.takeTurn` (tarea 6).
@@ -937,11 +1060,16 @@ Rama `task/5-10-user-turn`.
     a mercado. Una queda `FILLED`, con 648 acciones y `amount` 599950.80, y la otra `REJECTED`.
   - `twoSimultaneousRequestsWithTheSameIdentifierCreateOneOrder` (caso 20 del envío): queda una fila más, y las dos
     respuestas traen el mismo id de orden.
-  - `answersBusyWhenTheTurnIsNotFree`, con `cocos.account.turn-timeout=200ms`: otra transacción tiene el lock del
-    usuario 1, y el envío responde 503 `user-busy` con `Retry-After: 1`, sin una fila más.
+  - Los tests 2 y 3 siguen la misma coreografía que el 1: la primera queda en pausa después de leer su cuenta, el
+    test espera a que la segunda espere el lock o lea su cuenta, y después suelta la primera. Sin la pausa, el caso 2
+    podría pasar sin el turno, solo porque los pedidos no se cruzaron.
+  - `OrderTurnTimeoutIT.answersBusyWhenTheTurnIsNotFree`, con
+    `@TestPropertySource(properties = "cocos.account.turn-timeout=200ms")`: otra transacción tiene el lock del usuario
+    1, y el envío responde 503 `user-busy` con `Retry-After: 1`, sin una fila más. Va en su propia clase porque una
+    propiedad vale para todo el contexto: con 200 ms, los tests con pausa podrían dar 503 en una máquina lenta.
 
-- [ ] **Paso 2: correrlos.** `./mvnw -B test -Dtest=OrderConcurrencyIT` tiene que fallar. En el primero, la posición
-  queda en −10: es la orden 11, reproducida.
+- [ ] **Paso 2: correrlos.** `./mvnw -B test -Dtest='OrderConcurrencyIT,OrderTurnTimeoutIT'` tiene que fallar. En el
+  primero, la posición queda en −10: es la orden 11, reproducida.
 
 - [ ] **Paso 3: tomar el turno.** Agregar `accountService.takeTurn(command.userId())` como primera línea de la
   transacción.
@@ -963,6 +1091,7 @@ Rama `task/5-11-order-cancellation`.
 - Test: `orders/web/OrderCancellationIT.java`.
 
 **Interfaces:**
+- Consume `AccountService.ensureExists`, `OrderResponseMapper.toResponse`, `Concurrency.PausePoint` y `TestData`.
 - Produce:
   - `Optional<StoredOrder> OrderRepository.findById(long userId, long orderId)`;
   - `Optional<StoredOrder> OrderRepository.cancelIfNew(long userId, long orderId)`, con el `UPDATE` del RFC 5.4;
@@ -979,6 +1108,8 @@ Rama `task/5-11-order-cancellation`.
     4. Con "B", 201 `FILLED`, 756 acciones y `amount` 699942.60.
     5. Quedan 17557.40 disponibles.
   - Caso 3 de CAN: una venta límite de 30 PAMP, cancelada, deja `reservedQuantity` en 0.
+  - Caso 15 del envío, con una límite (RFC 6.2): 10 METR con límite 10000 y el identificador "C" quedan `NEW`; se
+    cancela; el mismo pedido con "C" da 200 con la orden en `CANCELLED`.
   - Caso 4 de CAN: cancelar la 3, la 2 o la 6 da 409 `order-not-cancellable`, con `currentStatus` `CANCELLED`, `FILLED`
     o `REJECTED`, y nada cambia.
   - Caso 5 de CAN:
@@ -1008,18 +1139,24 @@ Rama `task/5-12-order-listing`.
 - Crear en `orders/web/`: `OrderPageResponse`.
 - Modificar `OrderRepository`: agregar `findPage`.
 - Modificar `OrderController`: agregar `GET /users/{userId}/orders`.
-- Modificar `application.yml` y `messages.properties`: `orders.limit.out-of-range` (dice el máximo) y
-  `orders.cursor.invalid`.
-- Test: `orders/listing/OrderCursorTest.java` y `orders/web/OrderListingIT.java`.
+- Modificar `application.yml` (`cocos.orders.page`) y `messages.properties` (las claves de la tarea 12).
+- Modificar `TestData`: agregar `void pendingAt(long userId, long instrumentId, int size, BigDecimal price, OffsetDateTime datetime)`.
+- Test: `orders/listing/OrderCursorTest.java`, `orders/listing/OrderPagePropertiesTest.java` y
+  `orders/web/OrderListingIT.java`.
 
 **Interfaces:**
+- Consume `AccountService.ensureExists`, `OrderResponseMapper.toResponse` y `TestData`.
 - Produce:
   - `record OrderCursor(OffsetDateTime createdAt, long orderId)`:
     - `String encode()` escribe base64url sin relleno de `Instant|id`;
     - `static OrderCursor decode(String)` lanza `IllegalArgumentException` si no se puede leer;
-  - `@Validated @ConfigurationProperties("cocos.orders.page") record OrderPageProperties(@Positive int defaultSize, @Positive int maxSize)`;
+  - `@Validated @ConfigurationProperties("cocos.orders.page") record OrderPageProperties(@Positive int defaultSize, @Positive int maxSize)`.
+    Su constructor rechaza un `defaultSize` mayor que `maxSize`, y la API no arranca;
   - `OrderRepository.findPage(long userId, @Nullable OrderStatus status, @Nullable OrderCursor after, int limit) → List<StoredOrder>`,
-    con la consulta del RFC 4.4;
+    con la consulta del RFC 4.4. Se arma con las cláusulas que corresponden: el filtro por estado y la comparación
+    del cursor van solo si vienen, y dan cuatro variantes. Las cláusulas son texto fijo del código, y los valores van
+    como parámetros (RFC 9). No se escribe `(:cursor is null or ...)`: Postgres puede pasar a un plan general que no
+    usa el cursor sobre el índice;
   - `OrderQueryService.list(long userId, @Nullable OrderStatus status, @Nullable Integer limit, @Nullable String cursor) → OrderPage(List<StoredOrder> orders, @Nullable String nextCursor)`;
   - `GET /users/{userId}/orders?status=&limit=&cursor=` → `OrderPageResponse(List<OrderResponse> orders, @Nullable String nextCursor)`.
 
@@ -1027,8 +1164,11 @@ Rama `task/5-12-order-listing`.
   - **`OrderCursorTest`:**
     - `2026-11-08T14:02:15.483921Z` con el id 12 se codifica y se lee igual, con los microsegundos;
     - un texto cualquiera, o un base64 válido con otro contenido, lanza `IllegalArgumentException`.
+  - **`OrderPagePropertiesTest`:** `new OrderPageProperties(200, 100)` lanza `IllegalArgumentException`.
   - **`OrderListingIT`:**
     - Caso 1 de LIS: con `status=NEW`, `[7, 5]`.
+    - LIS-1: dos órdenes de `pendingAt` con la misma fecha y hora salen por id, de mayor a menor, y recorrerlas con
+      `limit=1` muestra cada una una sola vez.
     - Caso 2:
       - sin filtro, las 11, de la 11 a la 1, con `nextCursor` en `null`;
       - la orden 1 con `quantity` y `price` en `null` y `amount` 1000000.00, y la 8 con `amount` 100000.00;
@@ -1036,7 +1176,7 @@ Rama `task/5-12-order-listing`.
       - el `datetime` de la orden 2, `2023-07-12T12:31:20-03:00` (**foco de revisión 5**).
     - Caso 3:
       1. Un usuario de `TestData` tiene 30 órdenes `NEW`.
-      2. Pide la primera página con `status=NEW` y `limit=20`.
+      2. Pide la primera página con `status=NEW`, sin `limit`: trae 20, el tamaño por defecto, y un `nextCursor`.
       3. Cancela 5 de esa página.
       4. La página siguiente trae las 10 que faltaban, sin saltear ninguna.
     - Caso 4: con órdenes a microsegundos de distancia, recorrer con `limit=2` muestra cada una una sola vez.
@@ -1084,7 +1224,8 @@ Rama `task/5-13-openapi`.
 Rama `task/5-14-docker-compose`.
 
 **Archivos:**
-- Crear `api/Dockerfile`, `api/.dockerignore`, `docker-compose.yml`, `scripts/smoke-test.sh` y `README.md`. El README
+- Crear `api/Dockerfile`, `api/.dockerignore`, `docker-compose.yml`, `scripts/wait-for-api.sh`,
+  `scripts/smoke-test.sh` y `README.md`. El README
   es mínimo por ahora: requisitos, cómo levantarlo, las direcciones y cómo correr los tests. Se completa en la fase 8.
 
 **Interfaces:**
@@ -1099,18 +1240,23 @@ Rama `task/5-14-docker-compose`.
     - se construye desde `./api` y espera a que `postgres` esté sano;
     - recibe `SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/postgres`, el usuario, la clave y
       `SPRING_FLYWAY_ENABLED=true`;
-    - puerto `8080:8080`.
-- Produce `scripts/smoke-test.sh`, que espera hasta 60 segundos a que `/actuator/health` dé `UP`. Después verifica con
-  `jq` que el portfolio del usuario 1 tenga `cash.available` 627500 y `totalValue` 889756, y devuelve 0 si está todo
-  bien.
+    - puerto `8080:8080`;
+    - no tiene chequeo de salud en el compose. La imagen `eclipse-temurin:25-jre` no trae `curl` ni `wget`
+      (verificado), y no se agrega una herramienta a la imagen solo para eso. Por eso `--wait` espera a Postgres, y
+      los scripts esperan a la API con `wait-for-api.sh`.
+- Produce `scripts/wait-for-api.sh`, que espera hasta 60 segundos a que `localhost:8080/actuator/health` dé `UP`, con
+  el `curl` de la máquina, y termina con 1 si no llega. Cuando da `UP`, Flyway ya migró, porque migra antes de que la
+  API atienda. Lo usan `smoke-test.sh` y los scripts de las tareas 15 y 19.
+- Produce `scripts/smoke-test.sh`, que primero llama a `wait-for-api.sh`. Después verifica con `jq` que el portfolio
+  del usuario 1 tenga `cash.available` 627500 y `totalValue` 889756, y devuelve 0 si está todo bien.
 
 - [ ] **Paso 1: escribir la prueba que falla.** Desde la raíz, `./scripts/smoke-test.sh` falla porque no hay nada
   escuchando en el 8080.
 
 - [ ] **Paso 2: escribir el `Dockerfile`.**
-  - **Primera etapa:** `maven:3.9-eclipse-temurin-25`. Copia el `pom.xml` y `.mvn`, baja las dependencias, copia `src`
-    y corre `./mvnw -B package -DskipTests`. Los tests corren en CI, porque dentro de la imagen no hay Docker para
-    Testcontainers.
+  - **Primera etapa:** `maven:3.9-eclipse-temurin-25`. Copia `mvnw`, `.mvn` y `pom.xml`, baja las dependencias
+    (`./mvnw -B dependency:go-offline`), copia `src` y corre `./mvnw -B package -Dmaven.test.skip=true`, que ni
+    compila los tests. Los tests corren en CI, porque dentro de la imagen no hay Docker para Testcontainers.
   - **Segunda etapa:** `eclipse-temurin:25-jre`. Extrae las capas del jar (`java -Djarmode=tools -jar app.jar extract
     --layers --launcher`), corre con un usuario sin privilegios y expone el 8080.
 
@@ -1131,8 +1277,8 @@ Rama `task/5-15-postman-collection`.
 
 **Archivos:**
 - Crear `postman/cocos-challenge.postman_collection.json`, `postman/local.postman_environment.json` y
-  `scripts/run-postman.sh`. El script corre `postman/newman:6.1.3` en la red `cocos-challenge_default`, con
-  `baseUrl=http://api:8080`.
+  `scripts/run-postman.sh`. El script primero llama a `wait-for-api.sh`, y después corre `postman/newman:6.1.3` en la
+  red `cocos-challenge_default`, con `baseUrl=http://api:8080`.
 
 - [ ] **Paso 1: escribir la colección con sus tests (`pm.test`).** Son los nueve pasos del RFC 11.5, sobre los datos
   originales:
@@ -1192,9 +1338,11 @@ Rama `task/6-17-logs-and-metrics`.
 **Archivos:**
 - Modificar `pom.xml`: agregar `io.micrometer:micrometer-registry-prometheus`.
 - Modificar `application.yml`: los bloques de la tarea 17.
-- Crear `orders/OrderMetrics.java` y `account/TurnMetrics.java`.
-- Modificar `OrderSubmissionService`, `OrderCancellationService` y `AccountService`, que registran las métricas, y
-  `OrderSubmissionTransaction`, que escribe una línea de log por orden procesada.
+- Crear `orders/OrderMetrics.java`, `orders/OrderEventLogger.java` y `account/TurnMetrics.java`.
+- Modificar `OrderSubmissionService` y `OrderCancellationService`, que registran las métricas y las líneas de log, y
+  `AccountService`, que mide la espera del turno.
+- Modificar `ApiExceptionHandler`: cada 4xx escribe una línea `WARN` con el `type` y el código, sin stack trace. Los
+  5xx ya escriben el stack trace (tarea 3).
 - Test: `shared/web/MetricsIT.java`, `shared/web/ActuatorExposureIT.java` y `shared/web/LoggingIT.java`.
 
 **Interfaces:**
@@ -1204,7 +1352,11 @@ Rama `task/6-17-logs-and-metrics`.
       (`none` si no hay motivo);
     - `recordReplayed()` cuenta en `orders.replayed`;
     - `recordCancelled()` cuenta en `orders.cancelled`;
-  - `TurnMetrics.time(Runnable)` mide en el timer `orders.turn.wait`.
+  - `TurnMetrics`, con `<T> T time(Supplier<T>)`, que mide en el timer `orders.turn.wait`. Envuelve
+    `lockForTurn`, que devuelve si el usuario existe;
+  - `OrderEventLogger`, con `logProcessed(StoredOrder, boolean replayed)` y `logCancelled(StoredOrder)`. Cada uno pone
+    en el MDC las claves `userId`, `orderId`, `clientOrderId`, `side`, `type`, `status` y `rejectionReason`, escribe
+    la línea y las saca en un `finally`. Las claves son constantes de la clase.
 - En Prometheus se ven como `orders_created_total`, `orders_replayed_total`, `orders_cancelled_total` y
   `orders_turn_wait_seconds` (RFC 8.2).
 
@@ -1217,16 +1369,20 @@ Rama `task/6-17-logs-and-metrics`.
     - `orders_turn_wait_seconds_count` crece;
     - existe `http_server_requests_seconds_bucket` con `uri="/users/{userId}/portfolio"`.
   - **`ActuatorExposureIT`:** `/actuator/health` da 200, y `/actuator/env` y `/actuator/heapdump` dan 404.
-  - **`LoggingIT`,** con `OutputCaptureExtension` (caso 5 de GEN): al mandar una orden y pedir el portfolio del usuario
-    1, la salida tiene líneas JSON con `requestId` y `orderId`, y no contiene `@test.com`.
+  - **`LoggingIT`,** con `OutputCaptureExtension` (caso 5 de GEN):
+    - al mandar una orden y pedir el portfolio del usuario 1, la salida tiene líneas JSON con `requestId` y `orderId`,
+      y no contiene `@test.com`;
+    - una cancelación escribe una línea con su `orderId` y `status` `CANCELLED`;
+    - un 404 escribe una línea `WARN` sin stack trace (sin líneas `\tat `).
 
 - [ ] **Paso 2: correrlos.** `./mvnw -B test -Dtest='MetricsIT,ActuatorExposureIT,LoggingIT'` tiene que fallar.
 
 - [ ] **Paso 3: implementar.**
-  - **Las líneas de log** usan el MDC para el usuario, la orden, el identificador, el lado, el tipo, el estado y el
-    motivo. Se limpian al terminar.
-  - **Las métricas** se registran después de confirmar la transacción. El reintento y el envío se registran en
-    `OrderSubmissionService`, no en la transacción.
+  - **Las métricas y las líneas de log** se registran después de confirmar la transacción, así no se cuenta una orden
+    que después no se confirmó:
+    - el envío y el reintento, en `OrderSubmissionService`, que está fuera de la transacción;
+    - la cancelación, que es una sola transacción, con `TransactionSynchronizationManager.registerSynchronization`,
+      en `afterCommit`.
 
 - [ ] **Paso 4: correrlos.** Dan `PASS`, y `./mvnw -B verify`, `BUILD SUCCESS`.
 
@@ -1256,7 +1412,8 @@ Rama `task/6-18-grafana-dashboard`.
 - Modificar `README.md`: agregar las direcciones de Prometheus y Grafana.
 
 - [ ] **Paso 1: escribir la verificación que falla.** `scripts/smoke-test.sh` también verifica dos cosas:
-  - que `curl -fsS localhost:9090/api/v1/targets` muestre el objetivo `api` en `up`;
+  - que `curl -fsS localhost:9090/api/v1/targets` muestre el objetivo `api` en `up`. Reintenta hasta 30 segundos,
+    porque Prometheus marca el objetivo recién después de su primera lectura, y lee cada 15;
   - que `curl -fsS 'localhost:3000/api/search?query=Cocos'` encuentre el tablero.
 
   Con el compose actual, falla.
@@ -1276,11 +1433,14 @@ Rama `task/6-19-load-test`.
 
 **Archivos:**
 - Crear `perf/seed-volume.sql`: la carga de datos de `docs/mediciones/03-indices.sql`, para el esquema ya migrado. Son
-  10.000 usuarios de 100 órdenes, uno de 10.000 y uno de 1.000.000, con `setseed(0.2026)`.
+  10.000 usuarios de 100 órdenes, uno de 10.000 y uno de 1.000.000, con `setseed(0.2026)`. Como ese script, borra
+  `orders_user_clientorderid_key` y `orders_user_datetime_idx` antes de cargar, y los vuelve a crear después, con los
+  nombres de V4 y V6.
 - Crear `perf/load-test.js`, para k6. Tiene un escenario por función para usuarios típicos y para el pesado, con el
   umbral `http_req_duration{scenario:...}: ['p(95)<100']`. Las compras van repartidas entre los usuarios típicos.
 - Crear `scripts/run-load-test.sh`:
-  1. Levanta el compose y carga `seed-volume.sql` en el contenedor de Postgres.
+  1. Levanta el compose, espera a la API con `wait-for-api.sh`, así Flyway ya migró, y carga `seed-volume.sql` en el
+     contenedor de Postgres.
   2. Corre `grafana/k6:2.3.0` en la red `cocos-challenge_default`.
   3. Al final, `docker compose down`.
 - Crear `docs/mediciones/06-tiempo-de-respuesta.md`, con el resultado de la corrida y la máquina en la que corrió.
