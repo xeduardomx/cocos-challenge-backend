@@ -60,9 +60,9 @@ public class ProblemProbeController {
     throw new IllegalStateException("secret");
   }
 
-  /** What Tomcat throws for a parameter that is not valid UTF-8: MockMvc never decodes one. */
-  @GetMapping("/probe/bad-encoding")
-  void badEncoding() {
-    throw new InvalidParameterException("bad encoding");
+  /** What Tomcat throws when it cannot read the parameters: MockMvc never parses them. */
+  @GetMapping("/probe/unreadable-parameters")
+  void unreadableParameters() {
+    throw new InvalidParameterException("unreadable parameters");
   }
 }

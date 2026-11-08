@@ -39,8 +39,8 @@ public class InstrumentController {
   @ApiResponse(
       responseCode = "400",
       description =
-          "El texto de búsqueda está vacío, es muy largo, tiene un carácter que no se puede buscar"
-              + " o no está en UTF-8")
+          "El texto de búsqueda está vacío, es muy largo o tiene un carácter que no se puede"
+              + " buscar, o los parámetros no se pueden leer (sin nombre o fuera de UTF-8)")
   @ApiResponse(responseCode = "500", description = "Error inesperado, sin detalles internos")
   @GetMapping
   public InstrumentSearchResponse search(@RequestParam(required = false) @Nullable String query) {

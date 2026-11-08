@@ -136,14 +136,17 @@ class ApiExceptionHandlerIT {
   }
 
   @Test
-  void rejectsAParameterThatIsNotValidUtf8WithoutNamingAField() throws Exception {
+  void rejectsUnreadableParametersWithoutNamingAField() throws Exception {
     mockMvc
-        .perform(get("/probe/bad-encoding"))
+        .perform(get("/probe/unreadable-parameters"))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.type").value(VALIDATION_ERROR))
         .andExpect(
-            jsonPath("$.detail").value("El pedido tiene caracteres mal codificados: usá UTF-8."))
+            jsonPath("$.detail")
+                .value(
+                    "Los parámetros del pedido no se pudieron leer: revisá que cada uno tenga"
+                        + " nombre y esté escrito en UTF-8."))
         .andExpect(jsonPath("$.errors").doesNotExist());
   }
 

@@ -44,7 +44,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
   private static final String INVALID_VALUE_KEY = "request.invalid-value";
   private static final String INVALID_VALUE_OPTIONS_KEY = "request.invalid-value-options";
   private static final String OPTIONS_SEPARATOR = ", ";
-  private static final String BAD_ENCODING_KEY = "request.bad-encoding";
+  private static final String UNREADABLE_PARAMETERS_KEY = "request.unreadable-parameters";
   private static final String UNEXPECTED_KEY = "error.unexpected";
 
   private final MessageSource messages;
@@ -71,13 +71,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * Tomcat decodes the parameters the first time one is read, and fails if they are not UTF-8. It
-   * does not say which one, so the problem names no field.
+   * Tomcat reads the parameters the first time one is asked for, and fails if it cannot: a value
+   * that is not UTF-8, a parameter without a name, or more parameters than it accepts. It does not
+   * say which one, so the problem names no field.
    */
   @ExceptionHandler(InvalidParameterException.class)
-  @Nullable ResponseEntity<Object> handleBadEncoding(
+  @Nullable ResponseEntity<Object> handleUnreadableParameters(
       InvalidParameterException ex, WebRequest request) {
-    ProblemDetail problem = problem(ProblemType.VALIDATION_ERROR, text(BAD_ENCODING_KEY));
+    ProblemDetail problem = problem(ProblemType.VALIDATION_ERROR, text(UNREADABLE_PARAMETERS_KEY));
     return handleExceptionInternal(
         ex, problem, new HttpHeaders(), ProblemType.VALIDATION_ERROR.status(), request);
   }

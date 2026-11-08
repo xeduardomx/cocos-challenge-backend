@@ -22,8 +22,9 @@ class InstrumentSearchIT {
   private static final int MAX_RESULTS = 20;
   private static final String INVALID_CHARACTER_TEXT =
       "El texto de búsqueda tiene un carácter que no se puede buscar.";
-  private static final String BAD_ENCODING_TEXT =
-      "El pedido tiene caracteres mal codificados: usá UTF-8.";
+  private static final String UNREADABLE_PARAMETERS_TEXT =
+      "Los parámetros del pedido no se pudieron leer: revisá que cada uno tenga nombre y esté"
+          + " escrito en UTF-8.";
 
   @LocalServerPort private int port;
 
@@ -139,13 +140,16 @@ class InstrumentSearchIT {
     assertThat(response.json().get("detail").asString()).isEqualTo(INVALID_CHARACTER_TEXT);
   }
 
-  @Test
-  void rejectsAQueryThatIsNotValidUtf8() {
-    ApiResponse response = searchEncoded("%C3%28");
+  /** Tomcat cannot read a value that is not UTF-8, nor a parameter without a name. */
+  @ParameterizedTest(name = "?{0}")
+  @ValueSource(strings = {"query=%C3%28", "=x"})
+  void rejectsParametersThatCannotBeRead(String encodedParameters) {
+    ApiResponse response = api.getEncoded("/instruments?" + encodedParameters);
 
     assertThat(response.status()).isEqualTo(400);
     assertThat(response.json().get("type").asString()).isEqualTo(VALIDATION_ERROR);
-    assertThat(response.json().get("detail").asString()).isEqualTo(BAD_ENCODING_TEXT);
+    assertThat(response.json().get("detail").asString()).isEqualTo(UNREADABLE_PARAMETERS_TEXT);
+    assertThat(response.json().has("errors")).isFalse();
   }
 
   @ParameterizedTest
