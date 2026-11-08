@@ -21,6 +21,7 @@ public class InstrumentRepository {
       select i.id, i.ticker, i.name, i.type
       from instruments i, q
       where i.type <> :currencyType
+        and exists (select 1 from words)
         and not exists (
           select 1 from words where strpos(lower(unaccent(i.ticker || ' ' || i.name)), w) = 0)
       order by case when lower(i.ticker) = q.t then 1
