@@ -27,6 +27,16 @@ public class ApiClient {
     return client.get().uri(path, uriVariables).exchange(ApiClient::toResponse);
   }
 
+  /** Sends the text as the body, untouched: for numbers and values Java cannot represent. */
+  public ApiResponse post(String path, String rawJson) {
+    return client
+        .post()
+        .uri(path)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(rawJson)
+        .exchange(ApiClient::toResponse);
+  }
+
   public ApiResponse post(String path, Object body) {
     return client
         .post()
