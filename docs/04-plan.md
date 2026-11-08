@@ -495,7 +495,8 @@ Rama `task/5-03-errors-and-request-id`.
       propiedad y el encabezado `Retry-After: 1`.
     - `hidesTheInternalsOfAnUnexpectedError`: un `IllegalStateException("secret")` da 500, `internal-error`, el
       `detail` "Ocurrió un error inesperado." y un `requestId`, y el cuerpo no contiene "secret".
-    - `leavesSpringErrorsAsAboutBlank`: `GET /nope` da 404 con `type` `about:blank`.
+    - `leavesSpringErrorsAsAboutBlank`: `GET /nope` da 404 sin `type`, que el RFC 9457 toma como `about:blank`
+      (precisado al implementar, fase 5).
   - `RequestIdFilterIT`: `echoesAValidRequestId` (`abc-123`), `generatesAnIdWhenMissing` (un UUID) y
     `replacesAnUnsafeRequestId`. Este último manda un valor con un salto de línea o de más de 64 caracteres, y la API lo
     cambia por uno generado. Solo se aceptan `[A-Za-z0-9-]` y hasta 64 caracteres.
@@ -1240,7 +1241,7 @@ Rama `task/5-14-docker-compose`.
     - se construye desde `./api` y espera a que `postgres` esté sano;
     - recibe `SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/postgres`, el usuario, la clave y
       `SPRING_FLYWAY_ENABLED=true`;
-    - puerto `8080:8080`;
+    - puerto `127.0.0.1:${API_PORT:-8080}:8080` (precisado al implementar, fase 5);
     - no tiene chequeo de salud en el compose. La imagen `eclipse-temurin:25-jre` no trae `curl` ni `wget`
       (verificado), y no se agrega una herramienta a la imagen solo para eso. Por eso `--wait` espera a Postgres, y
       los scripts esperan a la API con `wait-for-api.sh`.
@@ -1331,6 +1332,10 @@ Al terminar la tarea 16: PR de `feat/phase-5-implementation` a `develop`, con me
 
 Antes de la tarea 17: `git checkout develop && git pull && git checkout -b feat/phase-6-observability`, y push.
 
+> Al ejecutar: la rama salió de `feat/phase-5-implementation`, porque el autor dejó abierto el PR de la fase 5 hasta
+> saber si GitHub desbloquea el CI. Y el contador `orders.created` pasó a `orders.recorded`: lo explica el RFC, sección
+> 8.2. Los nombres de las tareas 17 y 18 ya están corregidos.
+
 ### Tarea 17: logs estructurados y métricas
 
 Rama `task/6-17-logs-and-metrics`.
@@ -1348,7 +1353,7 @@ Rama `task/6-17-logs-and-metrics`.
 **Interfaces:**
 - Produce:
   - `OrderMetrics`:
-    - `recordCreated(StoredOrder)` cuenta en `orders.created`, con las etiquetas `side`, `type`, `status` y `reason`
+    - `recordCreated(StoredOrder)` cuenta en `orders.recorded`, con las etiquetas `side`, `type`, `status` y `reason`
       (`none` si no hay motivo);
     - `recordReplayed()` cuenta en `orders.replayed`;
     - `recordCancelled()` cuenta en `orders.cancelled`;
@@ -1357,12 +1362,12 @@ Rama `task/6-17-logs-and-metrics`.
   - `OrderEventLogger`, con `logProcessed(StoredOrder, boolean replayed)` y `logCancelled(StoredOrder)`. Cada uno pone
     en el MDC las claves `userId`, `orderId`, `clientOrderId`, `side`, `type`, `status` y `rejectionReason`, escribe
     la línea y las saca en un `finally`. Las claves son constantes de la clase.
-- En Prometheus se ven como `orders_created_total`, `orders_replayed_total`, `orders_cancelled_total` y
+- En Prometheus se ven como `orders_recorded_total`, `orders_replayed_total`, `orders_cancelled_total` y
   `orders_turn_wait_seconds` (RFC 8.2).
 
 - [ ] **Paso 1: escribir los tests que fallan.**
   - **`MetricsIT`.** Lee `/actuator/prometheus` antes y después de cada acción, y compara las diferencias:
-    - una compra `FILLED` suma 1 a `orders_created_total{reason="none",side="BUY",status="FILLED",type="MARKET"}`;
+    - una compra `FILLED` suma 1 a `orders_recorded_total{reason="none",side="BUY",status="FILLED",type="MARKET"}`;
     - una `REJECTED` por pesos suma 1 con `reason="INSUFFICIENT_CASH"`;
     - un reintento suma 1 a `orders_replayed_total`;
     - una cancelación suma 1 a `orders_cancelled_total`;
@@ -1397,8 +1402,8 @@ Rama `task/6-18-grafana-dashboard`.
 - Crear `observability/grafana/provisioning/datasources/prometheus.yml` y
   `observability/grafana/provisioning/dashboards/dashboards.yml`.
 - Crear `observability/grafana/dashboards/cocos-api.json`, con el título "Cocos challenge API" y estos paneles:
-  - órdenes por estado, tipo y lado: `sum by (status, type, side) (increase(orders_created_total[$__range]))`;
-  - rechazos por motivo: `sum by (reason) (increase(orders_created_total{status="REJECTED"}[$__range]))`;
+  - órdenes por estado, tipo y lado: `sum by (status, type, side) (increase(orders_recorded_total[$__range]))`;
+  - rechazos por motivo: `sum by (reason) (increase(orders_recorded_total{status="REJECTED"}[$__range]))`;
   - latencia p95 por función:
     `histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket[5m])))`;
   - errores por función: `sum by (uri, status) (rate(http_server_requests_seconds_count{status=~"4..|5.."}[5m]))`;

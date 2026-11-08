@@ -94,8 +94,9 @@ El detalle se trabaja en el bloque del esquema, que se hace en el RFC (fase 3).
      usuario compra 5 BMA, la fila pasaría de −10 a −5, la regla la rechazaría, y el usuario no podría comprar.
    - Un trigger duplicaría la lógica de la aplicación, escondida en la base y con el mismo problema de órdenes
      simultáneas.
-4. **Hallazgo:** la orden 11 es el síntoma exacto de dos ventas simultáneas sin bloqueo. Con 20 acciones llegan
-   dos ventas de 15; las dos ven "tiene 20", las dos pasan y la posición queda en −10. Se demuestra con un test:
+4. **Hallazgo:** la orden 11 vendió 30 con 20 en la cuenta, y nada la frenó. El mismo −10 deja el caso más peligroso,
+   dos ventas simultáneas sin bloqueo: con 20 acciones llegan dos ventas de 15, las dos ven "tiene 20", las dos pasan
+   y la posición queda en −10. Se demuestra con un test:
    dos ventas de 15 en paralelo, una `FILLED` y otra `REJECTED`, posición final 5.
 5. **Sin aviso especial** en la respuesta del portfolio: el −10 ya lo dice.
 
@@ -481,7 +482,7 @@ Cerrada en D-1: la posición de BMA (−10) se muestra tal cual, con rendimiento
 
     Sin índice, la base lee la tabla entera (82 MB) en cada pedido, así que el tiempo depende de las órdenes de
     todos los usuarios: por eso el típico y el pesado tardan casi lo mismo. Con índice (7 MB), depende solo de las
-    órdenes de ese usuario. Son números de una laptop, con datos inventados y ya en memoria: sirven como orden de
+    órdenes de ese usuario. Son números de una PC, con datos inventados y ya en memoria: sirven como orden de
     magnitud. El RFC repite la medición formal, antes y después.
   - **Conclusión:** con el índice, calcular cuesta milisegundos aun con 10.000 órdenes. La tabla resolvería un
     problema que no tenemos, a cambio de los cuatro costos de arriba. El índice da la mejora de performance que el
@@ -780,7 +781,7 @@ no pide** (cancelar y listar órdenes) y deja afuera las transferencias. Cada co
     quedó, y el pedido siguiente la manda de vuelta. Es lo que hacen las apps con scroll infinito.
 - **Medición** (copia local en Docker, nunca Neon). Datos inventados: 1.000.000 de órdenes repartidas entre 10.000
   usuarios, un usuario de 10.000 órdenes (el "pesado" de A-4) y uno de 1.000.000 (caso extremo: ningún usuario normal
-  llega a eso). Índice por (usuario, fecha, id). Son números de una laptop con datos ya en memoria: sirven como orden
+  llega a eso). Índice por (usuario, fecha, id). Son números de una PC con datos ya en memoria: sirven como orden
   de magnitud.
 
   | | Usuario con 10.000 órdenes | Usuario con 1.000.000 |
@@ -1060,9 +1061,14 @@ decisión y es la base del alcance del PRD.
 | La espera del turno tiene un mínimo de 1 ms, porque Postgres toma 0 como "sin límite" | Fase 5; RFC, sección 6.6 |
 | Con el turno tomado, ninguna otra orden de ese usuario se puede grabar hasta que termine la que lo tiene (la clave foránea también bloquea su fila). Se mantiene `FOR UPDATE` | Fase 5, decisión del autor; RFC, sección 5.3 |
 | `docker compose`: la API y Postgres escuchan solo en `127.0.0.1`, con los puertos configurables (`API_PORT`, `POSTGRES_PORT`) | Fase 5; RFC, sección 11.3 |
+| La métrica de órdenes se llama `orders_recorded_total` (OpenMetrics reserva `_created`), y los contadores existen en 0 desde el arranque, para que `increase()` vea la primera orden | Fase 6; RFC, sección 8.2 |
+| Cada error escribe una sola línea: `WARN` en un 4xx y `ERROR` con stack trace en un 5xx, también el 503 de turno ocupado | Fase 6; RFC, sección 8.1 |
+| Prometheus y Grafana escuchan solo en `127.0.0.1`, con los puertos configurables (`PROMETHEUS_PORT`, `GRAFANA_PORT`), y sus datos viven en memoria | Fase 6; RFC, sección 11.3 |
+| Los paneles por función no incluyen `/actuator/*`, y el tablero es la página de inicio de Grafana | Fase 6; RFC, sección 8.3 |
+| Medición con k6: nueve escenarios, 10 pedidos por segundo cada uno, con calentamiento. La semilla de volumen deposita 100.000.000 por usuario: con 1.000.000 se rechazaba el 37 % de las compras de los típicos y todas las del pesado | Fase 6; `mediciones/06-tiempo-de-respuesta.md` |
 
-**Cambios al modelo de datos:** decididos en el RFC (sección 3) y todavía sin aplicar: se aplican con migraciones en
-la fase 5, solo en la copia local, y a Neon se le aplican, si se decide, en la fase 8 (ADR 0006).
+**Cambios al modelo de datos:** decididos en el RFC (sección 3) y aplicados con migraciones en la fase 5, solo en la
+copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).
 
 | Cambio | Dónde |
 |---|---|

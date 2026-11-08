@@ -1,6 +1,6 @@
 # Resultados de las pruebas de la sección 3 del RFC
 
-> Corrida del 2026-11-07 en una laptop, con Postgres 18.6 en Docker y Flyway 12.4.0. Cada script corre en una copia
+> Corrida del 2026-11-07 en una PC, con Postgres 18.6 en Docker y Flyway 12.4.0. Cada script corre en una copia
 > nueva, solo con `database.sql` cargado (nunca en Neon): [`03-trampas.sh`](03-trampas.sh) deshace cada prueba, y
 > [`03-flyway.sh`](03-flyway.sh) le aplica a esa copia `03-esquema.sql` como la versión 2, igual que haría con Neon.
 

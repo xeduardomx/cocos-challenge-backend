@@ -51,7 +51,7 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
 | 5 | Implementación con TDD | código + tests | test-driven-development, executing-plans |
 | 6 | Observabilidad: métricas, tablero con Prometheus y Grafana (New Relic, documentado) y medición del tiempo de respuesta | código + tablero | — |
 | 7 | Portal HTML tipo Confluence: análisis, PRD, RFC, diagramas, runbook, métricas | `docs/portal/` | — |
-| 8 | Revisión y entrega: review, verificación, README, repo público, mail | repo + mail | requesting-code-review, verification-before-completion, finishing-a-development-branch |
+| 8 | Revisión y entrega: review, verificación, README, mail | repo + mail | requesting-code-review, verification-before-completion, finishing-a-development-branch |
 
 ## Ramas, commits y repo (decidido el 2026-11-06)
 

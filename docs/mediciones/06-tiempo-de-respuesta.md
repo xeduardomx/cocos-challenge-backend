@@ -68,8 +68,8 @@ si no dan, la corrida se corta. Antes de cargar borra los dos índices de la tab
 nombres de las migraciones V4 y V6, y termina con `vacuum analyze orders`.
 
 **El depósito inicial es de 100.000.000, no el 1.000.000 del RFC 3.5.** Las órdenes de la semilla son al azar y no miran el
-saldo, y con un millón no les alcanza: el 38 % de los típicos (3.825 de 10.000) y el pesado (−$57.927.782 disponibles)
-no pueden comprar ni una acción de METR. Una compra rechazada no prueba el camino completo.
+saldo, y con un millón no les alcanza. En una consulta aparte, sobre la semilla con ese depósito, el 38 % de los
+típicos (3.825 de 10.000) y el pesado (−$57.927.782 disponibles) no pueden comprar ni una acción de METR. Una compra rechazada no prueba el camino completo.
 Medido con ese depósito, en una corrida corta (15 segundos más el calentamiento): de las compras a mercado, el 37 % de
 las del típico y todas las del pesado quedaron `REJECTED`, y las órdenes `LIMIT` del pesado también, así que no había
 nada para cancelar. Con el depósito nuevo, todas se ejecutan (ver "Cómo terminaron las órdenes"). Cambia solo ese

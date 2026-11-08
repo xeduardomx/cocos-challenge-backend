@@ -62,8 +62,9 @@ Cuando hay que elegir entre opciones que cumplen el PRD, se decide con estos cri
 chocan, gana el de más arriba.
 
 1. **La plata y las acciones nunca se gastan dos veces,** ni con dos órdenes al mismo tiempo (R-1) ni con un
-   reintento (R-2). Es el riesgo más serio del challenge: la orden 11, que dejó BMA en −10, es el síntoma exacto de
-   dos ventas simultáneas sin bloqueo (D-1). Una opción más simple que deje abierta esa puerta no sirve.
+   reintento (R-2). Es el riesgo más serio del challenge: la orden 11 vendió 30 BMA con 20 en la cuenta y dejó la
+   posición en −10. El mismo −10 dejan dos ventas de 15 que llegan juntas y ven las dos "tiene 20" (D-1). Una opción
+   más simple que deje abierta esa puerta no sirve.
 2. **Nunca se cambia lo que el usuario autorizó.** Un precio con más de 2 decimales se rechaza en vez de redondearse
    (D-4), y en una orden por monto la cantidad se corta para abajo, así nunca supera lo pedido (A-6).
 3. **La base no acepta datos imposibles.** Las reglas que se ven en una sola fila, como una orden sin usuario o un
@@ -340,7 +341,7 @@ repartidas así:
 - uno pesado, de 10.000;
 - uno extremo, de 1.000.000, que sirve para ver dónde está el límite: ningún inversor común llega a eso.
 
-Cada consulta corrió 7 veces (el portfolio del extremo, 3) y se toma la mediana. Son números de una laptop con los
+Cada consulta corrió 7 veces (el portfolio del extremo, 3) y se toma la mediana. Son números de una PC con los
 datos en memoria: sirven como orden de magnitud. Los scripts están en [`mediciones/`](mediciones/); la salida
 completa de la corrida, en [`mediciones/03-resultados.md`](mediciones/03-resultados.md); y al final de esta parte
 está cómo repetirla.
@@ -1043,11 +1044,17 @@ tu cuenta o el mercado no lo dejaron".
 
 - **En JSON, uno por línea,** con el formato ECS que trae Spring Boot (`logging.structured.format.console: ecs`). Se
   pueden filtrar por campo sin parsear texto.
-- **Cada pedido tiene un id.** Si el cliente manda `X-Request-Id`, se usa ese; si no, la API genera un UUID. Un filtro
+- **Cada pedido tiene un id.** Si el cliente manda `X-Request-Id` con letras, números y guiones, y hasta 64
+  caracteres, se usa ese, así un valor del cliente no puede romper los logs; si no, la API genera un UUID. Un filtro
   lo pone en el contexto de los logs (MDC), así sale en cada línea de ese pedido, y vuelve en el encabezado de la
   respuesta y en los errores (`requestId`, sección 7).
 - **Qué se registra:** una línea por orden procesada, con el usuario, el número de orden, el identificador, el lado,
   el tipo, el estado y el motivo; las cancelaciones; los errores 4xx, sin stack trace; y los 5xx, con stack trace.
+- **Cada error escribe una sola línea** (precisado al implementar, fase 6): `WARN` en un 4xx y `ERROR` en un 5xx,
+  también el 503 de turno ocupado, con el `type` (`problemType`) y el código (`httpStatus`) como campos propios. En
+  ECS el stack trace va adentro de esa línea, en `error.stack_trace`. El aviso que Spring escribe por su cuenta en un
+  405 está apagado, para que no haya dos líneas. Un pedido que Tomcat rechaza antes de llegar a Spring (por ejemplo,
+  una dirección con `%2F`) no pasa por la API: no tiene línea ni `requestId`.
 - **Sin email** (GEN-5): la API nunca lo lee. La consulta de usuarios trae solo el id, así que no lo puede registrar
   por error. Un test lo verifica (caso 5 de GEN).
 
@@ -1057,14 +1064,23 @@ Con Micrometer, que viene con Spring Boot, expuestas para Prometheus en `/actuat
 
 | Métrica | Etiquetas | Para qué |
 |---|---|---|
-| `orders_created_total` | lado, tipo, estado y motivo del rechazo | cuántas órdenes se ejecutan, quedan pendientes o se rechazan, y por qué (GEN-4) |
+| `orders_recorded_total` | lado, tipo, estado y motivo del rechazo | cuántas órdenes se ejecutan, quedan pendientes o se rechazan, y por qué (GEN-4) |
 | `orders_cancelled_total` | — | cuántas órdenes se cancelan |
 | `orders_replayed_total` | — | cuántos reintentos devolvieron una orden existente (R-2) |
-| `orders_turn_wait_seconds` | — | cuánto espera un envío el turno del usuario (sección 5.2): si crece, hay órdenes del mismo usuario chocando |
+| `orders_turn_wait_seconds` | — | cuánto espera un envío el turno del usuario (sección 5.2): si crece, hay órdenes del mismo usuario chocando. También con histograma, para el percentil 95 del tablero |
 | `http_server_requests_seconds` | dirección, método, código y resultado | cuánto tarda y cuántos errores da cada función (GEN-4). Lo mide Spring solo. El histograma, que hace falta para calcular el percentil 95, se prende con `management.metrics.distribution.percentiles-histogram.http.server.requests: true` |
 
 Las etiquetas toman pocos valores (2 lados × 2 tipos × 3 estados × 4 motivos, incluido "ninguno"), así que no
 multiplican las series. El usuario y la orden no van como etiqueta: tendrían un valor por usuario.
+
+Dos cosas encontradas al implementar (fase 6):
+
+- **El contador se llama `orders_recorded_total`, no `orders_created_total`.** OpenMetrics, el formato que lee
+  Prometheus, reserva el sufijo `_created`, y el cliente lo saca: `orders.created` salía como `orders_total`.
+  `orders.recorded` nombra mejor lo que cuenta: las órdenes grabadas, también las rechazadas.
+- **Los contadores existen en 0 desde que arranca la API.** `increase()` necesita dos muestras de una serie. Un contador
+  que nace con la primera orden arranca en 1, y esa orden nunca se ve en el tablero. Por eso la API registra al arrancar
+  las 20 combinaciones de lado, tipo, estado y motivo, además de los reintentos y las cancelaciones.
 
 ### 8.3 Cómo se ven: Prometheus y Grafana en el mismo `docker compose`
 
@@ -1072,8 +1088,10 @@ La decisión, con sus alternativas, está en el [ADR 0007](adr/0007-metricas-con
 
 - **Prometheus** lee `/actuator/prometheus` cada 15 segundos.
 - **Grafana** arranca con la fuente de datos y un tablero ya cargados desde archivos del repo: al levantar el compose,
-  el tablero está listo, sin configurar nada a mano. Muestra las órdenes por estado, tipo y lado, los rechazos por
-  motivo, la latencia (percentil 95) y los errores por función, y la espera del turno.
+  el tablero está listo, sin configurar nada a mano, y es la página de inicio. Muestra las órdenes por estado, tipo y
+  lado, los rechazos por motivo, la latencia (percentil 95) y los errores por función, y la espera del turno. Los
+  paneles por función no incluyen `/actuator/*`: si no, se llenarían con la lectura de Prometheus (precisado al
+  implementar, fase 6).
 - **En producción con New Relic,** se cambia el registro de Micrometer (`micrometer-registry-new-relic`, con la clave
   y la cuenta por variables de entorno). Las métricas y su código no cambian.
 - **Alternativas:** New Relic de verdad, con una cuenta gratuita, obligaría a quien evalúa a tener una cuenta y una
@@ -1087,6 +1105,11 @@ la tabla (el juego de datos de la sección 3.5) y usuarios de hasta 10.000 órde
 usuario pesado tarda 1,2 ms (sección 3.5); el resto del margen es para Java, el JSON y la red. Se mide en la fase 6
 con k6, una herramienta de carga que corre en Docker y no entra en el código de la API. El usuario extremo queda fuera
 del objetivo, como límite documentado (A-4): su portfolio lee unas 850.000 órdenes.
+
+**Resultado (fase 6): se cumple.** Con 2.010.011 órdenes y 10 pedidos por segundo en cada escenario, el peor percentil
+95 es el envío del usuario pesado, 61,15 ms. Le sigue su portfolio, con 35,01 ms; el resto queda por debajo de 9 ms. El
+usuario extremo tarda entre 0,66 y 0,94 segundos por portfolio. Los números, la máquina y cómo repetirlo están en
+[`mediciones/06-tiempo-de-respuesta.md`](mediciones/06-tiempo-de-respuesta.md).
 
 ## 9. Seguridad
 
@@ -1236,11 +1259,14 @@ flowchart LR
   mientras carga `database.sql`, y un chequeo sin red lo daría por listo antes de tiempo. Se encontró al armar las
   mediciones (sección 3.5).
 - **Prometheus y Grafana** se configuran con archivos del repo: qué leer, la fuente de datos y el tablero (sección
-  8.3). Grafana deja ver el tablero sin usuario y contraseña, porque es solo local.
+  8.3). Grafana deja ver el tablero sin usuario y contraseña, porque es solo local. Sus datos también viven en memoria
+  (`tmpfs`): cada `up` arranca de cero y `down` no deja volúmenes. Un `tmpfs` es de root y no deja ejecutar programas,
+  así que Prometheus lo monta con `uid=65534` y Grafana con `exec,uid=472`, porque corre desde ahí su plugin de
+  Prometheus (encontrado al implementar, fase 6).
 - **Puertos:** la API en 8080 (con la página de OpenAPI), Grafana en 3000 y Prometheus en 9090. Postgres, en el 5433
-  de la máquina, para mirarlo con `psql` sin chocar con un Postgres instalado. La API y Postgres escuchan solo en
-  `127.0.0.1`, porque la API no tiene autenticación (sección 9), y sus puertos se cambian con `API_PORT` y
-  `POSTGRES_PORT` si ya están ocupados (precisado al implementar, fase 5).
+  de la máquina, para mirarlo con `psql` sin chocar con un Postgres instalado. Los cuatro servicios escuchan solo en
+  `127.0.0.1`, porque ni la API ni Grafana piden autenticación (sección 9), y sus puertos se cambian con `API_PORT`,
+  `POSTGRES_PORT`, `PROMETHEUS_PORT` y `GRAFANA_PORT` si ya están ocupados (precisado al implementar, fases 5 y 6).
 - **Solo la API y la base:** `docker compose up api` levanta la API con lo que necesita.
 
 ### 11.4 La configuración
