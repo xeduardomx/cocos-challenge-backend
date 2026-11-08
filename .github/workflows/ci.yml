@@ -7,9 +7,10 @@ on:
 permissions:
   contents: read
 
-# A PR branch triggers both `push` and `pull_request`: keep only the latest run per branch.
+# A push to a PR branch starts a `push` run and a `pull_request` run. Both join the group of the
+# branch name (head_ref in a PR, ref_name in a push), so the newer run cancels the older one.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
