@@ -1,0 +1,2672 @@
+
+<!doctype html>
+<html lang="es" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Análisis, decisiones, diseño y mediciones de la API del challenge.">
+      
+      
+      
+        <link rel="canonical" href="https://xeduardomx.github.io/cocos-challenge-backend/02-prd/">
+      
+      
+      
+        <link rel="prev" href="../01-decisiones/">
+      
+      
+        <link rel="next" href="../03-rfc/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.1.0">
+    
+    
+      
+        <title>PRD - Cocos Capital: challenge backend</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.4ab2de0c.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../portal/portal.css">
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Saltar a contenido
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabecera">
+    <a href="./.." title="Cocos Capital: challenge backend" class="md-header__button md-logo" aria-label="Cocos Capital: challenge backend" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navegación</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Cocos Capital: challenge backend
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              PRD
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Pasar al modo oscuro"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Pasar al modo oscuro" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Pasar al modo claro"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Pasar al modo claro" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Buscar</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Buscar">
+  <button type="button" class="md-search__button">
+    Buscar
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/xeduardomx/cocos-challenge-backend" title="Ir al repositorio" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    xeduardomx/cocos-challenge-backend
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Pestañas" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="./.." class="md-tabs__link">
+        
+  
+  Inicio
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../portal/diagramas/" class="md-tabs__link">
+        
+  
+  Diagramas
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../00-fuentes/backend-challenge/" class="md-tabs__link">
+        
+  
+  Enunciado
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../01-analisis/" class="md-tabs__link">
+          
+  
+  Análisis
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="././" class="md-tabs__link">
+        
+  
+  PRD
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../03-rfc/" class="md-tabs__link">
+          
+  
+  RFC
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../04-plan/" class="md-tabs__link">
+        
+  
+  Plan
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../portal/runbook/" class="md-tabs__link">
+          
+  
+  Operación
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navegación" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Cocos Capital: challenge backend" class="md-nav__button md-logo" aria-label="Cocos Capital: challenge backend" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    Cocos Capital: challenge backend
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/xeduardomx/cocos-challenge-backend" title="Ir al repositorio" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    xeduardomx/cocos-challenge-backend
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Inicio
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../portal/diagramas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Diagramas
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00-fuentes/backend-challenge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Enunciado
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Análisis
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Análisis
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01-analisis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Análisis
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01-decisiones/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Registro de decisiones
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  PRD
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  PRD
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="Tabla de contenidos">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-el-problema-y-para-quién" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1. El problema y para quién
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-alcance" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        2. Alcance
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-requisitos-por-función" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3. Requisitos por función
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Requisitos por función">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-portfolio" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3.1 Portfolio
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-búsqueda-de-activos" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3.2 Búsqueda de activos
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-envío-de-órdenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3.3 Envío de órdenes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-cancelación-de-órdenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3.4 Cancelación de órdenes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-listado-de-órdenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3.5 Listado de órdenes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-requisitos-generales" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        4. Requisitos generales
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-supuestos-y-limitaciones" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        5. Supuestos y limitaciones
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-lo-que-queda-para-el-rfc" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        6. Lo que queda para el RFC
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-lo-que-se-decidió-en-esta-fase" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        7. Lo que se decidió en esta fase
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RFC
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  RFC
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03-rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../adr/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  ADR
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0001-capas-por-funcion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0001 — Capas agrupadas por función, no hexagonal
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0002-sql-directo-con-jdbcclient/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0002 — SQL directo con JdbcClient, no JPA
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0003-posiciones-calculadas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0003 — Las posiciones se calculan desde orders, sin tabla de posiciones
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0004-turno-del-usuario/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0004 — El turno del usuario: un lock sobre su fila de users, en READ COMMITTED
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0005-reintentos-con-identificador-y-huella/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0005 — Reintentos: identificador del cliente y huella del pedido
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0006-migraciones-con-flyway/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0006 — Migraciones con Flyway, sobre una base con datos y sin historial
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0007-metricas-con-prometheus-y-grafana/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0007 — Métricas con Micrometer, y Prometheus y Grafana en el docker compose
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0008-openapi-con-springdoc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0008 — Especificación OpenAPI con springdoc-openapi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../04-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Plan
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Operación
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Operación
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../portal/runbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Runbook
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../portal/metricas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Métricas
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../mediciones/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mediciones
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Mediciones
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/03-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la sección 3 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/03-pruebas-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de las pruebas de la sección 3 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/04-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la sección 4 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/05-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de las pruebas de la sección 5 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/06-tiempo-de-respuesta/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tiempo de respuesta con volumen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/10-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la prueba de la sección 10 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="Tabla de contenidos">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-el-problema-y-para-quién" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1. El problema y para quién
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-alcance" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        2. Alcance
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-requisitos-por-función" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3. Requisitos por función
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Requisitos por función">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-portfolio" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3.1 Portfolio
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-búsqueda-de-activos" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3.2 Búsqueda de activos
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-envío-de-órdenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3.3 Envío de órdenes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-cancelación-de-órdenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3.4 Cancelación de órdenes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-listado-de-órdenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3.5 Listado de órdenes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-requisitos-generales" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        4. Requisitos generales
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-supuestos-y-limitaciones" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        5. Supuestos y limitaciones
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-lo-que-queda-para-el-rfc" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        6. Lo que queda para el RFC
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-lo-que-se-decidió-en-esta-fase" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        7. Lo que se decidió en esta fase
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+  
+
+
+<h1 id="02--prd-qué-tiene-que-hacer-la-api">02 — PRD: qué tiene que hacer la API<a class="headerlink" href="#02--prd-qué-tiene-que-hacer-la-api" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Fase 2 · 2026-11-07 · Estado: <strong>aprobado por el autor el 2026-11-07</strong></p>
+<p>Este documento dice qué hace la API y para qué. El porqué de cada decisión está en
+<a href="../01-analisis/"><code>01-analisis.md</code></a> y <a href="../01-decisiones/"><code>01-decisiones.md</code></a>, bajo el código que aparece entre
+paréntesis (A-1, D-2…); las pocas que se tomaron al armar este PRD están en la sección 7. El cómo se construye va
+en el RFC (fase 3).</p>
+</blockquote>
+<h2 id="1-el-problema-y-para-quién">1. El problema y para quién<a class="headerlink" href="#1-el-problema-y-para-quién" title="Permanent link">&para;</a></h2>
+<p><strong>El problema.</strong> Un inversor que usa la app necesita:</p>
+<ul>
+<li><strong>Saber cuánto tiene y cuánto puede invertir.</strong> Si la app le mostrara como disponible la plata que ya reservó una
+  compra pendiente, podría usarla dos veces.</li>
+<li><strong>Entender si gana o pierde</strong> con cada acción, comparando con lo que pagó.</li>
+<li><strong>Encontrar un activo sin saber el ticker:</strong> escribir "galicia" o "rio" y que aparezca.</li>
+<li><strong>Comprar o vender y saber qué pasó:</strong> si la orden se ejecutó, quedó pendiente o se rechazó, y por qué. Nunca se
+  ejecuta dos veces la misma orden, ni con plata o acciones que no tiene.</li>
+<li><strong>Arrepentirse de una orden pendiente</strong> y que se le libere la plata reservada.</li>
+</ul>
+<p><strong>Para quién.</strong></p>
+<ul>
+<li><strong>El inversor:</strong> usa la app y nunca ve la API. Cuando este documento dice "el usuario", es él.</li>
+<li><strong>La app:</strong> llama a la API en nombre del inversor. Tiene una responsabilidad propia: ponerle un identificador a cada
+  orden nueva y usar el mismo cuando reintenta (R-2).</li>
+<li><strong>Soporte (secundario):</strong> tiene que poder contestar "¿por qué me rechazaron esta orden?" y ver cuántas órdenes se
+  ejecutan o se rechazan.</li>
+</ul>
+<p><strong>Qué es un buen resultado.</strong></p>
+<ul>
+<li><strong>Los números cierran a la vista:</strong> valor total, disponibles y reservado se explican entre sí, y coinciden con los
+  números de referencia del análisis (sección 10).</li>
+<li><strong>Ninguna orden gasta plata o acciones que no hay,</strong> aunque lleguen dos juntas o una repetida.</li>
+<li><strong>Se puede recorrer todo desde la API,</strong> sin abrir la base: buscar un activo, mandar una orden, verla en el listado y
+  cancelarla.</li>
+</ul>
+<h2 id="2-alcance">2. Alcance<a class="headerlink" href="#2-alcance" title="Permanent link">&para;</a></h2>
+<p><strong>Qué hace la API</strong></p>
+<table>
+<thead>
+<tr>
+<th>Función</th>
+<th>Para qué</th>
+<th>¿Lo pide el enunciado?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Portfolio</td>
+<td>ver el valor de la cuenta, los pesos disponibles y cada posición con su rendimiento</td>
+<td>sí</td>
+</tr>
+<tr>
+<td>Búsqueda de activos</td>
+<td>encontrar un activo por ticker o por nombre</td>
+<td>sí</td>
+</tr>
+<tr>
+<td>Envío de órdenes</td>
+<td>comprar o vender, a mercado o con precio límite, por cantidad o por monto</td>
+<td>sí</td>
+</tr>
+<tr>
+<td>Cancelación de órdenes</td>
+<td>arrepentirse de una orden pendiente y liberar lo reservado</td>
+<td>no: el enunciado da la regla ("solo se cancela una orden <code>NEW</code>") pero no pide la función. Sin ella, lo reservado quedaría bloqueado para siempre (A-7)</td>
+</tr>
+<tr>
+<td>Listado de órdenes</td>
+<td>ver las órdenes propias: cuál cancelar, por qué se rechazó una</td>
+<td>no: sin listado no hay forma de saber qué cancelar (A-7)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Además:</strong></p>
+<ul>
+<li><strong>Una colección de Postman</strong> con el recorrido completo: buscar, enviar, reintentar la misma orden, listar y cancelar.
+  El enunciado la pide como opcional. Cada envío genera solo su identificador, y el pedido de reintento repite el del
+  último envío, para mostrar que no se crea otra orden (R-2).</li>
+<li><strong>Métricas para soporte:</strong> se detallan en la sección 4.</li>
+</ul>
+<p><strong>Qué no hace, a propósito</strong></p>
+<table>
+<thead>
+<tr>
+<th>Qué</th>
+<th>Por qué</th>
+<th>Dónde</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Autenticación</td>
+<td>el enunciado dice que no es necesaria; el usuario viene en el pedido (la limitación, en la sección 5)</td>
+<td>S-5</td>
+</tr>
+<tr>
+<td>Depósitos y retiros</td>
+<td>no se piden, y sin autenticación cualquiera podría crear plata; los datos de prueba los cargan directo</td>
+<td>A-7</td>
+</tr>
+<tr>
+<td>Simular el mercado</td>
+<td>el enunciado dice que no hace falta: una orden límite queda pendiente y nunca se ejecuta sola</td>
+<td>D-7</td>
+</tr>
+<tr>
+<td>Ejecutar en el momento una orden límite que cruza el precio</td>
+<td>contradice el enunciado</td>
+<td>A-6</td>
+</tr>
+<tr>
+<td>Bandas de precio, o pasos de precio de 5 centavos</td>
+<td>sería simular el mercado</td>
+<td>A-6, D-4</td>
+</tr>
+<tr>
+<td>Tolerar errores de tipeo en la búsqueda</td>
+<td>habría que inventar cuánto parecido alcanza</td>
+<td>A-5</td>
+</tr>
+<tr>
+<td>Ver el detalle de una orden por separado</td>
+<td>con el listado alcanza</td>
+<td>A-7</td>
+</tr>
+<tr>
+<td>Modificar una orden pendiente</td>
+<td>se cancela y se manda otra</td>
+<td>este PRD</td>
+</tr>
+<tr>
+<td>Vencimiento de las órdenes límite</td>
+<td>quedan pendientes hasta que el usuario las cancela; vencerlas (por ejemplo, al cierre del día) sería simular el mercado</td>
+<td>enunciado, D-7</td>
+</tr>
+<tr>
+<td>Horario de mercado</td>
+<td>las órdenes se aceptan a cualquier hora, con el último precio; controlar el horario sería simular el mercado</td>
+<td>enunciado</td>
+</tr>
+<tr>
+<td>Corregir datos heredados (órdenes 11 y 10, el precio anterior de BBAR)</td>
+<td>no le corresponde al desarrollador; se documentan</td>
+<td>D-1, D-4, D-6</td>
+</tr>
+<tr>
+<td>Otras monedas</td>
+<td>todo está en pesos y no hay nada que convertir</td>
+<td>S-1</td>
+</tr>
+<tr>
+<td>Comisiones e impuestos</td>
+<td>el modelo de datos no los tiene, así que el PPC es solo sobre precios. Quedan como mejora posible, afuera por practicidad (ver abajo)</td>
+<td>A-2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Comisiones: por qué quedan afuera.</strong> Serían una mejora posible, pero tocan casi todos los cálculos de plata. Aun
+con una comisión fija por orden, cambiarían:</p>
+<ul>
+<li>los pesos de la cuenta y los disponibles, porque cada orden restaría la comisión;</li>
+<li>la cantidad máxima de una compra por monto, que tendría que dejar lugar para la comisión;</li>
+<li>la reserva de las órdenes límite (precio × cantidad + comisión);</li>
+<li>el PPC, si la comisión se cuenta como parte del costo;</li>
+<li>y aparecerían casos nuevos, como una venta chica que no alcanza a cubrir su comisión.</li>
+</ul>
+<p>Además, el valor sería inventado: el enunciado no da ninguno. Por practicidad, se decidió dejarlas afuera.</p>
+<h2 id="3-requisitos-por-función">3. Requisitos por función<a class="headerlink" href="#3-requisitos-por-función" title="Permanent link">&para;</a></h2>
+<p>Los casos usan los datos de <code>database.sql</code>. Ahí, el usuario 1 tiene $753.000 en la cuenta, compras pendientes por
+$125.500 (órdenes 5 y 7) y tres posiciones: 500 METR, 40 PAMP y −10 BMA. Cuando un caso usa otros datos, lo aclara.
+Cada caso parte de los datos originales: lo que graba un caso no lo ve el siguiente. Cómo lo logran los tests se
+define en el RFC (sección 6).</p>
+<p>Los requisitos llevan un código de tres letras por función (POR, BUS, ENV, CAN, LIS y GEN), para no confundirlos con
+los del análisis. Los tests de la fase 5 los citan.</p>
+<h3 id="31-portfolio">3.1 Portfolio<a class="headerlink" href="#31-portfolio" title="Permanent link">&para;</a></h3>
+<p><em>Para qué:</em> que el inversor sepa cuánto vale su cuenta, cuánto puede invertir y cómo le va con cada acción.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Requisito</th>
+<th>Dónde</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POR-1</td>
+<td><strong>Valor total</strong> = pesos de la cuenta + valor de las posiciones. Los pesos de la cuenta son depósitos − retiros − compras + ventas ejecutadas, e incluyen lo reservado, que sigue siendo del usuario</td>
+<td>A-1, D-9</td>
+</tr>
+<tr>
+<td>POR-2</td>
+<td><strong>Disponibles para operar</strong> = pesos de la cuenta − lo que reservan las compras pendientes, a su precio límite. Lo reservado también se muestra</td>
+<td>A-1</td>
+</tr>
+<tr>
+<td>POR-3</td>
+<td><strong>Posiciones:</strong> por acción, compras − ventas ejecutadas, a mercado o límite. Si da 0, la posición no aparece; si da negativa, aparece tal cual. ARS no aparece</td>
+<td>D-1, D-7, D-9</td>
+</tr>
+<tr>
+<td>POR-4</td>
+<td><strong>Valor de cada posición</strong> = cantidad × último precio (el <code>close</code> de la fecha más reciente). Si la acción no cotiza, aparece sin valor y no suma</td>
+<td>D-2, D-3</td>
+</tr>
+<tr>
+<td>POR-5</td>
+<td><strong>Rendimiento total</strong> = (último precio − PPC) ÷ PPC. El PPC promedia las compras en orden cronológico, y las ventas no lo cambian. Con la posición en 0 o negativa, PPC y rendimiento quedan vacíos; si vuelve a positiva, el PPC arranca de esa compra</td>
+<td>A-2</td>
+</tr>
+<tr>
+<td>POR-6</td>
+<td><strong>Variación diaria</strong> = (<code>close</code> − <code>previousClose</code>) ÷ <code>previousClose</code>, usando la columna tal cual. Si no hay <code>previousClose</code>, queda vacía</td>
+<td>A-2, D-4, D-5</td>
+</tr>
+<tr>
+<td>POR-7</td>
+<td><strong>Cada posición muestra</strong> el activo, la cantidad, el valor y el rendimiento total (lo que pide el enunciado), más el último precio, el PPC, la variación diaria y cuántas de sus acciones están reservadas por ventas pendientes. Esto último explica por qué se rechaza una venta aunque la cantidad parezca alcanzar</td>
+<td>A-1, A-2, sección 7</td>
+</tr>
+<tr>
+<td>POR-8</td>
+<td><strong>Siempre al día:</strong> una orden recién ejecutada ya cuenta en el siguiente portfolio. Es el "actualizar el listado de posiciones" del enunciado</td>
+<td>A-4</td>
+</tr>
+<tr>
+<td>POR-9</td>
+<td><strong>Usuario sin órdenes:</strong> todo en $0 y la lista vacía, sin error. <strong>Usuario que no existe:</strong> error</td>
+<td>D-8</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Casos</strong></p>
+<ol>
+<li><strong>Dado</strong> el usuario 1, <strong>cuando</strong> pide su portfolio, <strong>entonces</strong> ve $627.500 disponibles, $125.500 reservados y un
+   valor total de $889.756.</li>
+<li><strong>Y</strong> ve estas posiciones. No aparecen ARS ni LOMA, porque de LOMA solo tiene una compra pendiente:</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Activo</th>
+<th>Cantidad</th>
+<th>Valor</th>
+<th>PPC</th>
+<th>Rendimiento</th>
+<th>Variación diaria</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>METR</td>
+<td>500</td>
+<td>$114.750</td>
+<td>$250</td>
+<td>−8,20 %</td>
+<td>−1,08 %</td>
+</tr>
+<tr>
+<td>PAMP</td>
+<td>40</td>
+<td>$37.034</td>
+<td>$930</td>
+<td>−0,45 %</td>
+<td>+0,44 %</td>
+</tr>
+<tr>
+<td>BMA</td>
+<td>−10</td>
+<td>−$15.028</td>
+<td>—</td>
+<td>—</td>
+<td>−1,15 %</td>
+</tr>
+</tbody>
+</table>
+<p>BMA da −10 y no −30, porque la orden 9 es límite, está ejecutada y cuenta.
+3. <strong>Dado</strong> el usuario 1, <strong>cuando</strong> compra 10 PAMP a mercado, <strong>entonces</strong> el siguiente portfolio muestra 50 PAMP con
+   PPC $929,17 y rendimiento −0,36 %, $618.241,50 disponibles y el mismo valor total.
+4. <strong>Dado</strong> el usuario 1, <strong>cuando</strong> compra 15 BMA a mercado, <strong>entonces</strong> su portfolio muestra 5 BMA con PPC $1.502,80
+   (no $1.428,40) y rendimiento 0 %.
+5. <strong>Dado</strong> un usuario que compró 10 acciones a $100 y 10 a $200 y vendió 5, <strong>cuando</strong> pide su portfolio, <strong>entonces</strong>
+   su PPC es $150.
+6. <strong>Dado</strong> un usuario con acciones de BBAR, <strong>cuando</strong> pide su portfolio, <strong>entonces</strong> la variación diaria de BBAR es
+   −0,87 %.
+7. <strong>Dado</strong> un usuario con una acción cuyo último día no tuvo operaciones, <strong>cuando</strong> pide su portfolio, <strong>entonces</strong> el
+   último precio de esa acción es el <code>close</code> y su variación diaria es 0 %. Necesita datos propios: en <code>database.sql</code>,
+   los días sin operaciones de DOME y POLL no son el último.
+8. <strong>Dado</strong> un usuario con una acción cuyo precio más reciente se cargó antes que uno más viejo, <strong>cuando</strong> pide su
+   portfolio, <strong>entonces</strong> se usa el precio más reciente por fecha.
+9. <strong>Dado</strong> un usuario con acciones de PGR, que no cotiza, <strong>cuando</strong> pide su portfolio, <strong>entonces</strong> PGR aparece sin
+   valor y el total se calcula igual.
+10. <strong>Dado</strong> el usuario 2, sin órdenes, <strong>cuando</strong> pide su portfolio, <strong>entonces</strong> ve $0 y la lista vacía. <strong>Dado</strong> el
+    usuario 99, que no existe, <strong>cuando</strong> pide su portfolio, <strong>entonces</strong> recibe un error.
+11. <strong>Dado</strong> el usuario 1, que mandó una venta límite de 30 PAMP a $950, <strong>cuando</strong> pide su portfolio, <strong>entonces</strong> PAMP
+    muestra 40 acciones, 30 de ellas reservadas. En los datos originales, las tres posiciones tienen 0 reservadas.</p>
+<h3 id="32-búsqueda-de-activos">3.2 Búsqueda de activos<a class="headerlink" href="#32-búsqueda-de-activos" title="Permanent link">&para;</a></h3>
+<p><em>Para qué:</em> que el inversor encuentre un activo escribiendo una parte del ticker o del nombre, como en la caja de
+búsqueda de la app.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Requisito</th>
+<th>Dónde</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BUS-1</td>
+<td><strong>Un solo texto</strong>, que se busca en el ticker y en el nombre a la vez. Así se cumple el "ticker y/o nombre" del enunciado sin que el usuario tenga que elegir dónde buscar</td>
+<td>A-5</td>
+</tr>
+<tr>
+<td>BUS-2</td>
+<td><strong>"Similar" significa "contiene":</strong> todas las palabras del texto tienen que aparecer en el ticker o en el nombre, en cualquier orden, sin importar mayúsculas ni acentos. Cada carácter se busca tal cual: <code>%</code> y <code>_</code> no funcionan como comodines</td>
+<td>A-5</td>
+</tr>
+<tr>
+<td>BUS-3</td>
+<td><strong>ARS no aparece:</strong> no se compran pesos con pesos</td>
+<td>A-5</td>
+</tr>
+<tr>
+<td>BUS-4</td>
+<td><strong>Orden de los resultados:</strong> primero el ticker igual al texto, después el ticker que empieza así, el ticker que lo contiene, el nombre que empieza así y por último el resto. Los empates se ordenan por ticker</td>
+<td>A-5</td>
+</tr>
+<tr>
+<td>BUS-5</td>
+<td><strong>Tope de resultados</strong> configurable (por ejemplo, 20). Si nada coincide, la lista viene vacía, sin error</td>
+<td>A-5</td>
+</tr>
+<tr>
+<td>BUS-6</td>
+<td><strong>Texto vacío o solo con espacios: error.</strong> Una sola letra se permite. Un texto más largo que el máximo también da error (el máximo se fija en el RFC)</td>
+<td>A-5</td>
+</tr>
+<tr>
+<td>BUS-7</td>
+<td><strong>Cada resultado muestra</strong> el identificador del activo (para mandar una orden), el ticker, el nombre, el último precio y la variación diaria. Si el activo no cotiza, el precio y la variación van vacíos</td>
+<td>A-5, D-2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Casos.</strong> <strong>Dado</strong> el mercado de <code>database.sql</code> (65 acciones y ARS):</p>
+<ol>
+<li><strong>Cuando</strong> busca "banco", <strong>entonces</strong> aparecen BBAR, BHIP, BMA y BPAT.</li>
+<li><strong>Cuando</strong> busca "rio", <strong>entonces</strong> aparecen BHIP, MOLI, OEST y RICH. MOLI aparece por "Molinos <strong>Río</strong> de la
+   Plata", aunque lleve acento. Con "compania" aparece INTR ("Com<strong>pañ</strong>ía").</li>
+<li><strong>Cuando</strong> busca "grupo galicia", <strong>entonces</strong> aparece GGAL ("Grupo <strong>Financiero</strong> Galicia": las palabras no tienen
+   que estar juntas). Con "gas sur" aparecen CGPA2 y TGSU2.</li>
+<li><strong>Cuando</strong> busca "pa", <strong>entonces</strong> aparecen, en este orden, PAMP, PATA, BPAT, CGPA2 e INTR.</li>
+<li><strong>Cuando</strong> busca "y", <strong>entonces</strong> YPFD aparece primero.</li>
+<li><strong>Cuando</strong> busca "a", <strong>entonces</strong> vienen 20 resultados como máximo, aunque coinciden 59.</li>
+<li><strong>Cuando</strong> busca "pesos" o "_", <strong>entonces</strong> la lista viene vacía.</li>
+<li><strong>Cuando</strong> busca "pamp", <strong>entonces</strong> PAMP aparece con último precio $925,85 y variación diaria +0,44 %. Con "pgr",
+   PGR aparece con precio y variación vacíos.</li>
+<li><strong>Cuando</strong> busca un texto vacío, solo con espacios o demasiado largo, <strong>entonces</strong> recibe un error.</li>
+</ol>
+<p>Las limitaciones aceptadas van en la sección 5: "banco" no encuentra VALO, que en los datos figura como "BCO DE
+VALORES", y "bbva" no encuentra BBAR, que figura como "Banco Frances".</p>
+<h3 id="33-envío-de-órdenes">3.3 Envío de órdenes<a class="headerlink" href="#33-envío-de-órdenes" title="Permanent link">&para;</a></h3>
+<p><em>Para qué:</em> que el inversor compre o venda una acción, a mercado o con precio límite, por cantidad o por monto, y sepa
+enseguida qué pasó con su orden. Estos casos son la base del test funcional que pide el enunciado (GEN-3).</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Requisito</th>
+<th>Dónde</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ENV-1</td>
+<td><strong>Qué se manda:</strong> el usuario, el activo, el lado (compra o venta), el tipo (a mercado o límite), la cantidad de acciones <strong>o</strong> el monto en pesos (uno de los dos), el precio límite (solo en las límite) y el identificador de la orden</td>
+<td>enunciado, R-2</td>
+</tr>
+<tr>
+<td>ENV-2</td>
+<td><strong>A mercado:</strong> se ejecuta en el momento al último precio (<code>close</code>), queda <code>FILLED</code> y se graba con ese precio</td>
+<td>enunciado, D-6</td>
+</tr>
+<tr>
+<td>ENV-3</td>
+<td><strong>Límite:</strong> queda pendiente (<code>NEW</code>) con el precio que puso el usuario, y nunca se ejecuta sola, porque no se simula el mercado. Se acepta cualquier precio mayor a 0, y la orden reserva a ese precio</td>
+<td>enunciado, A-6, D-7</td>
+</tr>
+<tr>
+<td>ENV-4</td>
+<td><strong>Por monto:</strong> cantidad = monto ÷ precio, cortando los decimales, o sea, la cantidad máxima que entra, sin fracciones. El precio es el <code>close</code> en una orden a mercado y el límite en una límite. Vale para compras y para ventas</td>
+<td>enunciado, A-6</td>
+</tr>
+<tr>
+<td>ENV-5</td>
+<td><strong>Si no alcanza, se graba como <code>REJECTED</code>.</strong> Una compra necesita pesos disponibles, descontando lo reservado. Una venta necesita acciones disponibles, descontando las ventas pendientes. Por monto tampoco se compra "lo que entre": si no alcanza, se rechaza</td>
+<td>enunciado, A-1, A-6</td>
+</tr>
+<tr>
+<td>ENV-6</td>
+<td><strong>Si el activo no cotiza, se graba como <code>REJECTED</code>:</strong> por cantidad, a mercado o límite, y por monto con límite. Por monto a mercado no hay precio para calcular la cantidad, así que es un error (caso 14)</td>
+<td>D-2, A-6</td>
+</tr>
+<tr>
+<td>ENV-7</td>
+<td><strong>Error, sin grabar nada, cuando con lo enviado no se puede armar una orden</strong> (la lista completa está en los casos)</td>
+<td>A-6</td>
+</tr>
+<tr>
+<td>ENV-8</td>
+<td><strong>La respuesta devuelve la orden:</strong> su número (con el que se la cancela), el activo, el lado, el tipo, la cantidad (incluida la calculada por monto), el precio grabado, el estado, la fecha y hora con zona horaria, el identificador que puso la app y, si se rechazó, el motivo. Un rechazo no es un error: la orden existe, rechazada</td>
+<td>A-6, D-10, R-2</td>
+</tr>
+<tr>
+<td>ENV-9</td>
+<td><strong>Identificador obligatorio, único por usuario.</strong> Si llega repetido con el mismo contenido, es un reintento: se devuelve la orden original, sin crear otra ni volver a evaluarla, aunque haya quedado rechazada. Si llega repetido con otro contenido, es un error. Un pedido que dio error no gasta el identificador, y dos usuarios pueden usar el mismo</td>
+<td>R-2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Casos.</strong> Son del usuario 1 con sus datos originales, salvo que se aclare otra cosa.</p>
+<p><em>Ejecución</em></p>
+<ol>
+<li><strong>Cuando</strong> compra 10 PAMP a mercado, <strong>entonces</strong> la orden queda <code>FILLED</code> a $925,85, por $9.258,50.</li>
+<li><strong>Cuando</strong> compra 10 METR con límite $10.000, <strong>entonces</strong> queda <code>NEW</code>, reserva $100.000 y los disponibles bajan a
+   $527.500.</li>
+</ol>
+<p><em>Por monto</em></p>
+<ol>
+<li><strong>Cuando</strong> compra $10.000 de PAMP a mercado, <strong>entonces</strong> salen 10 acciones ($9.258,50), la respuesta muestra la
+   cantidad 10 y los $741,50 que sobran siguen disponibles.</li>
+<li><strong>Cuando</strong> compra $9.258,50 de PAMP a mercado, <strong>entonces</strong> salen exactamente 10 acciones, no 9.</li>
+<li><strong>Cuando</strong> compra $10.000 de PAMP con límite $900, <strong>entonces</strong> salen 11 acciones, la orden queda <code>NEW</code> y se reservan
+   $9.900.</li>
+<li><strong>Cuando</strong> vende $10.000 de PAMP a mercado, <strong>entonces</strong> vende 10 acciones ($9.258,50).</li>
+</ol>
+<p><em>Rechazos (la orden se graba)</em></p>
+<ol>
+<li><strong>Cuando</strong> compra $700.000 de PAMP a mercado (756 acciones, $699.942,60), <strong>entonces</strong> queda <code>REJECTED</code> con el motivo
+   "no alcanzan los pesos", y <code>orders</code> tiene una fila más. Sin la reserva de A-1, habría pasado.</li>
+<li><strong>Cuando</strong> compra $630.000 de PAMP a mercado (680 acciones, $629.578), <strong>entonces</strong> queda <code>REJECTED</code>: no se compra lo
+   que entre.</li>
+<li><strong>Cuando</strong> compra 100 METR con límite $10.000, <strong>entonces</strong> queda <code>REJECTED</code>, porque reservaría $1.000.000.</li>
+<li><strong>Cuando</strong> vende 50 PAMP, <strong>entonces</strong> queda <code>REJECTED</code>, porque tiene 40.</li>
+<li><strong>Dado</strong> que mandó una venta límite de 30 PAMP a $950, que queda <code>NEW</code>, <strong>cuando</strong> vende 20 PAMP a mercado,
+    <strong>entonces</strong> queda <code>REJECTED</code>, porque solo le quedan 10 disponibles.</li>
+<li><strong>Cuando</strong> compra 10 PGR, a mercado o límite, <strong>entonces</strong> queda <code>REJECTED</code> con el motivo "el activo no cotiza". La
+    orden a mercado queda con el precio vacío.</li>
+<li><strong>Dado</strong> el usuario 2, sin pesos, <strong>cuando</strong> compra 1 PAMP a mercado, <strong>entonces</strong> queda <code>REJECTED</code>.</li>
+</ol>
+<p><em>Errores (no se graba nada y <code>orders</code> no cambia)</em></p>
+<ol>
+<li><strong>Cuando</strong> manda cualquiera de estos pedidos, <strong>entonces</strong> recibe un error que explica qué está mal:<ul>
+<li>falta un dato, o tiene un valor no válido (por ejemplo, lado "COMPRA");</li>
+<li>trae cantidad y monto juntos, o ninguno de los dos;</li>
+<li>la cantidad no es entera (2,5) o es 0 o menos;</li>
+<li>el monto o el precio es 0 o menos, o tiene más de 2 decimales ($229,555);</li>
+<li>es límite sin precio, o a mercado con precio;</li>
+<li>compra o vende ARS, o el lado es un depósito o un retiro;</li>
+<li>pide $500 de PAMP, y la cantidad da 0;</li>
+<li>pide $10.000 de PGR a mercado, y no hay precio para calcular la cantidad;</li>
+<li>el usuario o el activo no existen;</li>
+<li>no trae identificador.</li>
+</ul>
+</li>
+</ol>
+<p><em>Identificador (reintentos)</em></p>
+<ol>
+<li><strong>Cuando</strong> reenvía una orden con el mismo identificador y el mismo contenido, <strong>entonces</strong> recibe la misma orden y
+    <code>orders</code> no suma filas.</li>
+<li><strong>Dado</strong> que la compra de $700.000 quedó <code>REJECTED</code> con el identificador "A" y que después canceló la orden 7,
+    <strong>cuando</strong> la reenvía con "A", <strong>entonces</strong> recibe el mismo rechazo; <strong>cuando</strong> la manda con "B", <strong>entonces</strong> queda
+    <code>FILLED</code> y los disponibles quedan en $17.557,40.</li>
+<li><strong>Cuando</strong> usa un identificador ya usado, pero con otro contenido (100 PAMP y después 200 PAMP), <strong>entonces</strong> recibe
+    un error y <code>orders</code> no cambia.</li>
+<li><strong>Cuando</strong> dos usuarios usan el mismo identificador, <strong>entonces</strong> se crean las dos órdenes.</li>
+<li><strong>Cuando</strong> un pedido da error y lo corrige, <strong>entonces</strong> la orden se crea con el mismo identificador.</li>
+<li><strong>Cuando</strong> llegan al mismo tiempo dos pedidos con el mismo identificador, <strong>entonces</strong> se crea una sola orden.</li>
+</ol>
+<h3 id="34-cancelación-de-órdenes">3.4 Cancelación de órdenes<a class="headerlink" href="#34-cancelación-de-órdenes" title="Permanent link">&para;</a></h3>
+<p><em>Para qué:</em> que el inversor se arrepienta de una orden pendiente y vuelva a tener disponible lo que reservaba.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Requisito</th>
+<th>Dónde</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CAN-1</td>
+<td><strong>Solo se cancela una orden pendiente (<code>NEW</code>),</strong> indicando su número, el que devuelven el envío y el listado. Queda <code>CANCELLED</code>, y la respuesta devuelve la orden así</td>
+<td>enunciado, A-7</td>
+</tr>
+<tr>
+<td>CAN-2</td>
+<td><strong>Cancelar libera la reserva:</strong> la plata de una compra, o las acciones de una venta, vuelven a estar disponibles. Los pesos de la cuenta no cambian</td>
+<td>A-1, A-7</td>
+</tr>
+<tr>
+<td>CAN-3</td>
+<td><strong>Una orden que ya no está pendiente</strong> (ejecutada, rechazada o cancelada) <strong>no se cancela:</strong> error que dice en qué estado está, y no cambia nada</td>
+<td>A-7</td>
+</tr>
+<tr>
+<td>CAN-4</td>
+<td><strong>Una orden que no existe, o que es de otro usuario: error de "no existe".</strong> A nadie se le confirma que existe una orden ajena</td>
+<td>A-7</td>
+</tr>
+<tr>
+<td>CAN-5</td>
+<td><strong>Dos cancelaciones de la misma orden al mismo tiempo:</strong> gana una, y la otra recibe el error de CAN-3. Reintentar una cancelación también recibe ese error, que es inofensivo, así que no hace falta identificador</td>
+<td>A-7, R-2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Casos.</strong></p>
+<ol>
+<li><strong>Dado</strong> el usuario 1, <strong>cuando</strong> cancela la orden 7 (60 BMA a $1.500), <strong>entonces</strong> queda <code>CANCELLED</code>, se liberan
+   $90.000 y los disponibles pasan de $627.500 a $717.500. Los pesos de la cuenta siguen en $753.000.</li>
+<li><strong>Y</strong> después, <strong>cuando</strong> compra $700.000 de PAMP a mercado con un identificador nuevo, <strong>entonces</strong> queda <code>FILLED</code>.
+   Antes de cancelar, quedaba <code>REJECTED</code>.</li>
+<li><strong>Dado</strong> el usuario 1, que mandó una venta límite de 30 PAMP, <strong>cuando</strong> la cancela, <strong>entonces</strong> vuelve a tener las 40
+   PAMP disponibles para vender, y su portfolio muestra 0 reservadas.</li>
+<li><strong>Cuando</strong> cancela la orden 3 (ya <code>CANCELLED</code>), la 2 (<code>FILLED</code>) o la 6 (<code>REJECTED</code>), <strong>entonces</strong> recibe un error que
+   dice el estado de la orden, y nada cambia.</li>
+<li><strong>Cuando</strong> cancela la orden 999, <strong>entonces</strong> recibe un error de "no existe". <strong>Dado</strong> el usuario 2, <strong>cuando</strong> cancela
+   la orden 7, que es del usuario 1, <strong>entonces</strong> recibe el mismo error.</li>
+<li><strong>Cuando</strong> llegan al mismo tiempo dos cancelaciones de la orden 7, <strong>entonces</strong> una la cancela y la otra recibe el
+   error de que ya está <code>CANCELLED</code>.</li>
+</ol>
+<h3 id="35-listado-de-órdenes">3.5 Listado de órdenes<a class="headerlink" href="#35-listado-de-órdenes" title="Permanent link">&para;</a></h3>
+<p><em>Para qué:</em> que el inversor vea sus órdenes, sepa cuáles puede cancelar y por qué se rechazó una.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Requisito</th>
+<th>Dónde</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LIS-1</td>
+<td><strong>Las órdenes del usuario, de la más nueva a la más vieja.</strong> Si dos tienen la misma fecha y hora, desempata el número de orden</td>
+<td>A-7, D-10</td>
+</tr>
+<tr>
+<td>LIS-2</td>
+<td><strong>Un solo filtro, opcional: el estado.</strong> Con <code>NEW</code> se ven las cancelables</td>
+<td>A-7</td>
+</tr>
+<tr>
+<td>LIS-3</td>
+<td><strong>Siempre paginado, por cursor ("ver más"):</strong> cada página trae la marca para pedir la siguiente, y la última no trae ninguna. El tamaño de página tiene un valor por defecto y un máximo, configurables. No se muestra el total ni se puede saltar a una página. Cancelar entre una página y otra no hace saltear ninguna orden</td>
+<td>A-7</td>
+</tr>
+<tr>
+<td>LIS-4</td>
+<td><strong>Cada orden muestra lo mismo que la respuesta del envío</strong> (ENV-8), incluido su número, para poder cancelarla. Los depósitos y retiros son la excepción: se muestran como monto en pesos (LIS-5). Las 11 órdenes de <code>database.sql</code> no tienen identificador ni motivo de rechazo: esos datos van vacíos</td>
+<td>A-6, A-7, R-2</td>
+</tr>
+<tr>
+<td>LIS-5</td>
+<td><strong>Los depósitos y retiros aparecen como monto en pesos</strong>, no como "1.000.000 acciones a $1"</td>
+<td>A-7, D-9</td>
+</tr>
+<tr>
+<td>LIS-6</td>
+<td><strong>Usuario sin órdenes: lista vacía. Usuario que no existe: error.</strong> Una marca de página mal armada también da error</td>
+<td>A-7, D-8</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Casos.</strong></p>
+<ol>
+<li><strong>Dado</strong> el usuario 1, <strong>cuando</strong> lista sus órdenes con el filtro <code>NEW</code>, <strong>entonces</strong> ve la 7 (60 BMA a $1.500) y la 5
+   (50 LOMA a $710), en ese orden.</li>
+<li><strong>Cuando</strong> lista todas, <strong>entonces</strong> ve las 11, de la 11 a la 1, tal como están en la base. El depósito (orden 1)
+   aparece como $1.000.000 y el retiro (orden 8), como $100.000.</li>
+<li><strong>Dado</strong> un usuario con 30 órdenes pendientes que las lista de a 20, <strong>cuando</strong> cancela 5 de la primera página y pide
+   la siguiente, <strong>entonces</strong> recibe las 10 que faltaban, sin saltear ninguna.</li>
+<li><strong>Dado</strong> un usuario con órdenes cuyas fechas difieren en microsegundos, <strong>cuando</strong> recorre todas las páginas,
+   <strong>entonces</strong> cada orden aparece una sola vez.</li>
+<li><strong>Dado</strong> el usuario 2, <strong>cuando</strong> lista sus órdenes, <strong>entonces</strong> recibe la lista vacía. <strong>Dado</strong> el usuario 99,
+   <strong>entonces</strong> recibe un error. <strong>Cuando</strong> manda una marca de página mal armada, <strong>entonces</strong> recibe un error.</li>
+</ol>
+<h2 id="4-requisitos-generales">4. Requisitos generales<a class="headerlink" href="#4-requisitos-generales" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Requisito</th>
+<th>Dónde</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GEN-1</td>
+<td><strong>Órdenes simultáneas:</strong> las órdenes de un mismo usuario se procesan de a una. Dos órdenes que llegan juntas nunca gastan la misma plata ni venden las mismas acciones</td>
+<td>D-1</td>
+</tr>
+<tr>
+<td>GEN-2</td>
+<td><strong>Se ejecuta localmente con un comando,</strong> con una base propia cargada con <code>database.sql</code>. Los tests nunca tocan la base de Neon, y mientras se desarrolla la API tampoco. La dirección de la base se configura, así la misma API puede apuntar a la copia local o, si se decide en la fase 8, a Neon</td>
+<td>mail, "Base de Neon"</td>
+</tr>
+<tr>
+<td>GEN-3</td>
+<td><strong>Test funcional del envío de órdenes,</strong> contra una base real, con los casos de la sección 3.3</td>
+<td>enunciado</td>
+</tr>
+<tr>
+<td>GEN-4</td>
+<td><strong>Métricas para soporte:</strong> cuántas órdenes se ejecutan, quedan pendientes o se rechazan, por tipo y por lado, y con qué motivo se rechazan; y, por función, cuánto tarda y cuántos errores da</td>
+<td>sección 1</td>
+</tr>
+<tr>
+<td>GEN-5</td>
+<td><strong>Sin datos personales:</strong> el email del usuario no se devuelve ni se registra en los logs</td>
+<td>D-8</td>
+</tr>
+<tr>
+<td>GEN-6</td>
+<td><strong>Errores que se entienden:</strong> cada error dice qué está mal (por ejemplo, "falta el precio límite"), con el mismo formato en todas las funciones</td>
+<td>A-6</td>
+</tr>
+<tr>
+<td>GEN-7</td>
+<td><strong>Plata con 2 decimales,</strong> sin redondear nunca lo que manda el usuario. Los cálculos redondean solo al final</td>
+<td>D-4, R-3</td>
+</tr>
+<tr>
+<td>GEN-8</td>
+<td><strong>Tiempo de respuesta:</strong> el RFC fija el objetivo y lo mide con volumen, como en A-4</td>
+<td>A-4</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Casos.</strong></p>
+<ol>
+<li><strong>Dado</strong> un usuario con 20 BMA, <strong>cuando</strong> llegan al mismo tiempo dos ventas de 15, <strong>entonces</strong> una queda <code>FILLED</code>, la
+   otra <code>REJECTED</code>, y la posición termina en 5. Sin esto quedaría en −10, como la orden 11 (D-1).</li>
+<li><strong>Dado</strong> el usuario 1, con $627.500 disponibles, <strong>cuando</strong> llegan al mismo tiempo dos compras de $600.000 de PAMP a
+   mercado, <strong>entonces</strong> una queda <code>FILLED</code> (648 acciones, $599.950,80) y la otra <code>REJECTED</code>.</li>
+<li><strong>Dada</strong> una máquina con Docker, <strong>cuando</strong> se levanta el proyecto con un comando, <strong>entonces</strong> el portfolio del usuario
+   1 da los números de la sección 3.1.</li>
+<li><strong>Cuando</strong> una orden se rechaza, <strong>entonces</strong> la métrica de órdenes rechazadas suma una, con su motivo.</li>
+<li><strong>Cuando</strong> se pide cualquier portfolio o listado, <strong>entonces</strong> ni la respuesta ni los logs traen el email del usuario.</li>
+</ol>
+<h2 id="5-supuestos-y-limitaciones">5. Supuestos y limitaciones<a class="headerlink" href="#5-supuestos-y-limitaciones" title="Permanent link">&para;</a></h2>
+<p><strong>Supuestos</strong></p>
+<ul>
+<li><strong>Los precios están en pesos</strong> y no hay nada que convertir (S-1).</li>
+<li><strong>El último precio es el de la fecha más reciente, aunque sea viejo.</strong> Los datos son de julio de 2023 y no hay límite
+  de antigüedad; en producción, cuánto puede tener un precio para usarse lo define el negocio (S-2, D-3).</li>
+<li><strong>Las fechas de las órdenes existentes están en hora argentina</strong> (S-4, D-10).</li>
+<li><strong>En una orden ejecutada, el precio es lo que se pagó,</strong> también en la orden 9, que es límite (D-9).</li>
+</ul>
+<p><strong>Limitaciones</strong></p>
+<ul>
+<li><strong>Sin autenticación:</strong> cualquiera puede ver el portfolio de otro usuario o mandar órdenes en su nombre, solo
+  cambiando el número. En producción, el usuario saldría de la sesión autenticada. Queda fuera por decisión del
+  enunciado (S-5).</li>
+<li><strong>Datos heredados, tal cual:</strong> la orden 11 deja BMA en −10, la orden 10 pagó METR por encima del máximo del día, y el
+  <code>previousClose</code> de BBAR no coincide con el cierre anterior (probable ajuste por dividendo). Se documentan y no se
+  corrigen (D-1, D-6, D-4).</li>
+<li><strong>Búsqueda:</strong> "banco" no encuentra VALO, que figura como "BCO DE VALORES"; "bbva" no encuentra BBAR, que figura como
+  "Banco Frances"; "banco sa" no encuentra "Banco Macro S.A.", porque los puntos cuentan; y no se toleran errores de
+  tipeo (A-5).</li>
+<li><strong>Las órdenes límite no vencen:</strong> quedan pendientes, reservando su plata o sus acciones, hasta que el usuario las
+  cancela (D-7, A-7).</li>
+<li><strong>Reintentos:</strong> si la app genera un identificador nuevo en cada reintento, la protección no funciona. Ninguna API
+  puede arreglar ese error de la app (R-2).</li>
+<li><strong>Precios con 2 decimales:</strong> si se incorporan acciones de menos de $1, o precios ajustados con más decimales, hay que
+  ampliar las columnas de precios (D-4).</li>
+<li><strong>Transferencias sin centavos:</strong> la base guarda los montos de los depósitos y retiros como enteros. No afecta, porque
+  la API no crea transferencias (D-9).</li>
+</ul>
+<h2 id="6-lo-que-queda-para-el-rfc">6. Lo que queda para el RFC<a class="headerlink" href="#6-lo-que-queda-para-el-rfc" title="Permanent link">&para;</a></h2>
+<p>Lo que este documento deja abierto a propósito, porque es parte del cómo:</p>
+<ul>
+<li>Las direcciones de la API, los códigos HTTP y el formato de los errores (GEN-6).</li>
+<li>El formato de las fechas (ENV-8) y el del identificador de orden: largo máximo y si viaja en el cuerpo o en un
+  encabezado (ENV-9).</li>
+<li>Cómo se procesan de a una las órdenes de un mismo usuario (GEN-1).</li>
+<li>La estrategia de tests: cómo cada caso parte de los datos originales sin que un test pise a otro (D-8), y cómo se
+  prueban los casos simultáneos (GEN-1, el caso 20 del envío y CAN-5), que necesitan cambios confirmados en la base
+  desde conexiones separadas.</li>
+<li>Cómo se aplican las migraciones, sabiendo que la base de Neon ya tiene los datos y no tiene historial de
+  migraciones.</li>
+<li>Los números configurables: el largo máximo de la búsqueda (BUS-6), el tope de resultados (BUS-5) y el tamaño de
+  página del listado (LIS-3).</li>
+<li>El modo de redondeo (GEN-7), el objetivo de tiempo de respuesta (GEN-8) y cómo se muestran las métricas (GEN-4).</li>
+<li>Los cambios a la base. Entre ellos, guardar el identificador de cada orden (ENV-9) y su motivo de rechazo, porque el
+  listado lo muestra (LIS-4).</li>
+</ul>
+<h2 id="7-lo-que-se-decidió-en-esta-fase">7. Lo que se decidió en esta fase<a class="headerlink" href="#7-lo-que-se-decidió-en-esta-fase" title="Permanent link">&para;</a></h2>
+<p>Casi todo este documento ordena decisiones del análisis. Estas se tomaron al armar el PRD:</p>
+<table>
+<thead>
+<tr>
+<th>Decisión</th>
+<th>Por qué</th>
+<th>Dónde</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Se entrega una colección de Postman con el recorrido completo, incluido un reintento</td>
+<td>el enunciado la pide como opcional, y permite recorrer todo desde la API</td>
+<td>sección 2</td>
+</tr>
+<tr>
+<td>Comisiones e impuestos, afuera, como mejora posible</td>
+<td>cambian casi todos los cálculos de plata y el valor sería inventado</td>
+<td>sección 2</td>
+</tr>
+<tr>
+<td>Modificar una orden, el vencimiento de las órdenes límite y el horario de mercado, afuera</td>
+<td>una orden se cancela y se manda otra; lo demás sería simular el mercado</td>
+<td>sección 2</td>
+</tr>
+<tr>
+<td>El portfolio muestra, en cada posición, las acciones reservadas por ventas pendientes</td>
+<td>surgió al revisar los casos del envío: sin ese dato, una venta rechazada no se explica. El usuario ve 40 PAMP, quiere vender 20 y no sabe que 30 están reservadas por una venta pendiente. Es lo mismo que A-1 hace con los pesos</td>
+<td>POR-7</td>
+</tr>
+<tr>
+<td>La respuesta del envío y el listado traen el número de orden</td>
+<td>es el dato con el que se cancela una orden</td>
+<td>ENV-8, LIS-4, CAN-1</td>
+</tr>
+<tr>
+<td>Soporte es un usuario secundario, con métricas de órdenes</td>
+<td>tiene que poder contestar "¿por qué me rechazaron?" y ver cuántas órdenes se ejecutan o se rechazan</td>
+<td>sección 1, GEN-4</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Volver al principio
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Pie" >
+        
+          
+          <a href="../01-decisiones/" class="md-footer__link md-footer__link--prev" aria-label="Anterior: Registro de decisiones">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Anterior
+              </span>
+              <div class="md-ellipsis">
+                Registro de decisiones
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../03-rfc/" class="md-footer__link md-footer__link--next" aria-label="Siguiente: RFC">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Siguiente
+              </span>
+              <div class="md-ellipsis">
+                RFC
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["content.code.copy","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight","toc.follow"],"redirect":null,"search":"../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copiado al portapapeles","clipboard.copy":"Copiar al portapapeles","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 más en esta página","search.result.more.other":"# más en esta página","search.result.none":"No se encontraron documentos","search.result.one":"1 documento encontrado","search.result.other":"# documentos encontrados","search.result.placeholder":"Teclee para comenzar búsqueda","search.result.term.missing":"Falta","select.version":"Seleccionar versión"},"version":null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d31f0ffa.min.js"></script>
+      
+    
+  </body>
+</html>
