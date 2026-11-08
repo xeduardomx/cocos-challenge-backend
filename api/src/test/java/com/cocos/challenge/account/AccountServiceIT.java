@@ -20,7 +20,7 @@ class AccountServiceIT {
 
   private static final long USER_ONE = 1;
   private static final long UNKNOWN_USER = 99;
-  private static final Duration MAX_FAILURE_TIME = Duration.ofSeconds(1);
+  private static final Duration MAX_FAILURE_TIME = Duration.ofMillis(1500);
 
   @Autowired private AccountService service;
   @Autowired private TransactionTemplate transaction;

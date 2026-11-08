@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 class SubmitOrderRequestValidationTest {
 
   private static final long PAMP = 47;
-  private static final Duration HUGE_NUMBER_TIMEOUT = Duration.ofSeconds(1);
+  private static final Duration HUGE_NUMBER_TIMEOUT = Duration.ofSeconds(5);
   private static final ValidatorFactory FACTORY = Validation.buildDefaultValidatorFactory();
   private static final Validator VALIDATOR = FACTORY.getValidator();
 

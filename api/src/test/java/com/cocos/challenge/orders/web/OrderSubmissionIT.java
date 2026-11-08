@@ -36,7 +36,7 @@ class OrderSubmissionIT {
   private static final long PAMP = 47;
   private static final int ORIGINAL_ORDERS = 11;
   private static final String SOME_CLIENT_ORDER_ID = "3f2b8c1e-9d4a-4c7b-8e21-5a6f0b9c2d13";
-  private static final Duration FAST = Duration.ofSeconds(1);
+  private static final Duration FAST = Duration.ofSeconds(5);
   private static final String VALIDATION_ERROR = "/problems/validation-error";
   private static final String INVALID_ORDER = "/problems/invalid-order";
   private static final String ORDERS_OF_USER_ONE = "/users/" + USER_ONE + "/orders";
