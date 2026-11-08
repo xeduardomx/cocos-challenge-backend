@@ -28,6 +28,7 @@ medidos. Lo central:
 
 No simula el mercado ni autentica usuarios, como pide el enunciado (sección 1).
 
+<!-- --8<-- [start:sistema] -->
 ```mermaid
 flowchart LR
     app([App o Postman]) -->|las 5 funciones, por HTTP| api["API<br/>Java 25 y Spring Boot 4.1"]
@@ -35,6 +36,7 @@ flowchart LR
     prom["Prometheus"] -->|lee las métricas cada 15 s| api
     graf["Grafana<br/>tablero"] --> prom
 ```
+<!-- --8<-- [end:sistema] -->
 
 ## 1. Contexto y principios
 
@@ -123,6 +125,7 @@ Cada función tiene tres capas, y cada capa hace una sola cosa:
 - **Las dependencias van en un solo sentido:** controller → service → repository, y de cada función hacia `account` e
   `instruments`, nunca al revés. Los cálculos no dependen de nada.
 
+<!-- --8<-- [start:funciones] -->
 ```mermaid
 flowchart LR
     app([App])
@@ -144,6 +147,7 @@ flowchart LR
     account --> db
     instruments --> db
 ```
+<!-- --8<-- [end:funciones] -->
 
 `shared` no aparece en el diagrama porque lo usan todos.
 
@@ -208,6 +212,7 @@ probado tiene su script y su salida en [`mediciones/`](mediciones/); las trampas
 
 ### 3.1 El modelo, con los cambios
 
+<!-- --8<-- [start:modelo] -->
 ```mermaid
 erDiagram
     users ||--o{ orders : "manda"
@@ -249,6 +254,7 @@ erDiagram
         date date "obligatorio, una fila por acción y fecha"
     }
 ```
+<!-- --8<-- [end:modelo] -->
 
 ### 3.2 Reglas
 
@@ -608,6 +614,7 @@ salida está en [`mediciones/05-resultados.md`](mediciones/05-resultados.md).
 
 ### 5.1 Los estados de una orden
 
+<!-- --8<-- [start:estados] -->
 ```mermaid
 stateDiagram-v2
     [*] --> FILLED: a mercado, si alcanza
@@ -619,6 +626,7 @@ stateDiagram-v2
     REJECTED --> [*]
     CANCELLED --> [*]
 ```
+<!-- --8<-- [end:estados] -->
 
 Solo una orden `NEW` cambia de estado; las otras tres son finales (D-7). Nuestro sistema nunca pasa una `NEW` a
 `FILLED`: si un proceso externo lo hiciera, el portfolio la contaría bien, porque cuenta por estado.
@@ -642,6 +650,7 @@ BMA a la vez, teniendo 20 (el caso 1 de GEN):
 | B. Con turno | `FILLED` (vio 20) | `REJECTED` (vio 5) | **5**, lo correcto |
 | C. Con turno, en `REPEATABLE READ` | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10** |
 
+<!-- --8<-- [start:turno] -->
 ```mermaid
 sequenceDiagram
     participant V1 as Venta 1 (15 BMA)
@@ -655,6 +664,7 @@ sequenceDiagram
     V2->>DB: lee la cuenta: 5 BMA
     V2->>DB: graba REJECTED y confirma
 ```
+<!-- --8<-- [end:turno] -->
 
 **La trampa de la prueba C.** El turno funciona porque Postgres, en su nivel de aislamiento por defecto
 (`READ COMMITTED`), hace que cada consulta vea lo confirmado antes de que empiece. En `REPEATABLE READ`, la
@@ -694,6 +704,7 @@ Dentro del turno, antes de evaluar la orden (R-2, ENV-9, [ADR 0005](adr/0005-rei
 
 Un pedido que da error (400) no graba nada, así que no gasta el identificador.
 
+<!-- --8<-- [start:reintento] -->
 ```mermaid
 sequenceDiagram
     participant App
@@ -707,6 +718,7 @@ sequenceDiagram
     API->>DB: toma el turno y busca A: existe, con la misma huella
     API-->>App: 200, la orden 12 tal cual
 ```
+<!-- --8<-- [end:reintento] -->
 
 **Dos pedidos simultáneos con el mismo identificador** (el caso 20 del envío): el segundo espera su turno y encuentra
 la orden del primero (prueba E: una sola orden). Sin el turno, lo frena la regla de unicidad (prueba D: error de
@@ -1062,6 +1074,8 @@ tu cuenta o el mercado no lo dejaron".
 
 Con Micrometer, que viene con Spring Boot, expuestas para Prometheus en `/actuator/prometheus`.
 
+<!-- --8<-- [start:metricas] -->
+
 | Métrica | Etiquetas | Para qué |
 |---|---|---|
 | `orders_recorded_total` | lado, tipo, estado y motivo del rechazo | cuántas órdenes se ejecutan, quedan pendientes o se rechazan, y por qué (GEN-4) |
@@ -1069,6 +1083,8 @@ Con Micrometer, que viene con Spring Boot, expuestas para Prometheus en `/actuat
 | `orders_replayed_total` | — | cuántos reintentos devolvieron una orden existente (R-2) |
 | `orders_turn_wait_seconds` | — | cuánto espera un envío el turno del usuario (sección 5.2): si crece, hay órdenes del mismo usuario chocando. También con histograma, para el percentil 95 del tablero |
 | `http_server_requests_seconds` | dirección, método, código y resultado | cuánto tarda y cuántos errores da cada función (GEN-4). Lo mide Spring solo. El histograma, que hace falta para calcular el percentil 95, se prende con `management.metrics.distribution.percentiles-histogram.http.server.requests: true` |
+
+<!-- --8<-- [end:metricas] -->
 
 Las etiquetas toman pocos valores (2 lados × 2 tipos × 3 estados × 4 motivos, incluido "ninguno"), así que no
 multiplican las series. El usuario y la orden no van como etiqueta: tendrían un valor por usuario.
@@ -1238,6 +1254,7 @@ Un PR se mergea solo con todo en verde.
 
 ### 11.3 Docker y `docker compose up`
 
+<!-- --8<-- [start:compose] -->
 ```mermaid
 flowchart LR
     quien([Quien evalúa]) -->|docker compose up| api
@@ -1251,6 +1268,7 @@ flowchart LR
         graf --> prom
     end
 ```
+<!-- --8<-- [end:compose] -->
 
 - **La API:** un `Dockerfile` en dos etapas, que compila con `maven:3.9-eclipse-temurin-25` y corre con
   `eclipse-temurin:25-jre`, con un usuario sin privilegios (sección 9). Quien evalúa solo necesita Docker (GEN-2).

@@ -103,6 +103,8 @@ docker compose down
 
 k6 terminó con código 0, con los nueve umbrales de tiempo y los demás cumplidos. En cada escenario, pedidos y tiempos en milisegundos:
 
+<!-- --8<-- [start:resultado-volumen] -->
+
 | Escenario | Pedidos | p50 (ms) | p95 (ms) | p99 (ms) | Máximo (ms) | p95 de la corrida anterior (ms) |
 |---|---|---|---|---|---|---|
 | `search` | 600 | 3,06 | **4,53** | 5,45 | 33,33 | 4,59 |
@@ -114,6 +116,8 @@ k6 terminó con código 0, con los nueve umbrales de tiempo y los demás cumplid
 | `list_heavy` | 601 | 4,18 | **8,31** | 9,15 | 11,12 | 8,21 |
 | `cancel_typical` (solo el pedido de cancelar) | 601 | 1,87 | **3,1** | 4,1 | 5,24 | 3,12 |
 | `cancel_heavy` (solo el pedido de cancelar) | 601 | 1,49 | **3,09** | 3,69 | 4,47 | 3,2 |
+
+<!-- --8<-- [end:resultado-volumen] -->
 
 La última columna es el percentil 95 de una corrida anterior con la misma carga y los mismos datos. Entre las dos
 corridas, la mayor diferencia es de 1,24 ms, en `submit_heavy`.
