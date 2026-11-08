@@ -78,6 +78,13 @@ class OrderSubmissionIT {
         "\"side\": \"BUY\", \"type\": \"LIMIT\", " + sizing + ", \"price\": " + limit);
   }
 
+  private static String sellLimit(long instrumentId, String sizing, String limit) {
+    return order(
+        UUID.randomUUID(),
+        instrumentId,
+        "\"side\": \"SELL\", \"type\": \"LIMIT\", " + sizing + ", \"price\": " + limit);
+  }
+
   private ApiResponse submit(long userId, String json) {
     return api.post("/users/" + userId + "/orders", json);
   }
@@ -166,6 +173,8 @@ class OrderSubmissionIT {
 
     assertThat(body.get("quantity").asInt()).isEqualTo(10);
     assertThat(body.get("amount").decimalValue()).isEqualByComparingTo("9258.50");
+    assertThat(portfolioOf(USER_ONE).get("cash").get("available").decimalValue())
+        .isEqualByComparingTo("618241.50");
   }
 
   @Test
@@ -183,6 +192,8 @@ class OrderSubmissionIT {
     assertThat(body.get("status").asString()).isEqualTo("NEW");
     assertThat(body.get("price").decimalValue()).isEqualByComparingTo("900");
     assertThat(body.get("amount").decimalValue()).isEqualByComparingTo("9900.00");
+    assertThat(portfolioOf(USER_ONE).get("cash").get("reserved").decimalValue())
+        .isEqualByComparingTo("135400.00");
   }
 
   @Test
@@ -231,6 +242,47 @@ class OrderSubmissionIT {
     assertThat(body.get("rejectionReason").asString()).isEqualTo("INSUFFICIENT_SHARES");
     assertThat(body.get("rejectionMessage").asString())
         .isEqualTo("No alcanzan las acciones disponibles para esta venta.");
+  }
+
+  @Test
+  void aLimitSaleStaysNewAndReservesTheShares() {
+    ApiResponse response = submit(USER_ONE, sellLimit(PAMP, "\"quantity\": 30", "950"));
+
+    assertThat(response.status()).isEqualTo(201);
+    assertThat(response.json().get("status").asString()).isEqualTo("NEW");
+    assertThat(position(portfolioOf(USER_ONE), "PAMP").get("reservedQuantity").asLong())
+        .isEqualTo(30);
+  }
+
+  @Test
+  void aPendingLimitSaleLimitsWhatCanStillBeSold() {
+    submit(USER_ONE, sellLimit(PAMP, "\"quantity\": 30", "950"));
+
+    JsonNode body = submit(USER_ONE, sell(PAMP, "\"quantity\": 20")).json();
+
+    assertThat(body.get("status").asString()).isEqualTo("REJECTED");
+    assertThat(body.get("rejectionReason").asString()).isEqualTo("INSUFFICIENT_SHARES");
+  }
+
+  @Test
+  void rejectsALimitSaleOfMoreSharesThanTheUserHolds() {
+    JsonNode body = submit(USER_ONE, sellLimit(PAMP, "\"quantity\": 50", "950")).json();
+
+    assertThat(body.get("status").asString()).isEqualTo("REJECTED");
+    assertThat(body.get("rejectionReason").asString()).isEqualTo("INSUFFICIENT_SHARES");
+    assertThat(position(portfolioOf(USER_ONE), "PAMP").get("reservedQuantity").asLong()).isZero();
+  }
+
+  @Test
+  void cancellingALimitSaleFreesItsShares() {
+    long orderId =
+        submit(USER_ONE, sellLimit(PAMP, "\"quantity\": 30", "950")).json().get("id").asLong();
+
+    assertThat(api.post(ORDERS_OF_USER_ONE + "/" + orderId + "/cancel", "").status())
+        .isEqualTo(200);
+
+    JsonNode body = submit(USER_ONE, sell(PAMP, "\"quantity\": 40")).json();
+    assertThat(body.get("status").asString()).isEqualTo("FILLED");
   }
 
   @Test
@@ -289,6 +341,27 @@ class OrderSubmissionIT {
             "{ " + id + pamp + "\"side\": \"CASH_IN\", \"type\": \"MARKET\", \"quantity\": 10 }",
             VALIDATION_ERROR),
         Arguments.of(
+            "side CASH_OUT",
+            "{ " + id + pamp + "\"side\": \"CASH_OUT\", \"type\": \"MARKET\", \"quantity\": 10 }",
+            VALIDATION_ERROR),
+        Arguments.of(
+            "malformed clientOrderId",
+            "{ \"clientOrderId\": \"not-a-uuid\", " + pamp + market + "\"quantity\": 10 }",
+            VALIDATION_ERROR),
+        Arguments.of(
+            "negative quantity",
+            "{ " + id + pamp + market + "\"quantity\": -1 }",
+            VALIDATION_ERROR),
+        Arguments.of(
+            "zero amount", "{ " + id + pamp + market + "\"amount\": 0 }", VALIDATION_ERROR),
+        Arguments.of(
+            "negative limit price",
+            "{ "
+                + id
+                + pamp
+                + "\"side\": \"BUY\", \"type\": \"LIMIT\", \"quantity\": 10, \"price\": -1 }",
+            VALIDATION_ERROR),
+        Arguments.of(
             "fractional quantity",
             "{ " + id + pamp + market + "\"quantity\": 2.5 }",
             VALIDATION_ERROR),
@@ -345,6 +418,12 @@ class OrderSubmissionIT {
         Arguments.of(
             "the currency",
             "{ " + id + "\"instrumentId\": 66, " + market + "\"quantity\": 10 }",
+            INVALID_ORDER),
+        Arguments.of(
+            "a sale of the currency",
+            "{ "
+                + id
+                + "\"instrumentId\": 66, \"side\": \"SELL\", \"type\": \"MARKET\", \"quantity\": 10 }",
             INVALID_ORDER),
         Arguments.of(
             "amount that buys no share",

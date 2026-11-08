@@ -73,6 +73,18 @@ public class TestData {
     insertOrder(userId, instrumentId, side, OrderStatus.NEW, OrderType.LIMIT, size, price, null);
   }
 
+  /** A filled order with the given time, instead of the time of the insert. */
+  public void fillAt(
+      long userId,
+      long instrumentId,
+      OrderSide side,
+      int size,
+      BigDecimal price,
+      OffsetDateTime datetime) {
+    insertOrder(
+        userId, instrumentId, side, OrderStatus.FILLED, OrderType.MARKET, size, price, datetime);
+  }
+
   /** A pending LIMIT order with the given time, instead of the time of the insert. */
   public void pendingAt(
       long userId, long instrumentId, int size, BigDecimal price, OffsetDateTime datetime) {

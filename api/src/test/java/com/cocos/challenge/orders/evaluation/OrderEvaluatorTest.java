@@ -58,6 +58,10 @@ class OrderEvaluatorTest {
         instrumentId, OrderSide.SELL, OrderType.MARKET, quantity, price, true);
   }
 
+  private static OrderCandidate limitSell(long instrumentId, int quantity, BigDecimal limit) {
+    return new OrderCandidate(instrumentId, OrderSide.SELL, OrderType.LIMIT, quantity, limit, true);
+  }
+
   private static void assertRejectedFor(OrderDecision decision, RejectionReason reason) {
     assertThat(decision.status()).isEqualTo(OrderStatus.REJECTED);
     assertThat(decision.rejectionReason()).isEqualTo(reason);
@@ -110,6 +114,21 @@ class OrderEvaluatorTest {
     assertRejectedFor(
         evaluator.evaluate(marketSell(PAMP, 50, PAMP_PRICE), user1()),
         RejectionReason.INSUFFICIENT_SHARES);
+  }
+
+  @Test
+  void rejectsALimitSaleOfMoreSharesThanTheUserHolds() {
+    assertRejectedFor(
+        evaluator.evaluate(limitSell(PAMP, 41, new BigDecimal("950")), user1()),
+        RejectionReason.INSUFFICIENT_SHARES);
+  }
+
+  @Test
+  void leavesALimitSaleOfTheSharesTheUserHoldsAsNew() {
+    OrderDecision decision =
+        evaluator.evaluate(limitSell(PAMP, 40, new BigDecimal("950")), user1());
+
+    assertThat(decision).isEqualTo(new OrderDecision(OrderStatus.NEW, null));
   }
 
   @Test

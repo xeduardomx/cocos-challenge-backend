@@ -9,6 +9,7 @@ import com.cocos.challenge.support.IntegrationTest;
 import com.cocos.challenge.support.TestData;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,6 +26,7 @@ class PortfolioIT {
   private static final long DOME = 12;
   private static final long PGR = 3;
   private static final long PAMP = 47;
+  private static final OffsetDateTime SOME_TIME = OffsetDateTime.parse("2026-01-15T10:00:00Z");
 
   @LocalServerPort private int port;
   @Autowired private TestData data;
@@ -89,6 +91,7 @@ class PortfolioIT {
     assertThat(metr.get("instrumentId").asLong()).isEqualTo(54);
     assertThat(metr.get("name").asString()).isEqualTo("MetroGAS S.A.");
     assertThat(metr.get("quantity").asLong()).isEqualTo(500);
+    assertThat(metr.get("reservedQuantity").asLong()).isZero();
     assertThat(metr.get("lastPrice").decimalValue()).isEqualByComparingTo("229.50");
     assertThat(metr.get("marketValue").decimalValue()).isEqualByComparingTo("114750.00");
     assertThat(metr.get("averagePrice").decimalValue()).isEqualByComparingTo("250.00");
@@ -99,6 +102,7 @@ class PortfolioIT {
     assertThat(pamp.get("instrumentId").asLong()).isEqualTo(47);
     assertThat(pamp.get("name").asString()).isEqualTo("Pampa Holding S.A.");
     assertThat(pamp.get("quantity").asLong()).isEqualTo(40);
+    assertThat(pamp.get("reservedQuantity").asLong()).isZero();
     assertThat(pamp.get("lastPrice").decimalValue()).isEqualByComparingTo("925.85");
     assertThat(pamp.get("marketValue").decimalValue()).isEqualByComparingTo("37034.00");
     assertThat(pamp.get("averagePrice").decimalValue()).isEqualByComparingTo("930.00");
@@ -113,6 +117,30 @@ class PortfolioIT {
     assertThat(body).contains("\"totalValue\":889756.00");
     assertThat(body).contains("\"averagePrice\":null");
     assertThat(body).contains("\"totalReturnPercent\":null");
+  }
+
+  @Test
+  void doesNotShowAPositionThatWasSoldCompletely() {
+    long user = data.createUser();
+    data.fill(user, PAMP, OrderSide.BUY, 10, new BigDecimal("930"));
+    data.fill(user, PAMP, OrderSide.SELL, 10, new BigDecimal("940"));
+
+    assertThat(portfolioOf(user).get("positions")).isEmpty();
+  }
+
+  @Test
+  void averagesThePurchasesInTimeOrderEvenIfRecordedOutOfOrder() {
+    // by order number: 5 at 200, then 10 at 100, then sell 10. In time, the sale empties the
+    // position before the purchase at 200, so the average starts again from that purchase.
+    long user = data.createUser();
+    data.fillAt(user, PAMP, OrderSide.BUY, 5, new BigDecimal("200"), SOME_TIME.plusHours(2));
+    data.fillAt(user, PAMP, OrderSide.BUY, 10, new BigDecimal("100"), SOME_TIME);
+    data.fillAt(user, PAMP, OrderSide.SELL, 10, new BigDecimal("100"), SOME_TIME.plusHours(1));
+
+    JsonNode pamp = position(portfolioOf(user), "PAMP");
+
+    assertThat(pamp.get("quantity").asLong()).isEqualTo(5);
+    assertThat(pamp.get("averagePrice").decimalValue()).isEqualByComparingTo("200.00");
   }
 
   @Test

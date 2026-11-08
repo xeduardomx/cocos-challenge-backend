@@ -83,6 +83,15 @@ class AccountCalculatorTest {
   }
 
   @Test
+  void doesNotHoldAPositionThatWasSoldCompletely() {
+    Account account =
+        calculator.calculate(
+            List.of(entry(PAMP, BUY, FILLED, 10, "930"), entry(PAMP, SELL, FILLED, 10, "940")));
+
+    assertThat(account.heldPositions()).isEmpty();
+  }
+
+  @Test
   void ignoresRejectedAndCancelledOrders() {
     List<AccountEntry> entries =
         userOneWith(

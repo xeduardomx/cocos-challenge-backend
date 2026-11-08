@@ -80,6 +80,18 @@ class OrderListingIT {
   }
 
   @Test
+  void sortsByTimeEvenWhenAnOlderOrderHasAHigherNumber() {
+    long user = data.createUser();
+    data.pendingAt(user, PAMP, 1, PRICE, SOME_TIME.plusHours(1));
+    data.pendingAt(user, PAMP, 2, PRICE, SOME_TIME);
+
+    List<Long> ids = ids(api.get(LIST, user));
+
+    assertThat(ids).hasSize(2);
+    assertThat(ids.get(0)).isLessThan(ids.get(1));
+  }
+
+  @Test
   void listsEveryOrderOfAUserNewestFirst() {
     ApiResponse response = api.get(LIST, USER_ONE);
 
