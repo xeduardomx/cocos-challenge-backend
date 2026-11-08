@@ -29,6 +29,12 @@ class DisplayFormatterTest {
   }
 
   @Test
+  void showsAQuantityWithGroupingSeparatorsAndNoDecimals() {
+    assertThat(formatter.formatQuantity(2147483647)).isEqualTo("2.147.483.647");
+    assertThat(formatter.formatQuantity(10)).isEqualTo("10");
+  }
+
+  @Test
   void roundsHalfUpToTwoDecimals() {
     assertThat(formatter.formatMoney(new BigDecimal("0.005"))).isEqualTo("0,01");
   }

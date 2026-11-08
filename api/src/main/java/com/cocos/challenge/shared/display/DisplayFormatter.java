@@ -35,4 +35,9 @@ public class DisplayFormatter {
     format.setMaximumFractionDigits(whole ? 0 : MONEY_SCALE);
     return format.format(rounded);
   }
+
+  /** A quantity is not money: grouping separators of the locale and no decimals. */
+  public String formatQuantity(long quantity) {
+    return NumberFormat.getIntegerInstance(locale).format(quantity);
+  }
 }

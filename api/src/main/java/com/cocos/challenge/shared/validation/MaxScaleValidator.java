@@ -16,6 +16,10 @@ public class MaxScaleValidator implements ConstraintValidator<MaxScale, BigDecim
 
   @Override
   public boolean isValid(@Nullable BigDecimal value, ConstraintValidatorContext context) {
-    return value == null || value.stripTrailingZeros().scale() <= maxScale;
+    // stripTrailingZeros overflows on a huge exponent such as 100e2147483647, so it only runs when
+    // the scale does not fit: then the scale is positive and stripping cannot overflow
+    return value == null
+        || value.scale() <= maxScale
+        || value.stripTrailingZeros().scale() <= maxScale;
   }
 }
