@@ -1,7 +1,7 @@
 # Tiempo de respuesta con volumen
 
-> Corrida del 2026-11-08 en una laptop, con la API, Postgres 18.6, Prometheus, Grafana y k6 2.3.0 en Docker en la misma
-> máquina, y los datos en memoria: sirven como orden de magnitud. Es la salida de
+> Corrida del 2026-11-08 en una computadora de escritorio, con la API, Postgres 18.6, Prometheus, Grafana y k6 2.3.0 en
+> Docker en la misma máquina, y los datos en memoria: sirven como orden de magnitud. Es la salida de
 > [`scripts/run-load-test.sh`](../../scripts/run-load-test.sh), que carga
 > [`perf/seed-volume.sql`](../../perf/seed-volume.sql) y corre [`perf/load-test.js`](../../perf/load-test.js) con k6.
 
@@ -18,7 +18,7 @@ de k6: desde que se manda el pedido hasta que llega la respuesta completa, sin c
 |---|---|
 | `search` | Busca un texto, rotando entre cinco (`pamp`, `banco`, `gas`, `ypf`, `holding`) |
 | `portfolio_typical`, `portfolio_heavy` | Pide el portfolio de un usuario típico al azar, o del pesado |
-| `submit_typical`, `submit_heavy` | Compra a mercado 1 acción de METR ($229,50). Cada envío lleva su propio `clientOrderId` |
+| `submit_typical`, `submit_heavy` | Compra a mercado 1 acción de METR ($229,50), y la compra tiene que quedar `FILLED`. Cada envío lleva su propio `clientOrderId` |
 | `list_typical`, `list_heavy` | Pide la primera página del listado, y la mitad de las veces con el filtro `status=NEW`, la consulta de listado más cara según el RFC 3.5 |
 | `cancel_typical`, `cancel_heavy` | Manda una orden `LIMIT`, que queda `NEW`, y la cancela. **El umbral mide solo el pedido de cancelar:** va sobre la etiqueta `step:cancel` |
 
@@ -34,12 +34,13 @@ nueve escenarios medidos, al mismo tiempo.
 
 **Un umbral sin pedidos no prueba nada.** Si el filtro de un umbral no encuentra pedidos, k6 lo da por cumplido sin datos
 (se comprobó: con un filtro inexistente, `p(95)<100` pasa con `p(95)=0s`). Por eso, además del umbral de tiempo, cada
-escenario exige que haya pedidos (`http_reqs: count>0`), que todas las respuestas sean las esperadas
-(`checks: rate==1`) y que k6 haya podido mandar todos los pedidos previstos (`dropped_iterations: count==0`).
+escenario exige que haya pedidos (`http_reqs: count>0`), que todas las respuestas sean las esperadas (`checks: rate==1`,
+que también falla si una compra queda `REJECTED`) y que k6 haya podido mandar todos los pedidos previstos
+(`dropped_iterations: count==0`).
 
 ## La máquina
 
-Una laptop, con todo en la misma máquina: k6, la API, Postgres, Prometheus y Grafana, en Docker.
+Una computadora de escritorio, con todo en la misma máquina: k6, la API, Postgres, Prometheus y Grafana, en Docker.
 
 | | |
 |---|---|
@@ -57,7 +58,7 @@ migrado: 2.010.011 órdenes, 342 MB de tabla.
 
 | Usuario | Id | Órdenes | Ejecutadas y pendientes (las que lee la cuenta) |
 |---|---|---|---|
-| Típicos (10.000) | 5 a 10004 | 100 cada uno | 92 |
+| Típicos (10.000) | 5 a 10004 | 100 cada uno | unas 86, de 72 a 98; 92 en el usuario 5000 del RFC 3.5 |
 | Pesado | 10005 | 10.000 | 8.597 |
 | Extremo | 10006 | 1.000.000 | 850.237 |
 
@@ -71,8 +72,8 @@ saldo, y con un millón no les alcanza: el 38 % de los típicos (3.825 de 10.000
 no pueden comprar ni una acción de METR. Una compra rechazada no prueba el camino completo.
 Medido con ese depósito, en una corrida corta (15 segundos más el calentamiento): de las compras a mercado, el 37 % de
 las del típico y todas las del pesado quedaron `REJECTED`, y las órdenes `LIMIT` del pesado también, así que no había
-nada para cancelar. Con el depósito nuevo, todas se ejecutan: la tabla de abajo. Cambia solo ese número: la secuencia al
-azar es la misma, y las demás filas no cambian.
+nada para cancelar. Con el depósito nuevo, todas se ejecutan (ver "Cómo terminaron las órdenes"). Cambia solo ese
+número: la secuencia al azar es la misma, y las demás filas no cambian.
 
 ## Cómo repetirlo
 
@@ -100,27 +101,28 @@ docker compose down
 
 ## Resultado con volumen
 
-k6 terminó con código 0, con los nueve umbrales cumplidos. En cada escenario, pedidos, y tiempos en milisegundos:
+k6 terminó con código 0, con los nueve umbrales cumplidos. En cada escenario, pedidos y tiempos en milisegundos:
 
-| Escenario | Pedidos | p50 (ms) | p95 (ms) | p99 (ms) | Máximo (ms) |
-|---|---|---|---|---|---|
-| `search` | 601 | 3,08 | **4,59** | 7,26 | 28,8 |
-| `portfolio_typical` | 601 | 5,65 | **6,82** | 8,05 | 8,63 |
-| `portfolio_heavy` | 600 | 26,19 | **34,23** | 37,75 | 41,05 |
-| `submit_typical` | 601 | 6,4 | **8,42** | 10,37 | 33,48 |
-| `submit_heavy` | 601 | 32,03 | **59,91** | 65,44 | 71,15 |
-| `list_typical` | 601 | 2,97 | **4,48** | 5,24 | 30,95 |
-| `list_heavy` | 600 | 4,37 | **8,21** | 9,25 | 11,22 |
-| `cancel_typical` (solo el pedido de cancelar) | 601 | 1,72 | **3,12** | 3,9 | 6,49 |
-| `cancel_heavy` (solo el pedido de cancelar) | 601 | 1,6 | **3,2** | 3,91 | 5,58 |
+| Escenario | Pedidos | p50 (ms) | p95 (ms) | p99 (ms) | Máximo (ms) | p95 de la corrida anterior (ms) |
+|---|---|---|---|---|---|---|
+| `search` | 600 | 3,06 | **4,53** | 5,45 | 33,33 | 4,59 |
+| `portfolio_typical` | 601 | 5,65 | **6,94** | 7,9 | 9 | 6,82 |
+| `portfolio_heavy` | 600 | 27,57 | **35,01** | 37,82 | 40,88 | 34,23 |
+| `submit_typical` | 601 | 6,38 | **8,32** | 9,8 | 12,46 | 8,42 |
+| `submit_heavy` | 601 | 32,14 | **61,15** | 70,28 | 72,54 | 59,91 |
+| `list_typical` | 601 | 2,97 | **4,52** | 5,31 | 31,04 | 4,48 |
+| `list_heavy` | 601 | 4,18 | **8,31** | 9,15 | 11,12 | 8,21 |
+| `cancel_typical` (solo el pedido de cancelar) | 601 | 1,87 | **3,1** | 4,1 | 5,24 | 3,12 |
+| `cancel_heavy` (solo el pedido de cancelar) | 601 | 1,49 | **3,09** | 3,69 | 4,47 | 3,2 |
 
-El envío del usuario pesado es el más lento, con 59,91 ms de percentil 95: calcula la cuenta leyendo sus 8.597 órdenes
+La última columna es el percentil 95 de una corrida anterior con la misma carga y los mismos datos. Entre las dos
+corridas, la mayor diferencia es de 1,24 ms, en `submit_heavy`.
+
+El envío del usuario pesado es el más lento, con 61,15 ms de percentil 95: calcula la cuenta leyendo sus 8.597 órdenes
 ejecutadas y pendientes (más las que le va sumando la corrida), y además tiene 20 envíos por segundo a la vez sobre la
 misma cuenta (compras y órdenes `LIMIT` de la cancelación), que se atienden de a uno por el turno del usuario (RFC 5.2).
-El portfolio del pesado lee las mismas órdenes, sin turno: 34,23 ms. En la base, esa consulta tarda 1,2 ms (RFC 3.5); el
+El portfolio del pesado lee las mismas órdenes, sin turno: 35,01 ms. En la base, esa consulta tarda 1,2 ms (RFC 3.5); el
 resto es traer las filas, calcular en Java, armar el JSON y la red.
-
-Otra corrida igual, hecha antes, dio diferencias de menos de 1 ms en el percentil 95 de cada escenario.
 
 ## Línea de base
 
@@ -129,17 +131,17 @@ plata) hace de usuario típico y de pesado. k6 terminó con código 0.
 
 | Escenario | Pedidos | p50 (ms) | p95 (ms) | p99 (ms) | Máximo (ms) |
 |---|---|---|---|---|---|
-| `search` | 601 | 3,37 | **4,93** | 6,38 | 30,39 |
-| `portfolio_typical` | 600 | 6,72 | **9,73** | 11,64 | 15,98 |
-| `portfolio_heavy` | 601 | 6,86 | **9,72** | 12,12 | 28,96 |
-| `submit_typical` | 601 | 17,21 | **33,52** | 39,02 | 45,37 |
-| `submit_heavy` | 600 | 15,62 | **34,36** | 40,49 | 45,49 |
-| `list_typical` | 600 | 3,78 | **6,41** | 7,56 | 27,66 |
-| `list_heavy` | 601 | 3,8 | **6,56** | 7,69 | 14,35 |
-| `cancel_typical` (solo el pedido de cancelar) | 601 | 2,28 | **3,57** | 4,34 | 11,09 |
-| `cancel_heavy` (solo el pedido de cancelar) | 601 | 2,26 | **3,5** | 4,27 | 5,69 |
+| `search` | 601 | 3,32 | **4,96** | 7,56 | 19,67 |
+| `portfolio_typical` | 601 | 6,98 | **10,23** | 12,21 | 22,39 |
+| `portfolio_heavy` | 601 | 6,9 | **9,96** | 12,21 | 21,89 |
+| `submit_typical` | 600 | 17,65 | **35,11** | 41,06 | 43,99 |
+| `submit_heavy` | 600 | 17,71 | **34,07** | 39,65 | 44,34 |
+| `list_typical` | 601 | 3,8 | **6,44** | 7,6 | 23,4 |
+| `list_heavy` | 600 | 3,83 | **6,61** | 7,26 | 14,21 |
+| `cancel_typical` (solo el pedido de cancelar) | 601 | 2,33 | **3,66** | 4,59 | 5,96 |
+| `cancel_heavy` (solo el pedido de cancelar) | 601 | 2,31 | **3,49** | 4,16 | 7,2 |
 
-El envío tarda más que el de los típicos con volumen (unos 34 ms de percentil 95 contra 8,42 ms) porque acá los 40
+El envío tarda más que el de los típicos con volumen (35,11 y 34,07 ms de percentil 95 contra 8,32 ms) porque acá los 40
 envíos por segundo van todos a la misma cuenta y se turnan: la cuenta empieza con pocas órdenes, pero cada envío espera
 a los otros.
 
@@ -151,33 +153,39 @@ a los otros.
 == Orders created by this run, by kind of user, type and final status (warm-up included)
  user_kind |  type  |  status   | orders 
 -----------+--------+-----------+--------
- heavy     | LIMIT  | CANCELLED |    751
- heavy     | MARKET | FILLED    |    751
- typical   | LIMIT  | CANCELLED |    751
- typical   | MARKET | FILLED    |    751
+ heavy     | LIMIT  | CANCELLED |    752
+ heavy     | MARKET | FILLED    |    752
+ typical   | LIMIT  | CANCELLED |    752
+ typical   | MARKET | FILLED    |    752
 (4 rows)
 ```
 
-Ninguna compra quedó rechazada: las 751 compras de los típicos y las 751 del pesado se ejecutaron, y las 1.502 órdenes
-`LIMIT` se cancelaron. En la línea de base, lo mismo: 1.503 compras `FILLED` y 1.504 órdenes `LIMIT` canceladas.
+Ninguna compra quedó rechazada: las 752 compras de los típicos y las 752 del pesado se ejecutaron, y las
+1.504 órdenes `LIMIT` se cancelaron. En la línea de base, lo mismo: 1.502 compras `FILLED` y 1.504 órdenes `LIMIT`
+canceladas.
 
 ## El usuario extremo
 
 Fuera del objetivo, como límite documentado (A-4): su portfolio lee 850.237 órdenes ejecutadas y pendientes. Cinco
-pedidos sueltos de su portfolio, en esta corrida y con la JVM ya caliente, en segundos: **0,746, 0,831, 0,732, 0,685 y
-0,710.** Son unas siete u ocho veces el objetivo de 100 ms. Según `docker stats` (una muestra cada 10 segundos), la API
-llega a usar entre 1,3 y 1,8 GB de memoria mientras los atiende, porque trae todas esas órdenes a Java para calcular la
-cuenta (RFC 4.1). La salida prevista es la foto a una fecha (A-4).
+pedidos sueltos de su portfolio, en esta corrida y con la JVM ya caliente, en segundos:
+**0,792, 0,825, 0,661, 0,942 y 0,678.** Son entre 6,6 y 9,4 veces el objetivo de 100 ms. La salida prevista es la
+foto a una fecha (A-4).
+
+**Observación sobre la memoria,** medida con `docker stats` y `free`, en muestras cada 3 o 4 segundos durante
+esta corrida (no sale de k6). Mientras corría k6, la API no pasó de 678 MiB. En la primera muestra después de k6
+ya estaba en 2,0 GiB, y en ese momento lo único que el script le pide a la API son los portfolios del extremo.
+Postgres, con la base en memoria, llegó a 1,73 GiB, y a la máquina nunca le quedaron menos de 10.761 MiB
+disponibles. Son muestras: el pico real puede ser mayor.
 
 ## Conclusión
 
 **El objetivo del RFC 8.4 se cumple:** con 2.010.011 órdenes en la tabla, el percentil 95 de las cinco funciones queda
-por debajo de 100 ms, para usuarios típicos y para el pesado de 10.000 órdenes. El peor es el envío del pesado, 59,91 ms.
-La memoria no fue un problema: en todas las corridas quedaron más de 10 GB disponibles en la máquina.
+por debajo de 100 ms, para usuarios típicos y para el pesado de 10.000 órdenes. El peor es el envío del pesado, 61,15 ms; el
+siguiente, su portfolio, 35,01 ms; el resto, 8,32 ms o menos.
 
-Los límites de esta medición: es una carga moderada de 110 pedidos por segundo durante un minuto, sobre una laptop, con
-la base en memoria y k6 compartiendo la máquina con la API; y no dice cuántos pedidos aguanta la API, ni cómo se comporta
-por encima de esa carga. El usuario extremo no entra en el objetivo y queda documentado arriba.
+Los límites de esta medición: es una carga moderada de 110 pedidos por segundo durante un minuto, sobre una computadora de
+escritorio, con la base en memoria y k6 compartiendo la máquina con la API; y no dice cuántos pedidos aguanta la API, ni
+cómo se comporta por encima de esa carga. El usuario extremo no entra en el objetivo y queda documentado arriba.
 
 ## Salida de la corrida con volumen
 
@@ -252,31 +260,31 @@ Lo que imprimió `scripts/run-load-test.sh`, sin las líneas de `docker compose`
     ✓ 'count==0' count=0
 
     http_req_duration{scenario:cancel_heavy,step:cancel}
-    ✓ 'p(95)<100' p(95)=3.2ms
+    ✓ 'p(95)<100' p(95)=3.09ms
 
     http_req_duration{scenario:cancel_typical,step:cancel}
-    ✓ 'p(95)<100' p(95)=3.12ms
+    ✓ 'p(95)<100' p(95)=3.1ms
 
     http_req_duration{scenario:list_heavy}
-    ✓ 'p(95)<100' p(95)=8.21ms
+    ✓ 'p(95)<100' p(95)=8.31ms
 
     http_req_duration{scenario:list_typical}
-    ✓ 'p(95)<100' p(95)=4.48ms
+    ✓ 'p(95)<100' p(95)=4.52ms
 
     http_req_duration{scenario:portfolio_heavy}
-    ✓ 'p(95)<100' p(95)=34.23ms
+    ✓ 'p(95)<100' p(95)=35.01ms
 
     http_req_duration{scenario:portfolio_typical}
-    ✓ 'p(95)<100' p(95)=6.82ms
+    ✓ 'p(95)<100' p(95)=6.94ms
 
     http_req_duration{scenario:search}
-    ✓ 'p(95)<100' p(95)=4.59ms
+    ✓ 'p(95)<100' p(95)=4.53ms
 
     http_req_duration{scenario:submit_heavy}
-    ✓ 'p(95)<100' p(95)=59.91ms
+    ✓ 'p(95)<100' p(95)=61.15ms
 
     http_req_duration{scenario:submit_typical}
-    ✓ 'p(95)<100' p(95)=8.42ms
+    ✓ 'p(95)<100' p(95)=8.32ms
 
     http_reqs{scenario:cancel_heavy,step:cancel}
     ✓ 'count>0' count=601
@@ -285,7 +293,7 @@ Lo que imprimió `scripts/run-load-test.sh`, sin las líneas de `docker compose`
     ✓ 'count>0' count=601
 
     http_reqs{scenario:list_heavy}
-    ✓ 'count>0' count=600
+    ✓ 'count>0' count=601
 
     http_reqs{scenario:list_typical}
     ✓ 'count>0' count=601
@@ -297,7 +305,7 @@ Lo que imprimió `scripts/run-load-test.sh`, sin las líneas de `docker compose`
     ✓ 'count>0' count=601
 
     http_reqs{scenario:search}
-    ✓ 'count>0' count=601
+    ✓ 'count>0' count=600
 
     http_reqs{scenario:submit_heavy}
     ✓ 'count>0' count=601
@@ -308,37 +316,37 @@ Lo que imprimió `scripts/run-load-test.sh`, sin las líneas de `docker compose`
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 8259    86.877435/s
-    checks_succeeded...: 100.00% 8259 out of 8259
-    checks_failed......: 0.00%   0 out of 8259
+    checks_total.......: 8270    86.986112/s
+    checks_succeeded...: 100.00% 8270 out of 8270
+    checks_failed......: 0.00%   0 out of 8270
 
     ✓ status is 200
-    ✓ status is 201
+    ✓ the purchase is FILLED
     ✓ the limit order stays NEW
 
     HTTP
-    http_req_duration...........................: count=8259 med=5.64ms  p(95)=38.44ms p(99)=57.46ms max=74.01ms 
-      { expected_response:true }................: count=8259 med=5.64ms  p(95)=38.44ms p(99)=57.46ms max=74.01ms 
-      { scenario:cancel_heavy,step:cancel }.....: count=601  med=1.6ms   p(95)=3.2ms   p(99)=3.91ms  max=5.58ms  
-      { scenario:cancel_typical,step:cancel }...: count=601  med=1.72ms  p(95)=3.12ms  p(99)=3.9ms   max=6.49ms  
-      { scenario:list_heavy }...................: count=600  med=4.37ms  p(95)=8.21ms  p(99)=9.25ms  max=11.22ms 
-      { scenario:list_typical }.................: count=601  med=2.97ms  p(95)=4.48ms  p(99)=5.24ms  max=30.95ms 
-      { scenario:portfolio_heavy }..............: count=600  med=26.19ms p(95)=34.23ms p(99)=37.75ms max=41.05ms 
-      { scenario:portfolio_typical }............: count=601  med=5.65ms  p(95)=6.82ms  p(99)=8.05ms  max=8.63ms  
-      { scenario:search }.......................: count=601  med=3.08ms  p(95)=4.59ms  p(99)=7.26ms  max=28.8ms  
-      { scenario:submit_heavy }.................: count=601  med=32.03ms p(95)=59.91ms p(99)=65.44ms max=71.15ms 
-      { scenario:submit_typical }...............: count=601  med=6.4ms   p(95)=8.42ms  p(99)=10.37ms max=33.48ms 
-    http_req_failed.............................: 0.00%  0 out of 8259
-    http_reqs...................................: 8259   86.877435/s
-      { scenario:cancel_heavy,step:cancel }.....: 601    6.321993/s
-      { scenario:cancel_typical,step:cancel }...: 601    6.321993/s
-      { scenario:list_heavy }...................: 600    6.311474/s
-      { scenario:list_typical }.................: 601    6.321993/s
-      { scenario:portfolio_heavy }..............: 600    6.311474/s
-      { scenario:portfolio_typical }............: 601    6.321993/s
-      { scenario:search }.......................: 601    6.321993/s
-      { scenario:submit_heavy }.................: 601    6.321993/s
-      { scenario:submit_typical }...............: 601    6.321993/s
+    http_req_duration...........................: count=8270 med=5.62ms  p(95)=39.36ms p(99)=58.04ms max=72.54ms 
+      { expected_response:true }................: count=8270 med=5.62ms  p(95)=39.36ms p(99)=58.04ms max=72.54ms 
+      { scenario:cancel_heavy,step:cancel }.....: count=601  med=1.49ms  p(95)=3.09ms  p(99)=3.69ms  max=4.47ms  
+      { scenario:cancel_typical,step:cancel }...: count=601  med=1.87ms  p(95)=3.1ms   p(99)=4.1ms   max=5.24ms  
+      { scenario:list_heavy }...................: count=601  med=4.18ms  p(95)=8.31ms  p(99)=9.15ms  max=11.12ms 
+      { scenario:list_typical }.................: count=601  med=2.97ms  p(95)=4.52ms  p(99)=5.31ms  max=31.04ms 
+      { scenario:portfolio_heavy }..............: count=600  med=27.57ms p(95)=35.01ms p(99)=37.82ms max=40.88ms 
+      { scenario:portfolio_typical }............: count=601  med=5.65ms  p(95)=6.94ms  p(99)=7.9ms   max=9ms     
+      { scenario:search }.......................: count=600  med=3.06ms  p(95)=4.53ms  p(99)=5.45ms  max=33.33ms 
+      { scenario:submit_heavy }.................: count=601  med=32.14ms p(95)=61.15ms p(99)=70.28ms max=72.54ms 
+      { scenario:submit_typical }...............: count=601  med=6.38ms  p(95)=8.32ms  p(99)=9.8ms   max=12.46ms 
+    http_req_failed.............................: 0.00%  0 out of 8270
+    http_reqs...................................: 8270   86.986112/s
+      { scenario:cancel_heavy,step:cancel }.....: 601    6.321482/s
+      { scenario:cancel_typical,step:cancel }...: 601    6.321482/s
+      { scenario:list_heavy }...................: 601    6.321482/s
+      { scenario:list_typical }.................: 601    6.321482/s
+      { scenario:portfolio_heavy }..............: 600    6.310963/s
+      { scenario:portfolio_typical }............: 601    6.321482/s
+      { scenario:search }.......................: 600    6.310963/s
+      { scenario:submit_heavy }.................: 601    6.321482/s
+      { scenario:submit_typical }...............: 601    6.321482/s
 
     EXECUTION
     dropped_iterations..........................: 0      0/s
@@ -351,8 +359,8 @@ Lo que imprimió `scripts/run-load-test.sh`, sin las líneas de `docker compose`
       { scenario:search }.......................: 0      0/s
       { scenario:submit_heavy }.................: 0      0/s
       { scenario:submit_typical }...............: 0      0/s
-    iteration_duration..........................: count=5557 med=7.24ms  p(95)=54.48ms p(99)=93.65ms max=208.68ms
-    iterations..................................: 5557   58.454765/s
+    iteration_duration..........................: count=5558 med=7.28ms  p(95)=55.23ms p(99)=93.69ms max=209.39ms
+    iterations..................................: 5558   58.460558/s
     vus.........................................: 0      min=0         max=0 
     vus_max.....................................: 50     min=50        max=50
 
@@ -363,18 +371,18 @@ Lo que imprimió `scripts/run-load-test.sh`, sin las líneas de `docker compose`
 == Orders created by this run, by kind of user, type and final status (warm-up included)
  user_kind |  type  |  status   | orders 
 -----------+--------+-----------+--------
- heavy     | LIMIT  | CANCELLED |    751
- heavy     | MARKET | FILLED    |    751
- typical   | LIMIT  | CANCELLED |    751
- typical   | MARKET | FILLED    |    751
+ heavy     | LIMIT  | CANCELLED |    752
+ heavy     | MARKET | FILLED    |    752
+ typical   | LIMIT  | CANCELLED |    752
+ typical   | MARKET | FILLED    |    752
 (4 rows)
 
 == Portfolio of the extreme user (5 loose requests), seconds each
-0.745982
-0.830993
-0.731876
-0.684613
-0.710279
+0.791682
+0.825013
+0.660578
+0.941621
+0.678443
 k6 exit code: 0
 ```
 
@@ -383,37 +391,37 @@ k6 exit code: 0
 ```text
   █ TOTAL RESULTS 
 
-    checks_total.......: 8269    87.009463/s
+    checks_total.......: 8269    87.020484/s
     checks_succeeded...: 100.00% 8269 out of 8269
     checks_failed......: 0.00%   0 out of 8269
 
     ✓ status is 200
-    ✓ status is 201
+    ✓ the purchase is FILLED
     ✓ the limit order stays NEW
 
     HTTP
-    http_req_duration...........................: count=8269 med=5.13ms  p(95)=27.72ms p(99)=36.22ms max=45.49ms 
-      { expected_response:true }................: count=8269 med=5.13ms  p(95)=27.72ms p(99)=36.22ms max=45.49ms 
-      { scenario:cancel_heavy,step:cancel }.....: count=601  med=2.26ms  p(95)=3.5ms   p(99)=4.27ms  max=5.69ms  
-      { scenario:cancel_typical,step:cancel }...: count=601  med=2.28ms  p(95)=3.57ms  p(99)=4.34ms  max=11.09ms 
-      { scenario:list_heavy }...................: count=601  med=3.8ms   p(95)=6.56ms  p(99)=7.69ms  max=14.35ms 
-      { scenario:list_typical }.................: count=600  med=3.78ms  p(95)=6.41ms  p(99)=7.56ms  max=27.66ms 
-      { scenario:portfolio_heavy }..............: count=601  med=6.86ms  p(95)=9.72ms  p(99)=12.12ms max=28.96ms 
-      { scenario:portfolio_typical }............: count=600  med=6.72ms  p(95)=9.73ms  p(99)=11.64ms max=15.98ms 
-      { scenario:search }.......................: count=601  med=3.37ms  p(95)=4.93ms  p(99)=6.38ms  max=30.39ms 
-      { scenario:submit_heavy }.................: count=600  med=15.62ms p(95)=34.36ms p(99)=40.49ms max=45.49ms 
-      { scenario:submit_typical }...............: count=601  med=17.21ms p(95)=33.52ms p(99)=39.02ms max=45.37ms 
+    http_req_duration...........................: count=8269 med=5.06ms  p(95)=28.12ms p(99)=36.44ms max=44.34ms 
+      { expected_response:true }................: count=8269 med=5.06ms  p(95)=28.12ms p(99)=36.44ms max=44.34ms 
+      { scenario:cancel_heavy,step:cancel }.....: count=601  med=2.31ms  p(95)=3.49ms  p(99)=4.16ms  max=7.2ms   
+      { scenario:cancel_typical,step:cancel }...: count=601  med=2.33ms  p(95)=3.66ms  p(99)=4.59ms  max=5.96ms  
+      { scenario:list_heavy }...................: count=600  med=3.83ms  p(95)=6.61ms  p(99)=7.26ms  max=14.21ms 
+      { scenario:list_typical }.................: count=601  med=3.8ms   p(95)=6.44ms  p(99)=7.6ms   max=23.4ms  
+      { scenario:portfolio_heavy }..............: count=601  med=6.9ms   p(95)=9.96ms  p(99)=12.21ms max=21.89ms 
+      { scenario:portfolio_typical }............: count=601  med=6.98ms  p(95)=10.23ms p(99)=12.21ms max=22.39ms 
+      { scenario:search }.......................: count=601  med=3.32ms  p(95)=4.96ms  p(99)=7.56ms  max=19.67ms 
+      { scenario:submit_heavy }.................: count=600  med=17.71ms p(95)=34.07ms p(99)=39.65ms max=44.34ms 
+      { scenario:submit_typical }...............: count=600  med=17.65ms p(95)=35.11ms p(99)=41.06ms max=43.99ms 
     http_req_failed.............................: 0.00%  0 out of 8269
-    http_reqs...................................: 8269   87.009463/s
-      { scenario:cancel_heavy,step:cancel }.....: 601    6.323943/s
-      { scenario:cancel_typical,step:cancel }...: 601    6.323943/s
-      { scenario:list_heavy }...................: 601    6.323943/s
-      { scenario:list_typical }.................: 600    6.313421/s
-      { scenario:portfolio_heavy }..............: 601    6.323943/s
-      { scenario:portfolio_typical }............: 600    6.313421/s
-      { scenario:search }.......................: 601    6.323943/s
-      { scenario:submit_heavy }.................: 600    6.313421/s
-      { scenario:submit_typical }...............: 601    6.323943/s
+    http_reqs...................................: 8269   87.020484/s
+      { scenario:cancel_heavy,step:cancel }.....: 601    6.324744/s
+      { scenario:cancel_typical,step:cancel }...: 601    6.324744/s
+      { scenario:list_heavy }...................: 600    6.314221/s
+      { scenario:list_typical }.................: 601    6.324744/s
+      { scenario:portfolio_heavy }..............: 601    6.324744/s
+      { scenario:portfolio_typical }............: 601    6.324744/s
+      { scenario:search }.......................: 601    6.324744/s
+      { scenario:submit_heavy }.................: 600    6.314221/s
+      { scenario:submit_typical }...............: 600    6.314221/s
 
     EXECUTION
     dropped_iterations..........................: 0      0/s
@@ -426,8 +434,8 @@ k6 exit code: 0
       { scenario:search }.......................: 0      0/s
       { scenario:submit_heavy }.................: 0      0/s
       { scenario:submit_typical }...............: 0      0/s
-    iteration_duration..........................: count=5557 med=7.77ms  p(95)=35.2ms  p(99)=54.27ms max=115.83ms
-    iterations..................................: 5557   58.4728/s
+    iteration_duration..........................: count=5557 med=7.79ms  p(95)=35.32ms p(99)=53.5ms  max=112.56ms
+    iterations..................................: 5557   58.480207/s
     vus.........................................: 0      min=0         max=0 
     vus_max.....................................: 50     min=50        max=50
 ```
