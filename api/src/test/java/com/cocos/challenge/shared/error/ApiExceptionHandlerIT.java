@@ -57,6 +57,22 @@ class ApiExceptionHandlerIT {
   }
 
   @Test
+  void rejectsARepeatedField() throws Exception {
+    postProbe("{\"quantity\": 1, \"quantity\": 3}")
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR));
+  }
+
+  @Test
+  void rejectsANumberWrittenAsText() throws Exception {
+    postProbe("{\"quantity\": \"10\"}")
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR))
+        .andExpect(jsonPath("$.errors[0].field").value("quantity"))
+        .andExpect(jsonPath("$.detail").value("El valor de quantity no es válido."));
+  }
+
+  @Test
   void rejectsMalformedJson() throws Exception {
     postProbe("{\"quantity\": ")
         .andExpect(status().isBadRequest())

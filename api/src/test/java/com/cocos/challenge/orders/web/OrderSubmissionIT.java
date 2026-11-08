@@ -331,6 +331,14 @@ class OrderSubmissionIT {
             "{ " + id + pamp + market + "\"quantity\": 10, \"prise\": 900 }",
             VALIDATION_ERROR),
         Arguments.of(
+            "repeated quantity",
+            "{ " + id + pamp + market + "\"quantity\": 1, \"quantity\": 3 }",
+            VALIDATION_ERROR),
+        Arguments.of(
+            "amount written as text",
+            "{ " + id + pamp + market + "\"amount\": \"10000\" }",
+            VALIDATION_ERROR),
+        Arguments.of(
             "instrument that does not exist",
             "{ " + id + "\"instrumentId\": 999, " + market + "\"quantity\": 10 }",
             INVALID_ORDER),
