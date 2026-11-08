@@ -2,14 +2,17 @@ package com.cocos.challenge.shared.error;
 
 import com.cocos.challenge.shared.display.DisplayProperties;
 import com.cocos.challenge.shared.web.RequestIds;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.tomcat.util.http.InvalidParameterException;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpHeaders;
@@ -46,6 +49,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
   private static final String OPTIONS_SEPARATOR = ", ";
   private static final String UNREADABLE_PARAMETERS_KEY = "request.unreadable-parameters";
   private static final String UNEXPECTED_KEY = "error.unexpected";
+  private static final String PROBLEM_TYPE_LOG_FIELD = "problemType";
+  private static final String HTTP_STATUS_LOG_FIELD = "httpStatus";
+  private static final String REQUEST_FAILED_LOG_MESSAGE = "Request failed";
+  private static final String UNEXPECTED_ERROR_LOG_MESSAGE = "Unexpected error";
+  // A problem without a type means this one (RFC 9457): Spring leaves it out of its own errors
+  private static final String ABOUT_BLANK = "about:blank";
 
   private final MessageSource messages;
   private final Locale locale;
@@ -85,7 +94,6 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
   @ExceptionHandler(Exception.class)
   @Nullable ResponseEntity<Object> handleUnexpected(Exception ex, WebRequest request) {
-    LOG.error("Unexpected error", ex);
     ProblemDetail problem = problem(ProblemType.INTERNAL_ERROR, text(UNEXPECTED_KEY));
     return handleExceptionInternal(
         ex, problem, new HttpHeaders(), ProblemType.INTERNAL_ERROR.status(), request);
@@ -198,6 +206,43 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
   private String text(String key, String... args) {
     return messages.getMessage(key, args, locale);
+  }
+
+  /**
+   * Every error goes through here, including the ones Spring builds, so each one writes its line
+   * once. There is no response when the client already got one: Spring logs that case itself.
+   */
+  @Override
+  protected @Nullable ResponseEntity<Object> handleExceptionInternal(
+      Exception ex,
+      @Nullable Object body,
+      HttpHeaders headers,
+      HttpStatusCode statusCode,
+      WebRequest request) {
+    ResponseEntity<Object> response =
+        super.handleExceptionInternal(ex, body, headers, statusCode, request);
+    if (response != null) {
+      writeLogLine(ex, response);
+    }
+    return response;
+  }
+
+  /** A 4xx is a warning without a stack trace; a 5xx is an error with it (RFC 8.1). */
+  private static void writeLogLine(Exception ex, ResponseEntity<Object> response) {
+    HttpStatusCode status = response.getStatusCode();
+    boolean serverError = status.is5xxServerError();
+    LoggingEventBuilder line = serverError ? LOG.atError().setCause(ex) : LOG.atWarn();
+    line.addKeyValue(PROBLEM_TYPE_LOG_FIELD, problemTypeOf(response.getBody()))
+        .addKeyValue(HTTP_STATUS_LOG_FIELD, status.value())
+        .log(
+            serverError && !(ex instanceof ApiException)
+                ? UNEXPECTED_ERROR_LOG_MESSAGE
+                : REQUEST_FAILED_LOG_MESSAGE);
+  }
+
+  private static String problemTypeOf(@Nullable Object body) {
+    URI type = body instanceof ProblemDetail problem ? problem.getType() : null;
+    return Objects.toString(type, ABOUT_BLANK);
   }
 
   /**

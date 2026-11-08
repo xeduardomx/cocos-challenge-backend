@@ -12,12 +12,17 @@ public class AccountService {
   private final AccountRepository repository;
   private final AccountCalculator calculator;
   private final AccountProperties properties;
+  private final TurnMetrics turnMetrics;
 
   public AccountService(
-      AccountRepository repository, AccountCalculator calculator, AccountProperties properties) {
+      AccountRepository repository,
+      AccountCalculator calculator,
+      AccountProperties properties,
+      TurnMetrics turnMetrics) {
     this.repository = repository;
     this.calculator = calculator;
     this.properties = properties;
+    this.turnMetrics = turnMetrics;
   }
 
   public Account load(long userId) {
@@ -38,7 +43,9 @@ public class AccountService {
   @Transactional(propagation = Propagation.MANDATORY)
   public void takeTurn(long userId) {
     try {
-      if (!repository.lockForTurn(userId, properties.turnTimeout())) {
+      boolean userExists =
+          turnMetrics.time(() -> repository.lockForTurn(userId, properties.turnTimeout()));
+      if (!userExists) {
         throw new UserNotFoundException(userId);
       }
     } catch (CannotAcquireLockException e) {

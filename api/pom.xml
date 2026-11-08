@@ -45,6 +45,11 @@
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-flyway</artifactId>
     </dependency>
@@ -156,6 +161,8 @@
             <include>**/*IT.java</include>
           </includes>
           <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar} -Duser.timezone=UTC -Xshare:off --enable-native-access=ALL-UNNAMED</argLine>
+          <!-- The JSON logs of each test class go to target/surefire-reports/<Class>-output.txt -->
+          <redirectTestOutputToFile>true</redirectTestOutputToFile>
         </configuration>
       </plugin>
 
