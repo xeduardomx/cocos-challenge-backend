@@ -16,6 +16,7 @@ cocos:
   display:
     time-zone: America/Argentina/Buenos_Aires
     locale: es-AR
+  account.turn-timeout: 2s
   search:
     max-results: 20
     max-query-length: 50

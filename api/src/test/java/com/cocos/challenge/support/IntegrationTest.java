@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
+import org.springframework.context.annotation.Import;
 
 /** Marks a test that starts the whole application against the shared test Postgres. */
 @Target(ElementType.TYPE)
@@ -18,5 +19,6 @@ import org.springframework.boot.testcontainers.context.ImportTestcontainers;
     webEnvironment = WebEnvironment.RANDOM_PORT,
     properties = "spring.flyway.enabled=true")
 @ImportTestcontainers(PostgresContainer.class)
+@Import(TestData.class)
 @ExtendWith(OriginalDataExtension.class)
 public @interface IntegrationTest {}
