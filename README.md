@@ -19,7 +19,10 @@ docker compose up --build
 - Especificación OpenAPI: http://localhost:8080/v3/api-docs
 - Página de la API: http://localhost:8080/swagger-ui.html
 
-Si el puerto 5433 de tu máquina está ocupado, el Postgres local se mueve con `POSTGRES_PORT=5434 docker compose up --build`.
+Los dos puertos se abren solo en tu máquina (`127.0.0.1`), no en la red. Si alguno está ocupado, se mueve con una
+variable: `POSTGRES_PORT` para el Postgres (5433 si no se dice) y `API_PORT` para la API (8080 si no se dice), por
+ejemplo `POSTGRES_PORT=5434 API_PORT=8081 docker compose up --build`. Con otro puerto para la API, los scripts lo
+reciben en `API_URL`: `API_URL=http://localhost:8081 ./scripts/smoke-test.sh`.
 
 La base se arma con `docs/00-fuentes/database.sql` y las migraciones de la API, y vive en memoria (`tmpfs`): cada
 `docker compose up` arranca con los datos originales.
