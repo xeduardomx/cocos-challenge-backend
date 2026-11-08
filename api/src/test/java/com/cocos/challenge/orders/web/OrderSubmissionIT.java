@@ -380,6 +380,23 @@ class OrderSubmissionIT {
   }
 
   @Test
+  void listsTheValuesASideCanTake() {
+    ApiResponse response =
+        submit(
+            USER_ONE,
+            order(
+                UUID.randomUUID(),
+                PAMP,
+                "\"side\": \"COMPRA\", \"type\": \"MARKET\", \"quantity\": 10"));
+
+    JsonNode error = response.json().get("errors").get(0);
+    assertThat(error.get("field").asString()).isEqualTo("side");
+    assertThat(error.get("message").asString())
+        .isEqualTo(
+            "El valor de side no es válido: tiene que ser uno de BUY, SELL, CASH_IN, CASH_OUT.");
+  }
+
+  @Test
   void answersInSpanishWhateverLanguageTheClientAsksFor() {
     HttpHeaders english = new HttpHeaders();
     english.set(HttpHeaders.ACCEPT_LANGUAGE, ENGLISH);

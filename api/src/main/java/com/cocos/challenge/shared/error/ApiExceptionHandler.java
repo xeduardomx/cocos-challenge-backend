@@ -2,8 +2,10 @@ package com.cocos.challenge.shared.error;
 
 import com.cocos.challenge.shared.display.DisplayProperties;
 import com.cocos.challenge.shared.web.RequestIds;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 import org.apache.tomcat.util.http.InvalidParameterException;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -24,6 +26,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import tools.jackson.core.JacksonException;
+import tools.jackson.databind.exc.InvalidFormatException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /** Turns every error into a Problem Details response (RFC 7). */
@@ -39,6 +42,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
   private static final String MALFORMED_KEY = "request.malformed";
   private static final String UNKNOWN_FIELD_KEY = "request.unknown-field";
   private static final String INVALID_VALUE_KEY = "request.invalid-value";
+  private static final String INVALID_VALUE_OPTIONS_KEY = "request.invalid-value-options";
+  private static final String OPTIONS_SEPARATOR = ", ";
   private static final String BAD_ENCODING_KEY = "request.bad-encoding";
   private static final String UNEXPECTED_KEY = "error.unexpected";
 
@@ -114,8 +119,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ex instanceof MethodArgumentTypeMismatchException argument
             ? argument.getName()
             : propertyNameOrDefault(ex);
-    FieldViolation violation = new FieldViolation(field, text(INVALID_VALUE_KEY, field));
-    return validationProblem(ex, List.of(violation), headers, request);
+    return validationProblem(
+        ex, List.of(invalidValue(field, ex.getRequiredType())), headers, request);
   }
 
   private @Nullable ResponseEntity<Object> validationProblem(
@@ -139,9 +144,26 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
       return new FieldViolation(BODY_FIELD, text(MALFORMED_KEY));
     }
     String field = lastPropertyName(jackson);
-    String key =
-        jackson instanceof UnrecognizedPropertyException ? UNKNOWN_FIELD_KEY : INVALID_VALUE_KEY;
-    return new FieldViolation(field, text(key, field));
+    if (jackson instanceof UnrecognizedPropertyException) {
+      return new FieldViolation(field, text(UNKNOWN_FIELD_KEY, field));
+    }
+    Class<?> targetType =
+        jackson instanceof InvalidFormatException invalid ? invalid.getTargetType() : null;
+    return invalidValue(field, targetType);
+  }
+
+  /**
+   * When the value had to be one of an enum, the text lists them: the client learns what to send.
+   */
+  private FieldViolation invalidValue(String field, @Nullable Class<?> targetType) {
+    if (targetType == null || !targetType.isEnum()) {
+      return new FieldViolation(field, text(INVALID_VALUE_KEY, field));
+    }
+    String options =
+        Arrays.stream(targetType.getEnumConstants())
+            .map(constant -> ((Enum<?>) constant).name())
+            .collect(Collectors.joining(OPTIONS_SEPARATOR));
+    return new FieldViolation(field, text(INVALID_VALUE_OPTIONS_KEY, field, options));
   }
 
   private static String lastPropertyName(JacksonException exception) {

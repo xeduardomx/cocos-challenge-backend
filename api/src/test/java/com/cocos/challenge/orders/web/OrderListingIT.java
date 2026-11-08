@@ -219,6 +219,11 @@ class OrderListingIT {
 
     assertThat(response.status()).isEqualTo(400);
     assertThat(response.json().get("type").asString()).isEqualTo(VALIDATION_ERROR);
+    assertThat(field(response)).isEqualTo("status");
+    assertThat(response.json().get("detail").asString())
+        .isEqualTo(
+            "El valor de status no es válido: tiene que ser uno de NEW, FILLED, REJECTED,"
+                + " CANCELLED.");
   }
 
   @Test
