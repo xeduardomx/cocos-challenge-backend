@@ -10,21 +10,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.cocos.challenge.shared.display.DisplayProperties;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.context.MessageSourceAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-@ExtendWith(OutputCaptureExtension.class)
 @EnableConfigurationProperties(DisplayProperties.class)
 @WebMvcTest(ProblemProbeController.class)
 @ImportAutoConfiguration(MessageSourceAutoConfiguration.class)
@@ -156,17 +157,36 @@ class ApiExceptionHandlerIT {
   }
 
   @Test
-  void hidesTheInternalsOfAnUnexpectedError(CapturedOutput output) throws Exception {
-    mockMvc
-        .perform(get("/probe/unexpected"))
-        .andExpect(status().isInternalServerError())
-        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.type").value("/problems/internal-error"))
-        .andExpect(jsonPath("$.detail").value("Ocurrió un error inesperado."))
-        .andExpect(jsonPath("$.requestId").isNotEmpty())
-        .andExpect(content().string(not(containsString("secret"))));
+  void hidesTheInternalsOfAnUnexpectedError() throws Exception {
+    // the event is kept for the assertion and, with additive off, not printed with its stack trace
+    Logger handlerLog = (Logger) LoggerFactory.getLogger(ApiExceptionHandler.class);
+    ListAppender<ILoggingEvent> logged = new ListAppender<>();
+    logged.start();
+    handlerLog.addAppender(logged);
+    handlerLog.setAdditive(false);
+    try {
+      mockMvc
+          .perform(get("/probe/unexpected"))
+          .andExpect(status().isInternalServerError())
+          .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+          .andExpect(jsonPath("$.type").value("/problems/internal-error"))
+          .andExpect(jsonPath("$.detail").value("Ocurrió un error inesperado."))
+          .andExpect(jsonPath("$.requestId").isNotEmpty())
+          .andExpect(content().string(not(containsString("secret"))));
+    } finally {
+      handlerLog.setAdditive(true);
+      handlerLog.detachAppender(logged);
+    }
 
-    assertThat(output).contains("Unexpected error").contains("IllegalStateException: secret");
+    assertThat(logged.list)
+        .singleElement()
+        .satisfies(event -> {
+          assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+          assertThat(event.getMessage()).isEqualTo("Unexpected error");
+          assertThat(event.getThrowableProxy().getClassName())
+              .isEqualTo(IllegalStateException.class.getName());
+          assertThat(event.getThrowableProxy().getMessage()).isEqualTo("secret");
+        });
   }
 
   @Test
