@@ -6,7 +6,7 @@
   "editable": false,
   "refresh": "30s",
   "time": {
-    "from": "now-1h",
+    "from": "now-15m",
     "to": "now"
   },
   "tags": [
@@ -127,8 +127,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{uri!~\"/actuator/.*\"}[5m])))",
-          "legendFormat": "{{uri}}",
+          "expr": "histogram_quantile(0.95, sum by (le, method, uri) (rate(http_server_requests_seconds_bucket{uri!~\"/actuator/.*\"}[5m])))",
+          "legendFormat": "{{method}} {{uri}}",
           "refId": "A"
         }
       ],
@@ -159,8 +159,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (uri, status) (rate(http_server_requests_seconds_count{status=~\"4..|5..\",uri!~\"/actuator/.*\"}[5m]))",
-          "legendFormat": "{{uri}} {{status}}",
+          "expr": "sum by (method, uri, status) (rate(http_server_requests_seconds_count{uri!~\"/actuator/.*\",status=~\"4..|5..\"}[5m]))",
+          "legendFormat": "{{method}} {{uri}} {{status}}",
           "refId": "A"
         }
       ],
