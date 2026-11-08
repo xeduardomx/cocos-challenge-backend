@@ -32,7 +32,8 @@ import org.springframework.test.web.servlet.ResultActions;
 class ApiExceptionHandlerIT {
 
   private static final String VALIDATION_ERROR = "/problems/validation-error";
-  private static final String MALFORMED_TEXT = "El cuerpo del pedido no es un JSON válido.";
+  private static final String MALFORMED_TEXT =
+      "El cuerpo del pedido no es un objeto JSON válido, o tiene un campo repetido.";
 
   @Autowired private MockMvc mockMvc;
 
@@ -61,7 +62,9 @@ class ApiExceptionHandlerIT {
   void rejectsARepeatedField() throws Exception {
     postProbe("{\"quantity\": 1, \"quantity\": 3}")
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR));
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR))
+        .andExpect(jsonPath("$.errors[0].field").value("body"))
+        .andExpect(jsonPath("$.detail").value(MALFORMED_TEXT));
   }
 
   @Test
@@ -108,7 +111,8 @@ class ApiExceptionHandlerIT {
   void reportsABodyThatIsNotAnObjectUnderTheBodyField() throws Exception {
     postProbe("[]")
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.errors[0].field").value("body"));
+        .andExpect(jsonPath("$.errors[0].field").value("body"))
+        .andExpect(jsonPath("$.detail").value(MALFORMED_TEXT));
   }
 
   @Test
