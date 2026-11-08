@@ -1,5 +1,6 @@
 package com.cocos.challenge.shared.web;
 
+import static com.cocos.challenge.support.OrderRequests.marketBuy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cocos.challenge.support.ApiClient;
@@ -23,7 +24,6 @@ class MetricsIT {
   private static final String ORDERS_OF_USER_ONE = "/users/1/orders";
   private static final String CANCEL_PENDING_ORDER = ORDERS_OF_USER_ONE + "/7/cancel";
   private static final long USER_ONE = 1;
-  private static final long PAMP = 47;
   private static final String TEN_SHARES = "\"quantity\": 10";
   private static final String MORE_THAN_THE_CASH = "\"amount\": 700000";
 
@@ -66,13 +66,6 @@ class MetricsIT {
 
   private ApiResponse submit(String json) {
     return api.post(ORDERS_OF_USER_ONE, json);
-  }
-
-  private static String marketBuy(UUID clientOrderId, String sizing) {
-    return """
-    { "clientOrderId": "%s", "instrumentId": %d, "side": "BUY", "type": "MARKET", %s }\
-    """
-        .formatted(clientOrderId, PAMP, sizing);
   }
 
   @Test

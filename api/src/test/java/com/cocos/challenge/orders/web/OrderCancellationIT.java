@@ -1,6 +1,7 @@
 package com.cocos.challenge.orders.web;
 
 import static com.cocos.challenge.support.Concurrency.WAIT_LIMIT;
+import static com.cocos.challenge.support.OrderRequests.marketBuy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 
@@ -97,10 +98,6 @@ class OrderCancellationIT {
     { "clientOrderId": "%s", "instrumentId": %d, %s, %s }\
     """
         .formatted(clientOrderId, instrumentId, sideAndType, rest);
-  }
-
-  private static String marketBuy(String clientOrderId, String sizing) {
-    return order(clientOrderId, PAMP, "\"side\": \"BUY\", \"type\": \"MARKET\"", sizing);
   }
 
   private JsonNode portfolioOf(long userId) {
