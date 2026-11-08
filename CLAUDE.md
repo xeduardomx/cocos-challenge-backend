@@ -61,7 +61,8 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
 - **Una rama por fase, desde `develop`,** con prefijo según el tipo: `docs/phase-1-analysis`, `docs/phase-2-prd`,
   `docs/phase-3-rfc`, `docs/phase-4-plan`, `feat/phase-5-implementation`, etc. Cierra con un PR a `develop`.
 - **Fases de documentos (1 a 4): una sola rama, sin sub-ramas.** Es un documento, un autor, y se revisa entero.
-- **Fases de código (5 y 6): una sub-rama por tarea del plan,** desde la rama de la fase y con PR a ella.
+- **Fases de código (5 y 6): una sub-rama por tarea del plan,** desde la rama de la fase y con PR a ella. Se llaman
+  `task/<fase>-<NN>-<nombre>`, por ejemplo `task/5-01-project-skeleton` (`docs/04-plan.md`).
   PR encadenados solo cuando una tarea depende de otra que todavía no se mergeó; si se puede mergear la anterior
   primero, mejor.
 - **Merge siempre con merge commit (`--no-ff`), nunca squash:** el squash borra el camino, y el camino se evalúa.

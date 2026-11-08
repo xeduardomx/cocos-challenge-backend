@@ -1050,6 +1050,8 @@ decisión y es la base del alcance del PRD.
 | Si el envío no consigue el turno del usuario en 2 segundos: 503, "intentá de nuevo" | RFC, sección 5.2 |
 | Un campo desconocido en el pedido da 400 | RFC, secciones 6.2 y 9 |
 | Topes: precio de hasta $99.999.999,99; cantidad de hasta 2.147.483.647, también la calculada por monto; texto de búsqueda de hasta 50 caracteres; páginas de hasta 100 órdenes | RFC, secciones 3.2 y 6.6 |
+| Tope del monto en el borde: hasta 18 dígitos enteros. No rechaza ninguna orden posible: por encima de unos $2,1·10¹⁷ la cantidad ya no entra. Corta antes de calcular un número como `1e999999999`, que trabaría la API | Plan, tarea 8 |
+| Un `X-Request-Id` del cliente se usa solo si tiene letras, números y guiones, y hasta 64 caracteres; si no, la API genera uno. Así un valor del cliente no puede romper los logs | Plan, tarea 3 |
 | La hora de una orden es la del momento en que se graba, con el reloj de la base | D-10; RFC, sección 3.4 |
 | Las divisiones (PPC, rendimientos) se redondean una sola vez, al final, a 2 decimales, con `HALF_UP` | RFC, sección 4.5 |
 
