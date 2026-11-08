@@ -1,0 +1,9 @@
+spring:
+  application.name: cocos-challenge-api
+  flyway:
+    # The compose file and the tests turn it on; the API never migrates by itself
+    enabled: false
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: database.sql de Cocos
+    group: true
