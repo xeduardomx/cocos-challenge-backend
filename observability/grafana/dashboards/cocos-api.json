@@ -42,6 +42,10 @@
       ],
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
           "decimals": 0,
           "min": 0,
           "unit": "short"
@@ -89,6 +93,10 @@
       ],
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
           "decimals": 0,
           "min": 0,
           "unit": "short"
