@@ -1331,6 +1331,11 @@ for MkDocs, del mismo equipo y con licencia MIT. Dibuja los diagramas de Mermaid
 - Se publica en GitHub Pages, construido por CI desde `main` (`.github/workflows/portal.yml`; el repo es público desde el
   2026-11-08).
 
+**Dónde quedó (fase 7):** <https://xeduardomx.github.io/cocos-challenge-backend/>. La cuenta de GitHub tiene Actions
+bloqueado por un tema de facturación, así que ese workflow todavía no corrió. Mientras tanto, el sitio generado se sube
+a mano a la rama `gh-pages`, y GitHub Pages lo publica desde ahí. Cuando Actions vuelva a correr, Pages se cambia para
+publicar desde el workflow.
+
 **Resultado de la prueba (fase 7): pasó, y Docusaurus no hizo falta.** Con estos documentos, Zensical 0.1.0 dibuja los
 siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celular no hay scroll horizontal.
 

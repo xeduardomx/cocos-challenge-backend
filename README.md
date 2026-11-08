@@ -58,8 +58,8 @@ una segunda corrida sin bajar y volver a levantar falla. Para usarla desde Postm
 
 ## Portal de documentación
 
-El análisis, las decisiones, el PRD, el RFC, los diagramas, el runbook y las métricas, navegables y con buscador. Se
-genera desde `docs/`, y alcanza con Docker:
+El análisis, las decisiones, el PRD, el RFC, los diagramas, el runbook y las métricas, navegables y con buscador, en
+https://xeduardomx.github.io/cocos-challenge-backend/. Se genera desde `docs/`, y para verlo en local alcanza con Docker:
 
 ```bash
 ./scripts/portal.sh
