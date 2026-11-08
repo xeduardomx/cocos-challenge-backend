@@ -2,8 +2,8 @@
 
 > Corrida del 2026-11-08 en una computadora de escritorio, con la API, Postgres 18.6, Prometheus, Grafana y k6 2.3.0 en
 > Docker en la misma máquina, y los datos en memoria: sirven como orden de magnitud. Es la salida de
-> [`scripts/run-load-test.sh`](../../scripts/run-load-test.sh), que carga
-> [`perf/seed-volume.sql`](../../perf/seed-volume.sql) y corre [`perf/load-test.js`](../../perf/load-test.js) con k6.
+> [`scripts/run-load-test.sh`](https://github.com/xeduardomx/cocos-challenge-backend/blob/main/scripts/run-load-test.sh), que carga
+> [`perf/seed-volume.sql`](https://github.com/xeduardomx/cocos-challenge-backend/blob/main/perf/seed-volume.sql) y corre [`perf/load-test.js`](https://github.com/xeduardomx/cocos-challenge-backend/blob/main/perf/load-test.js) con k6.
 
 ## Qué se midió y con qué objetivo
 
@@ -53,7 +53,7 @@ datos de Postgres viven en memoria (`tmpfs`).
 
 ## Los datos y la carga
 
-Los datos son los del RFC 3.5, armados con [`perf/seed-volume.sql`](../../perf/seed-volume.sql) sobre el esquema ya
+Los datos son los del RFC 3.5, armados con [`perf/seed-volume.sql`](https://github.com/xeduardomx/cocos-challenge-backend/blob/main/perf/seed-volume.sql) sobre el esquema ya
 migrado: 2.010.011 órdenes, 342 MB de tabla.
 
 | Usuario | Id | Órdenes | Ejecutadas y pendientes (las que lee la cuenta) |
