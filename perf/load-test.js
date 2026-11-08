@@ -32,6 +32,7 @@ const ORDER_SIDE_BUY = 'BUY';
 const ORDER_TYPE_MARKET = 'MARKET';
 const ORDER_TYPE_LIMIT = 'LIMIT';
 const ORDER_STATUS_NEW = 'NEW';
+const ORDER_STATUS_FILLED = 'FILLED';
 // METR: cheap enough for the money of user 1 to last the whole baseline on the original data.
 const PURCHASE_INSTRUMENT_ID = 54;
 const PURCHASE_QUANTITY = 1;
@@ -104,6 +105,11 @@ function expectStatus(response, expected) {
   return check(response, { [`status is ${expected}`]: (r) => r.status === expected });
 }
 
+// An order that the API records always answers 201, even when it is REJECTED (RFC 6.1).
+function orderEndedAs(expected) {
+  return (r) => r.status === STATUS_CREATED && r.json('status') === expected;
+}
+
 function showPortfolio(userId) {
   expectStatus(http.get(http.url`${API_URL}/users/${userId}/portfolio`), STATUS_OK);
 }
@@ -126,14 +132,13 @@ function submitOrder(userId, order, tags) {
 }
 
 function submitPurchase(userId) {
-  expectStatus(submitOrder(userId, { type: ORDER_TYPE_MARKET }, {}), STATUS_CREATED);
+  const purchase = submitOrder(userId, { type: ORDER_TYPE_MARKET }, {});
+  check(purchase, { 'the purchase is FILLED': orderEndedAs(ORDER_STATUS_FILLED) });
 }
 
 function placeAndCancelOrder(userId) {
   const placed = submitOrder(userId, { type: ORDER_TYPE_LIMIT, price: LIMIT_ORDER_PRICE }, { step: PLACE_STEP });
-  const isPending = check(placed, {
-    'the limit order stays NEW': (r) => r.status === STATUS_CREATED && r.json('status') === ORDER_STATUS_NEW,
-  });
+  const isPending = check(placed, { 'the limit order stays NEW': orderEndedAs(ORDER_STATUS_NEW) });
   if (!isPending) {
     return;
   }

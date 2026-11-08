@@ -11,6 +11,7 @@ API_URL="${API_URL:-http://localhost:8080}"
 COMPOSE_NETWORK="cocos-challenge_default"
 API_URL_IN_NETWORK="http://api:8080"
 K6_IMAGE="grafana/k6:2.3.0"
+K6_CONTAINER_NAME="cocos-challenge-k6"
 SEED_FILE="$REPO_DIR/perf/seed-volume.sql"
 K6_SCRIPT_IN_CONTAINER="/perf/load-test.js"
 HEAVY_USER_ID=10005
@@ -32,10 +33,17 @@ psql_in_postgres() {
   docker compose exec -T postgres psql -U postgres -X "$@"
 }
 
-# Takes the stack down however the script ends: the data lives in memory.
-trap 'docker compose down' EXIT
+# Also removes the k6 container: if this script is killed, `docker run` leaves it running.
+# Nothing here may change the exit code of the script.
+stop_everything() {
+  docker rm -f "$K6_CONTAINER_NAME" >/dev/null 2>&1 || true
+  docker compose down || echo "Could not take the stack down." >&2
+}
 
-docker compose down
+# Takes everything down however the script ends: the data lives in memory.
+trap stop_everything EXIT
+
+stop_everything
 docker compose up --build -d
 API_URL="$API_URL" "$SCRIPT_DIR/wait-for-api.sh"
 
@@ -50,7 +58,7 @@ done
 
 echo "Running k6 (about 100 seconds with the default values)..."
 k6_exit_code=0
-docker run --rm --network "$COMPOSE_NETWORK" \
+docker run --rm --name "$K6_CONTAINER_NAME" --network "$COMPOSE_NETWORK" \
   -v "$REPO_DIR/perf:/perf:ro" \
   -e API_URL="$API_URL_IN_NETWORK" \
   "${k6_variables[@]}" \
@@ -61,13 +69,13 @@ psql_in_postgres -c "
   select case userid when $HEAVY_USER_ID then 'heavy' else 'typical' end as user_kind,
          type, status, count(*) as orders
   from orders where id > $last_seeded_order_id
-  group by 1, 2, 3 order by 1, 2, 3"
+  group by 1, 2, 3 order by 1, 2, 3" || echo "Could not read how the orders ended." >&2
 
 echo "== Portfolio of the extreme user ($EXTREME_PORTFOLIO_REQUESTS loose requests), seconds each"
 for ((i = 1; i <= EXTREME_PORTFOLIO_REQUESTS; i++)); do
   # LC_NUMERIC: curl prints the decimal separator of the locale, and a comma would not read as a number.
   LC_NUMERIC=C curl -fsS --max-time "$EXTREME_PORTFOLIO_TIMEOUT_SECONDS" -o /dev/null -w '%{time_total}\n' \
-    "$API_URL/users/$EXTREME_USER_ID/portfolio"
+    "$API_URL/users/$EXTREME_USER_ID/portfolio" || echo "A request for the extreme user failed." >&2
 done
 
 echo "k6 exit code: $k6_exit_code"
