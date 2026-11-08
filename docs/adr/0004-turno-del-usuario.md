@@ -5,8 +5,8 @@
 ## Contexto
 
 - Dos órdenes del mismo usuario que llegan juntas pueden gastar la misma plata o vender las mismas acciones (R-1).
-  La orden 11, que dejó BMA en −10, es el síntoma exacto de dos ventas sin bloqueo (D-1). Es el riesgo más serio del
-  challenge, y el primer principio del RFC.
+  La orden 11 vendió 30 BMA con 20 en la cuenta y dejó la posición en −10, y dos ventas de 15 que llegan juntas sin
+  bloqueo dejarían el mismo resultado (D-1). Es el riesgo más serio del challenge, y el primer principio del RFC.
 - La regla "no vender más de lo que se tiene" depende de la suma de muchas filas: no puede ser una regla de la base
   (D-1). La API tiene que leer la cuenta, decidir y grabar sin que otra orden del mismo usuario se meta en el medio
   (GEN-1).

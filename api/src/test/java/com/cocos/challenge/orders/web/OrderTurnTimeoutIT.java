@@ -1,5 +1,6 @@
 package com.cocos.challenge.orders.web;
 
+import static com.cocos.challenge.support.OrderRequests.marketBuy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cocos.challenge.account.UserBusyException;
@@ -32,7 +33,7 @@ import org.springframework.test.context.TestPropertySource;
 class OrderTurnTimeoutIT {
 
   private static final long USER_ONE = 1;
-  private static final long PAMP = 47;
+  private static final String QUANTITY_TEN = "\"quantity\": 10";
   private static final int ORIGINAL_ORDERS = 11;
 
   @LocalServerPort private int port;
@@ -43,19 +44,13 @@ class OrderTurnTimeoutIT {
     return jdbc.sql("select count(*) from orders").query(Integer.class).single();
   }
 
-  private static String marketBuy() {
-    return """
-    { "clientOrderId": "%s", "instrumentId": %d, "side": "BUY", "type": "MARKET", \
-    "quantity": 10 }\
-    """
-        .formatted(UUID.randomUUID(), PAMP);
-  }
-
   @Test
   void answersBusyWhenTheTurnIsNotFree() throws InterruptedException {
     ApiResponse response;
     try (HeldTurn held = concurrency.holdTurn(USER_ONE)) {
-      response = new ApiClient(port).post("/users/" + USER_ONE + "/orders", marketBuy());
+      response =
+          new ApiClient(port)
+              .post("/users/" + USER_ONE + "/orders", marketBuy(UUID.randomUUID(), QUANTITY_TEN));
     }
 
     assertThat(response.status()).isEqualTo(503);
@@ -75,7 +70,9 @@ class OrderTurnTimeoutIT {
 
     ApiResponse response;
     try (HeldTurn held = concurrency.holdTurn(USER_ONE)) {
-      response = new ApiClient(port, headers).post("/users/" + USER_ONE + "/orders", marketBuy());
+      response =
+          new ApiClient(port, headers)
+              .post("/users/" + USER_ONE + "/orders", marketBuy(UUID.randomUUID(), QUANTITY_TEN));
     }
 
     assertThat(response.status()).isEqualTo(503);
@@ -83,8 +80,9 @@ class OrderTurnTimeoutIT {
         .singleElement()
         .satisfies(line -> {
           assertThat(LogLines.level(line)).isEqualTo("ERROR");
-          assertThat(line.get("httpStatus").asInt()).isEqualTo(503);
-          assertThat(line.get("problemType").asString()).isEqualTo("/problems/user-busy");
+          assertThat(LogLines.message(line)).isEqualTo("Request failed");
+          assertThat(LogLines.httpStatus(line)).isEqualTo(503);
+          assertThat(LogLines.problemType(line)).isEqualTo("/problems/user-busy");
           assertThat(LogLines.stackTrace(line)).contains(UserBusyException.class.getName());
         });
   }

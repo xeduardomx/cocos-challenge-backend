@@ -16,6 +16,9 @@ public final class LogLines {
   private static final JsonMapper MAPPER = JsonMapper.builder().build();
   private static final String JSON_LINE_START = "{";
   private static final String LEVEL_POINTER = "/log/level";
+  private static final String MESSAGE_POINTER = "/message";
+  private static final String HTTP_STATUS_FIELD = "httpStatus";
+  private static final String PROBLEM_TYPE_FIELD = "problemType";
   private static final String STACK_TRACE_POINTER = "/error/stack_trace";
   private static final Set<String> LEVELS_OF_AN_ERROR = Set.of("WARN", "ERROR");
 
@@ -41,6 +44,18 @@ public final class LogLines {
 
   public static String level(JsonNode line) {
     return line.at(LEVEL_POINTER).asString();
+  }
+
+  public static String message(JsonNode line) {
+    return line.at(MESSAGE_POINTER).asString();
+  }
+
+  public static int httpStatus(JsonNode line) {
+    return line.path(HTTP_STATUS_FIELD).asInt();
+  }
+
+  public static String problemType(JsonNode line) {
+    return line.path(PROBLEM_TYPE_FIELD).asString();
   }
 
   public static boolean hasStackTrace(JsonNode line) {

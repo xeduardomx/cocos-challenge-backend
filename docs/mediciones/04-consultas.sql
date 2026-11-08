@@ -1,7 +1,7 @@
 -- Medición de la forma de la consulta del último precio (RFC, sección 4).
 -- Corre en una copia local descartable, nunca en Neon, con database.sql y 03-esquema.sql ya aplicados.
 -- Carga 10 años de precios diarios de las 63 acciones que cotizan y compara tres formas de pedir el último precio
--- de 20 acciones. Son números de una laptop con los datos en memoria: sirven como orden de magnitud.
+-- de 20 acciones. Son números de una PC con los datos en memoria: sirven como orden de magnitud.
 
 \set ON_ERROR_STOP 1
 \pset footer off

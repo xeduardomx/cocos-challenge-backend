@@ -1,6 +1,6 @@
 -- Medición de los índices de `orders` (RFC, sección 3).
 -- Corre en una copia local descartable, nunca en Neon, con database.sql y 03-esquema.sql ya aplicados.
--- Tarda unos minutos. Son números de una laptop con los datos en memoria: sirven como orden de magnitud.
+-- Tarda unos minutos. Son números de una PC con los datos en memoria: sirven como orden de magnitud.
 --
 -- Datos inventados: 10.000 usuarios típicos (100 órdenes cada uno), uno pesado (10.000) y uno extremo
 -- (1.000.000), que sirve para ver dónde está el límite. En total, 2.010.011 órdenes con las 11 de Cocos.

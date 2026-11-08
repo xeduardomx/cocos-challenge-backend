@@ -1,6 +1,6 @@
 # Resultados de la medición de la sección 3 del RFC
 
-> Corrida del 2026-11-07 en una laptop, con Postgres 18.6 en Docker y los datos en memoria: sirven como orden
+> Corrida del 2026-11-07 en una PC, con Postgres 18.6 en Docker y los datos en memoria: sirven como orden
 > de magnitud. Salida de [`03-indices.sql`](03-indices.sql) y [`03-precios-y-busqueda.sql`](03-precios-y-busqueda.sql),
 > sin las líneas de control de `psql`. Cómo repetirla: RFC, sección 3.5.
 

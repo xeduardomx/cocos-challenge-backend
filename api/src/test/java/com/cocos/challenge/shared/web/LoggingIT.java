@@ -1,5 +1,6 @@
 package com.cocos.challenge.shared.web;
 
+import static com.cocos.challenge.support.OrderRequests.marketBuy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cocos.challenge.support.ApiClient;
@@ -29,7 +30,6 @@ class LoggingIT {
 
   private static final long USER_ONE = 1;
   private static final long UNKNOWN_USER = 99;
-  private static final long PAMP = 47;
   private static final long METR = 54;
   private static final long ORIGINAL_PENDING_ORDER = 7;
   private static final String PORTFOLIO = "/users/{userId}/portfolio";
@@ -59,13 +59,6 @@ class LoggingIT {
     return headers;
   }
 
-  private static String marketBuy(UUID clientOrderId, String sizing) {
-    return """
-    { "clientOrderId": "%s", "instrumentId": %d, "side": "BUY", "type": "MARKET", %s }\
-    """
-        .formatted(clientOrderId, PAMP, sizing);
-  }
-
   private static String limitBuy(UUID clientOrderId) {
     return """
     { "clientOrderId": "%s", "instrumentId": %d, "side": "BUY", "type": "LIMIT", \
@@ -92,8 +85,8 @@ class LoggingIT {
         .singleElement()
         .satisfies(line -> {
           assertThat(LogLines.level(line)).isEqualTo("WARN");
-          assertThat(line.get("httpStatus").asInt()).isEqualTo(code);
-          assertThat(line.get("problemType").asString()).isEqualTo(problemType);
+          assertThat(LogLines.httpStatus(line)).isEqualTo(code);
+          assertThat(LogLines.problemType(line)).isEqualTo(problemType);
           assertThat(LogLines.hasStackTrace(line)).isFalse();
         });
   }
@@ -233,8 +226,9 @@ class LoggingIT {
         .singleElement()
         .satisfies(line -> {
           assertThat(LogLines.level(line)).isEqualTo("ERROR");
-          assertThat(line.get("httpStatus").asInt()).isEqualTo(500);
-          assertThat(line.get("problemType").asString()).isEqualTo("/problems/internal-error");
+          assertThat(LogLines.message(line)).isEqualTo("Unexpected error");
+          assertThat(LogLines.httpStatus(line)).isEqualTo(500);
+          assertThat(LogLines.problemType(line)).isEqualTo("/problems/internal-error");
           assertThat(LogLines.stackTrace(line)).contains(IllegalStateException.class.getName());
         });
   }
