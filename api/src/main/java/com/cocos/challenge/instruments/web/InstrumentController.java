@@ -36,7 +36,11 @@ public class InstrumentController {
               mediaType = MediaType.APPLICATION_JSON_VALUE,
               schema = @Schema(implementation = InstrumentSearchResponse.class),
               examples = @ExampleObject(value = InstrumentApiExamples.SEARCH_RESULT)))
-  @ApiResponse(responseCode = "400", description = "El texto de búsqueda está vacío o es muy largo")
+  @ApiResponse(
+      responseCode = "400",
+      description =
+          "El texto de búsqueda está vacío, es muy largo, tiene un carácter que no se puede buscar"
+              + " o no está en UTF-8")
   @ApiResponse(responseCode = "500", description = "Error inesperado, sin detalles internos")
   @GetMapping
   public InstrumentSearchResponse search(@RequestParam(required = false) @Nullable String query) {

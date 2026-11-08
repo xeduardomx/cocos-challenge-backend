@@ -1,5 +1,6 @@
 package com.cocos.challenge.support;
 
+import java.net.URI;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -16,15 +17,22 @@ public class ApiClient {
   private static final JsonMapper MAPPER =
       JsonMapper.builder().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS).build();
 
+  private final String baseUrl;
   private final RestClient client;
 
   public ApiClient(int port) {
-    this.client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+    this.baseUrl = "http://localhost:" + port;
+    this.client = RestClient.builder().baseUrl(baseUrl).build();
   }
 
   /** The path may have URI variables, which are encoded as values. */
   public ApiResponse get(String path, Object... uriVariables) {
     return client.get().uri(path, uriVariables).exchange(ApiClient::toResponse);
+  }
+
+  /** Sends the path exactly as written, already percent-encoded: for bytes that are not UTF-8. */
+  public ApiResponse getEncoded(String encodedPath) {
+    return client.get().uri(URI.create(baseUrl + encodedPath)).exchange(ApiClient::toResponse);
   }
 
   /** Sends the text as the body, untouched: for numbers and values Java cannot represent. */

@@ -115,6 +115,18 @@ class ApiExceptionHandlerIT {
   }
 
   @Test
+  void rejectsAParameterThatIsNotValidUtf8WithoutNamingAField() throws Exception {
+    mockMvc
+        .perform(get("/probe/bad-encoding"))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR))
+        .andExpect(
+            jsonPath("$.detail").value("El pedido tiene caracteres mal codificados: usá UTF-8."))
+        .andExpect(jsonPath("$.errors").doesNotExist());
+  }
+
+  @Test
   void mapsAnApiExceptionToItsProblem() throws Exception {
     mockMvc
         .perform(get("/probe/api-error"))

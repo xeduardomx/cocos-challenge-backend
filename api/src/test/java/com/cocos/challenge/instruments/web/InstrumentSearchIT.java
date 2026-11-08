@@ -20,6 +20,10 @@ class InstrumentSearchIT {
   private static final String VALIDATION_ERROR = "/problems/validation-error";
   private static final int MAX_QUERY_LENGTH = 50;
   private static final int MAX_RESULTS = 20;
+  private static final String INVALID_CHARACTER_TEXT =
+      "El texto de búsqueda tiene un carácter que no se puede buscar.";
+  private static final String BAD_ENCODING_TEXT =
+      "El pedido tiene caracteres mal codificados: usá UTF-8.";
 
   @LocalServerPort private int port;
 
@@ -32,6 +36,11 @@ class InstrumentSearchIT {
 
   private ApiResponse search(String query) {
     return api.get("/instruments?query={query}", query);
+  }
+
+  /** The query goes exactly as written, already percent-encoded. */
+  private ApiResponse searchEncoded(String encodedQuery) {
+    return api.getEncoded("/instruments?query=" + encodedQuery);
   }
 
   private List<String> tickers(String query) {
@@ -119,6 +128,24 @@ class InstrumentSearchIT {
   void acceptsAQueryOfTheMaximumLengthEvenWithSurroundingSpaces() {
     assertThat(search("a".repeat(MAX_QUERY_LENGTH)).status()).isEqualTo(200);
     assertThat(search("  " + "a".repeat(MAX_QUERY_LENGTH) + "  ").status()).isEqualTo(200);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"%00", "a%00b"})
+  void rejectsAQueryWithACharacterTheDatabaseCannotSearch(String encodedQuery) {
+    ApiResponse response = searchEncoded(encodedQuery);
+
+    assertRejectedQuery(response);
+    assertThat(response.json().get("detail").asString()).isEqualTo(INVALID_CHARACTER_TEXT);
+  }
+
+  @Test
+  void rejectsAQueryThatIsNotValidUtf8() {
+    ApiResponse response = searchEncoded("%C3%28");
+
+    assertThat(response.status()).isEqualTo(400);
+    assertThat(response.json().get("type").asString()).isEqualTo(VALIDATION_ERROR);
+    assertThat(response.json().get("detail").asString()).isEqualTo(BAD_ENCODING_TEXT);
   }
 
   @ParameterizedTest

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Positive;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -57,5 +58,11 @@ public class ProblemProbeController {
   @GetMapping("/probe/unexpected")
   void unexpected() {
     throw new IllegalStateException("secret");
+  }
+
+  /** What Tomcat throws for a parameter that is not valid UTF-8: MockMvc never decodes one. */
+  @GetMapping("/probe/bad-encoding")
+  void badEncoding() {
+    throw new InvalidParameterException("bad encoding");
   }
 }

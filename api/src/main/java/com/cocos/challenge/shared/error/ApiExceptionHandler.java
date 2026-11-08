@@ -4,6 +4,7 @@ import com.cocos.challenge.shared.display.DisplayProperties;
 import com.cocos.challenge.shared.web.RequestIds;
 import java.util.List;
 import java.util.Locale;
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +40,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
   private static final String MALFORMED_KEY = "request.malformed";
   private static final String UNKNOWN_FIELD_KEY = "request.unknown-field";
   private static final String INVALID_VALUE_KEY = "request.invalid-value";
+  private static final String BAD_ENCODING_KEY = "request.bad-encoding";
   private static final String UNEXPECTED_KEY = "error.unexpected";
 
   private final MessageSource messages;
@@ -62,6 +64,18 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ex.retryAfter()
         .ifPresent(wait -> headers.set(HttpHeaders.RETRY_AFTER, String.valueOf(wait.toSeconds())));
     return handleExceptionInternal(ex, problem, headers, type.status(), request);
+  }
+
+  /**
+   * Tomcat decodes the parameters the first time one is read, and fails if they are not UTF-8. It
+   * does not say which one, so the problem names no field.
+   */
+  @ExceptionHandler(InvalidParameterException.class)
+  @Nullable ResponseEntity<Object> handleBadEncoding(
+      InvalidParameterException ex, WebRequest request) {
+    ProblemDetail problem = problem(ProblemType.VALIDATION_ERROR, text(BAD_ENCODING_KEY));
+    return handleExceptionInternal(
+        ex, problem, new HttpHeaders(), ProblemType.VALIDATION_ERROR.status(), request);
   }
 
   @ExceptionHandler(Exception.class)

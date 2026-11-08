@@ -16,6 +16,10 @@ public class InstrumentSearchService {
   private static final String QUERY_FIELD = "query";
   private static final String BLANK_KEY = "search.query-blank";
   private static final String TOO_LONG_KEY = "search.query-too-long";
+  private static final String INVALID_CHARACTER_KEY = "search.query-invalid-character";
+
+  /** Postgres does not accept this character in a text, so it never reaches the query. */
+  private static final char NUL = '\0';
 
   private final InstrumentCatalog catalog;
   private final SearchProperties properties;
@@ -43,6 +47,9 @@ public class InstrumentSearchService {
     if (text.length() > properties.maxQueryLength()) {
       throw new InvalidRequestException(
           QUERY_FIELD, TOO_LONG_KEY, String.valueOf(properties.maxQueryLength()));
+    }
+    if (text.indexOf(NUL) >= 0) {
+      throw new InvalidRequestException(QUERY_FIELD, INVALID_CHARACTER_KEY);
     }
     return text;
   }
