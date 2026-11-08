@@ -171,12 +171,6 @@ pedidos sueltos de su portfolio, en esta corrida y con la JVM ya caliente, en se
 **0,792, 0,825, 0,661, 0,942 y 0,678.** Son entre 6,6 y 9,4 veces el objetivo de 100 ms. La salida prevista es la
 foto a una fecha (A-4).
 
-**Observación sobre la memoria,** medida con `docker stats` y `free`, en muestras cada 3 o 4 segundos durante
-esta corrida (no sale de k6). Mientras corría k6, la API no pasó de 678 MiB. En la primera muestra después de k6
-ya estaba en 2,0 GiB, y en ese momento lo único que el script le pide a la API son los portfolios del extremo.
-Postgres, con la base en memoria, llegó a 1,73 GiB, y a la máquina nunca le quedaron menos de 10.761 MiB
-disponibles. Son muestras: el pico real puede ser mayor.
-
 ## Conclusión
 
 **El objetivo del RFC 8.4 se cumple:** con 2.010.011 órdenes en la tabla, el percentil 95 de las cinco funciones queda
