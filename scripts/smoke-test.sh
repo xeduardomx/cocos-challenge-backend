@@ -7,10 +7,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 USER_ID=1
 EXPECTED_AVAILABLE_CASH=627500
 EXPECTED_TOTAL_VALUE=889756
+REQUEST_TIMEOUT_SECONDS=2
 
 "$SCRIPT_DIR/wait-for-api.sh"
 
-portfolio="$(curl -fsS "$API_URL/users/$USER_ID/portfolio")"
+portfolio="$(curl -fsS --max-time "$REQUEST_TIMEOUT_SECONDS" "$API_URL/users/$USER_ID/portfolio")"
 
 if jq -e --argjson cash "$EXPECTED_AVAILABLE_CASH" --argjson total "$EXPECTED_TOTAL_VALUE" \
   '.cash.available == $cash and .totalValue == $total' <<<"$portfolio" >/dev/null; then
