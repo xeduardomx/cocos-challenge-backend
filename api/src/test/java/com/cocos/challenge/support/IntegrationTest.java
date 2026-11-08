@@ -19,6 +19,6 @@ import org.springframework.context.annotation.Import;
     webEnvironment = WebEnvironment.RANDOM_PORT,
     properties = "spring.flyway.enabled=true")
 @ImportTestcontainers(PostgresContainer.class)
-@Import(TestData.class)
+@Import({TestData.class, Concurrency.class})
 @ExtendWith(OriginalDataExtension.class)
 public @interface IntegrationTest {}

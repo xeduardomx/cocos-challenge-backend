@@ -4,16 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.cocos.challenge.support.Concurrency;
+import com.cocos.challenge.support.Concurrency.HeldTurn;
 import com.cocos.challenge.support.IntegrationTest;
 import java.time.Duration;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -25,11 +21,10 @@ class AccountServiceIT {
   private static final long USER_ONE = 1;
   private static final long UNKNOWN_USER = 99;
   private static final Duration MAX_FAILURE_TIME = Duration.ofSeconds(1);
-  private static final Duration WAIT_LIMIT = Duration.ofSeconds(10);
 
   @Autowired private AccountService service;
   @Autowired private TransactionTemplate transaction;
-  @Autowired private JdbcClient jdbc;
+  @Autowired private Concurrency concurrency;
 
   @Test
   void loadsTheAccountOfUserOne() {
@@ -58,34 +53,12 @@ class AccountServiceIT {
   }
 
   @Test
-  void takeTurnFailsFastWhenAnotherTransactionHoldsIt() throws Exception {
-    CountDownLatch held = new CountDownLatch(1);
-    CountDownLatch release = new CountDownLatch(1);
-    ExecutorService other = Executors.newSingleThreadExecutor();
-    try {
-      Future<?> holder =
-          other.submit(() ->
-              transaction.executeWithoutResult(status -> {
-                jdbc.sql("select id from users where id = :id for update")
-                    .param("id", USER_ONE)
-                    .query()
-                    .singleRow();
-                held.countDown();
-                awaitRelease(release);
-              }));
-      assertThat(held.await(WAIT_LIMIT.toSeconds(), TimeUnit.SECONDS)).isTrue();
-
+  void takeTurnFailsFastWhenAnotherTransactionHoldsIt() throws InterruptedException {
+    try (HeldTurn held = concurrency.holdTurn(USER_ONE)) {
       long start = System.nanoTime();
       assertThatThrownBy(() -> transaction.executeWithoutResult(s -> service.takeTurn(USER_ONE)))
           .isInstanceOf(UserBusyException.class);
-      Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
-
-      assertThat(elapsed).isLessThan(MAX_FAILURE_TIME);
-      release.countDown();
-      holder.get(WAIT_LIMIT.toSeconds(), TimeUnit.SECONDS);
-    } finally {
-      release.countDown();
-      other.shutdownNow();
+      assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(MAX_FAILURE_TIME);
     }
   }
 
@@ -98,13 +71,5 @@ class AccountServiceIT {
   @Test
   void userBusyAsksToRetryInOneSecond() {
     assertThat(new UserBusyException().retryAfter()).contains(Duration.ofSeconds(1));
-  }
-
-  private static void awaitRelease(CountDownLatch release) {
-    try {
-      release.await(WAIT_LIMIT.toSeconds(), TimeUnit.SECONDS);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
   }
 }
