@@ -25,11 +25,12 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/postgres
-      SPRING_DATASOURCE_USERNAME: postgres
+      # The local copy unless scripts/run-on-neon.sh says otherwise.
+      SPRING_DATASOURCE_URL: ${API_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/postgres}
+      SPRING_DATASOURCE_USERNAME: ${API_DATASOURCE_USERNAME:-postgres}
       # Same local-only password as above.
-      SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_DATASOURCE_PASSWORD: ${API_DATASOURCE_PASSWORD:-postgres}
+      SPRING_FLYWAY_ENABLED: ${API_FLYWAY_ENABLED:-true}
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
 

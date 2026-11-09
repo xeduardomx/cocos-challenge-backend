@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
-# Runs the API against the remote database of DATABASE_URL (from .env), instead of the local copy.
+# Starts the API, Prometheus and Grafana against the remote database of DATABASE_URL (from .env),
+# instead of the local copy.
 #   ./scripts/run-on-neon.sh             uses it as it is: nothing changes its structure
 #   ./scripts/run-on-neon.sh --migrate   applies the pending migrations first, after asking
-# Every order sent to this API is recorded in that database, so the smoke test, the Postman
-# collection and the load test are not meant for it: they run against the local copy.
+# Every order sent to this API is recorded in that database, so the Postman collection and the
+# load test are not meant for it: they run against the local copy.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="$REPO_DIR/.env"
-API_IMAGE="cocos-challenge-api"
-CONTAINER_NAME="cocos-challenge-api-remote"
-API_PORT="${API_PORT:-8080}"
-CONTAINER_PORT=8080
 CONFIRMATION_WORD="migrate"
 URL_PATTERN='^postgres(ql)?://([^:]+):([^@]+)@([^?]+)(\?(.*))?$'
 MIGRATE=false
@@ -56,15 +53,11 @@ if [[ "$MIGRATE" == true ]]; then
 fi
 
 # The API takes the address in JDBC format, with the user and the password apart (RFC, section 9).
-export SPRING_DATASOURCE_URL="jdbc:postgresql://$host_and_database?${options/channel_binding=/channelBinding=}"
-export SPRING_DATASOURCE_USERNAME="$username"
-export SPRING_DATASOURCE_PASSWORD="$password"
-export SPRING_FLYWAY_ENABLED="$MIGRATE"
+export API_DATASOURCE_URL="jdbc:postgresql://$host_and_database?${options/channel_binding=/channelBinding=}"
+export API_DATASOURCE_USERNAME="$username"
+export API_DATASOURCE_PASSWORD="$password"
+export API_FLYWAY_ENABLED="$MIGRATE"
 
 cd "$REPO_DIR"
-docker compose build api
-
-docker run --rm --name "$CONTAINER_NAME" -p "127.0.0.1:$API_PORT:$CONTAINER_PORT" \
-  -e SPRING_DATASOURCE_URL -e SPRING_DATASOURCE_USERNAME -e SPRING_DATASOURCE_PASSWORD \
-  -e SPRING_FLYWAY_ENABLED \
-  "$API_IMAGE"
+# Everything docker compose up starts, except the local database.
+exec docker compose up --build --no-deps api prometheus grafana
