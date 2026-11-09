@@ -30,11 +30,23 @@ La primera vez compila la API y tarda unos minutos. Después:
 Para bajar todo: `docker compose down`.
 
 - **Los datos:** la base se arma con `docs/00-fuentes/database.sql` y las migraciones de la API, y vive en memoria. Cada
-  `docker compose up` arranca con los datos originales. La base de Neon no se usa ni se toca.
+  `docker compose up` arranca con los datos originales. `docker compose` nunca usa la base de Neon.
 - **Los puertos** se abren solo en tu máquina (`127.0.0.1`). Si alguno está ocupado, se mueve con una variable:
   `POSTGRES_PORT=5434 API_PORT=8081 docker compose up --build`. También `PROMETHEUS_PORT` y `GRAFANA_PORT`. Con otro
   puerto, los scripts lo reciben en `API_URL`, `PROMETHEUS_URL` y `GRAFANA_URL`.
 - **Si algo falla,** el [runbook](docs/portal/runbook.md) dice qué mirar y qué hacer.
+
+## Contra la base de Cocos (Neon)
+
+Con la dirección en `DATABASE_URL`, dentro de `.env` (ver `.env.example`), la API corre contra la base que mandó Cocos:
+
+```bash
+./scripts/run-on-neon.sh
+```
+
+Esa base ya tiene aplicadas las migraciones, y sus datos no cambiaron
+([cómo se hizo](docs/mediciones/08-migracion-neon.md)). Cada orden que se le mande se graba ahí, así que las pruebas de esta
+página van contra la copia local.
 
 ## Probarla
 

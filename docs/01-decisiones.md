@@ -108,6 +108,10 @@ El detalle se trabaja en el bloque del esquema, que se hace en el RFC (fase 3).
   evalúa aplicarle las mismas migraciones una vez, como un pase a producción. **Cómo, decidido en el RFC (sección
   3.6, ADR 0006):** con Flyway, que anota a `database.sql` como versión 1 y aplica todos los cambios en una sola
   transacción; la API no migra sola salvo que se le pida.
+- **Decidido en la fase 8 (2026-11-09): se le aplicaron las migraciones.** El enunciado da libertad para *"modificar,
+  agregar o ajustar tablas"* si se justifica, y *"la base de datos provista"* es esta. La base de cada candidato es propia.
+  Antes se confirmó que seguía idéntica a `database.sql` y se guardó un respaldo; los datos no cambiaron
+  ([`mediciones/08-migracion-neon.md`](mediciones/08-migracion-neon.md)).
 - **Por qué:**
   - El mail pide que *"el proyecto tiene que poder ser ejecutado localmente"*.
   - Los tests graban órdenes. Contra Neon, cada corrida cambiaría la plata y las posiciones del usuario 1, y los
@@ -551,7 +555,7 @@ Cerrada en D-1: la posición de BMA (−10) se muestra tal cual, con rendimiento
   11. **Qué devuelve:** id, ticker, nombre, último precio y variación diaria. El id hace falta para mandar una orden;
       el precio es lo que muestra una pantalla de búsqueda. Precio y variación quedan vacíos para PGR e IRCP (D-2).
   12. **Para el bloque del esquema:** extensión `unaccent` (disponible en Neon, no instalada). En la copia local se
-      instala con una migración; en Neon, se decide en la fase 8. Con 65 activos la búsqueda no necesita índice; se
+      instala con una migración; en Neon, se instaló en la fase 8. Con 65 activos la búsqueda no necesita índice; se
       evalúa ahí midiendo con volumen, como en A-4.
   13. **Tests:** "rio" incluye MOLI; "grupo galicia" devuelve GGAL; "pa" devuelve PAMP primero; "pesos" no devuelve
       nada; "_" no devuelve nada; un texto vacío da 400.
@@ -1071,10 +1075,11 @@ decisión y es la base del alcance del PRD.
 | Las páginas que existen solo en el portal van en `docs/portal/`, y sus diagramas y tablas se toman de su documento, sin copiarlos | Fase 7; RFC, sección 11.6 |
 | Los paneles del tablero que cuentan órdenes van en un solo color: el rojo por defecto de Grafana, desde 80, hacía parecer un problema a las órdenes ejecutadas | Fase 7; RFC, sección 8.3 |
 | Un texto de búsqueda que queda vacío al sacarle los acentos no encuentra nada: la lista viene vacía | Fase 8; RFC, sección 4.3 |
+| `scripts/run-on-neon.sh` levanta la API contra Neon. Con `--migrate` aplica antes las migraciones, por la conexión directa y pidiendo confirmación | Fase 8; RFC, sección 3.6 |
 | El lado de un pedido solo puede ser `BUY` o `SELL`, desde su tipo: el error y Swagger ya no ofrecen `CASH_IN` ni `CASH_OUT`, que después se rechazaban | Fase 8; RFC, sección 6.2 |
 
 **Cambios al modelo de datos:** decididos en el RFC (sección 3) y aplicados con migraciones en la fase 5, solo en la
-copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).
+copia local. A Neon se le aplicaron en la fase 8, una sola vez (ADR 0006).
 
 | Cambio | Dónde |
 |---|---|

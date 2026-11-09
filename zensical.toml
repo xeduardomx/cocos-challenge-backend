@@ -45,6 +45,7 @@ nav = [
       "mediciones/05-resultados.md",
       "mediciones/06-tiempo-de-respuesta.md",
       "mediciones/08-verificacion-final.md",
+      "mediciones/08-migracion-neon.md",
       "mediciones/10-resultados.md",
     ] },
   ] },

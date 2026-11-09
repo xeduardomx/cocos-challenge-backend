@@ -52,7 +52,7 @@ está en el PRD. Esta sección junta lo que condiciona el cómo y los criterios 
 | **Java** | el mail de Cocos, que pisa el Node.js del enunciado (C-1) | el lenguaje está dado; el framework y las librerías se eligen en la sección 2 |
 | **Se ejecuta localmente con un comando** | el mail, GEN-2 | todo se levanta con `docker compose up`, y alcanza con tener Docker |
 | **La base ya existe y tiene datos** | el enunciado; `database.sql`, idéntico a Neon: 4 usuarios, 66 instrumentos, 126 precios y 11 órdenes | se cambia con migraciones y solo donde se justifica. Los datos heredados no se corrigen (D-1, D-4, D-6), así que cada regla nueva tiene que convivir con los que ya están |
-| **Neon se trata como producción** | "Base de Neon" | la API y los tests corren contra una copia local en Postgres 18, la misma versión mayor que Neon; los tests nunca tocan Neon. La dirección de la base se configura, y si a Neon se le aplican las migraciones se decide en la fase 8 |
+| **Neon se trata como producción** | "Base de Neon" | la API y los tests corren contra una copia local en Postgres 18, la misma versión mayor que Neon; los tests nunca tocan Neon. La dirección de la base se configura, y en la fase 8 se le aplicaron las migraciones, una sola vez (sección 3.6) |
 | **Sin autenticación** | el enunciado (S-5) | el número de usuario viaja en cada pedido; en producción saldría de la sesión |
 | **No se simula el mercado** | el enunciado | una orden a mercado se resuelve en el momento, al último precio; una límite aceptada queda pendiente hasta que el usuario la cancela. No hay horario de mercado ni vencimientos |
 | **Hoy hay 11 órdenes, pero el diseño tiene que aguantar volumen** | "Esquema: se mejora", A-4, A-7, GEN-8 | cada consulta se piensa para mucho volumen y se mide con 2 millones de órdenes (sección 3.5), como en el análisis |
@@ -446,7 +446,7 @@ después.
 **Cómo se arranca sobre una base con datos y sin historial.** `database.sql` es la versión 1, y nuestras migraciones
 empiezan en la 2. Con `baseline-on-migrate`, Flyway encuentra una base con tablas y sin historial, la anota como
 versión 1 sin tocarla ("database.sql de Cocos") y aplica de la 2 en adelante. La copia local se arma igual que Neon:
-Postgres carga `database.sql` al crear la base, y después la API migra. Así, el camino que va a recorrer Neon es el que
+Postgres carga `database.sql` al crear la base, y después la API migra. Así, el camino que recorrió Neon es el que
 se prueba todos los días.
 
 - **Probado** con Flyway 12.4.0 en la copia local (Postgres 18.6). Anotó la versión 1, aplicó la 2, y una segunda
@@ -454,8 +454,9 @@ se prueba todos los días.
 - **Neon, revisado en solo lectura:** no tiene historial de migraciones y `unaccent` está disponible, sin instalar.
   Sigue con 11 órdenes y el contador de ids en 11. El rol de la URL (`neondb_owner`) es miembro de `neon_superuser`,
   el grupo con el que Neon da permisos a los usuarios del proyecto. Su documentación dice que sus roles solo pueden
-  instalar las extensiones que Neon soporta, y `unaccent` es una; no dice explícitamente qué rol puede. Se confirma
-  en la fase 8, al migrar: si no pudiera, la migración falla y se deshace entera (ver "Todo o nada").
+  instalar las extensiones que Neon soporta, y `unaccent` es una; no dice explícitamente qué rol puede. Si no
+  pudiera, la migración fallaría y se desharía entera (ver "Todo o nada"). **Confirmado en la fase 8:** `unaccent` es una
+  extensión de confianza, así que la puede instalar quien tenga permiso de crear en la base, y ese rol la instaló.
 - **Una base vacía, sin `database.sql`, no se puede migrar:** la primera migración que toca una tabla falla porque no existen, y se
   deshace todo (probado en la copia local, con el borrador como una sola versión). Copiar `database.sql` como versión 1 lo resolvería, pero la copia local seguiría otro camino que
   Neon.
@@ -468,8 +469,8 @@ en la copia local. Se activa.
 
 **La API migra sola solo cuando se le pide.** Spring Boot prende Flyway por defecto; acá se apaga
 (`spring.flyway.enabled: false`), y lo prenden el `docker compose` de la copia local y los tests. Si alguien apunta la API a Neon, no lo migra por
-accidente: a Neon se le aplican las migraciones a propósito, una vez, en la fase 8, como un pase a producción, con el
-mismo Flyway y las mismas migraciones. Antes se verifica en solo lectura que Neon sigue igual a `database.sql`, como
+accidente: las migraciones se le aplicaron a propósito, una vez, en la fase 8, como un pase a producción, con el
+mismo Flyway y las mismas migraciones. Antes se verificó en solo lectura que Neon seguía igual a `database.sql`, como
 en el análisis. La alternativa, migrar siempre al arrancar, es lo más común y lo más simple, pero convierte "probar la
 API contra Neon" en "migrar Neon".
 
@@ -482,6 +483,13 @@ spring:
     baseline-description: database.sql de Cocos
     group: true                   # todas las migraciones pendientes en una sola transacción
 ```
+
+**El pase a Neon (fase 8, 2026-11-09).** El enunciado da libertad para "modificar, agregar o ajustar tablas" si se
+justifica, y la base que se entrega a cada candidato es propia. Se aplicó con `scripts/run-on-neon.sh --migrate`, probado
+antes sobre un Postgres local cargado solo con `database.sql`, incluida una segunda corrida, que no hace nada. Las
+migraciones van por la conexión directa, porque Neon pide no hacer cambios de estructura por su pooler; la API, por la URL
+tal como viene. Sin `--migrate`, el script solo apunta la API a Neon. El detalle y la salida están en
+[`mediciones/08-migracion-neon.md`](mediciones/08-migracion-neon.md).
 
 **Consecuencias**
 
@@ -1307,8 +1315,8 @@ flowchart LR
 
 `application.yml` trae los valores para correr en local, y todo lo que cambia según dónde corre llega por variables de
 entorno: la base (sección 9), si migra al arrancar (sección 3.6) y los números de la sección 6.6. No hay perfiles de
-Spring: una sola configuración, y las variables la pisan. Para apuntar a Neon en la fase 8, las variables de la base
-se llenan desde `.env`, que nunca se sube al repo.
+Spring: una sola configuración, y las variables la pisan. Para apuntar a Neon, `scripts/run-on-neon.sh` llena las variables de
+la base desde `.env`, que nunca se sube al repo.
 
 ### 11.5 La colección de Postman
 
@@ -1381,7 +1389,7 @@ siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celu
 | No se guarda cuándo cambió el estado de una orden | el PRD no lo muestra, y auditar pediría un historial | sección 3.3 |
 | La hora de una orden la pone la base al grabarla, con `clock_timestamp()` | un solo reloj, tomado dentro del turno del usuario. `now()` es la hora en que empezó la transacción | sección 3.4 |
 | Un solo índice nuevo para las consultas, por (usuario, fecha, id), además de los que crean las reglas de unicidad. Cambia la decisión 7 de A-7 | medido con 2 millones de órdenes: el filtro por estado nunca cuesta más que el portfolio del mismo usuario, y el índice de A-7 suma 95 MB y encarece las altas un 30 % | sección 3.5 |
-| Migraciones con Flyway; `database.sql` es la versión 1, y la copia local se arma igual que Neon: con los datos y sin historial | el camino que va a recorrer Neon es el que se prueba todos los días (probado con Flyway 12.4.0) | sección 3.6, ADR 0006 |
+| Migraciones con Flyway; `database.sql` es la versión 1, y la copia local se arma igual que Neon: con los datos y sin historial | el camino que recorrió Neon es el que se prueba todos los días (probado con Flyway 12.4.0) | sección 3.6, ADR 0006 |
 | Todas las migraciones pendientes en una sola transacción (`group`) | Neon recibiría todos los cambios o ninguno (probado en la copia local: sin `group`, una falla deja aplicadas las anteriores) | sección 3.6 |
 | La API migra sola solo cuando se le pide: en la copia local y en los tests; a Neon, a propósito, en la fase 8 | apuntar la API a Neon no lo migra por accidente | sección 3.6 |
 | La base trae las órdenes del usuario y `account` calcula todo en Java | el PPC depende del orden de las órdenes; partir el cálculo lo pondría en dos lugares | sección 4.1, ADR 0003 |

@@ -114,10 +114,12 @@ arquitectura hexagonal no aportaban. Las consultas importantes son SQL propio de
 
 Se trata como producción: mientras se desarrolló, solo se leyó. La API y los tests corren contra una copia local,
 armada con `database.sql` y nuestras migraciones: reglas que miran una fila, tres columnas nuevas en `orders` y un
-índice nuevo para las consultas. Si a la base de Cocos se le aplican esas migraciones se decide al final.
+índice nuevo para las consultas. Al final, con todo probado, se le aplicaron esas migraciones una sola vez, como un pase a
+producción: el enunciado permite ajustar la base si se justifica. Los datos no cambiaron.
 
 [Base de Neon](01-decisiones.md#base-de-neon-se-trata-como-producción) ·
-[RFC 3](03-rfc.md#3-modelo-de-datos-y-cambios-a-la-base) · [ADR 0006](adr/0006-migraciones-con-flyway.md)
+[RFC 3](03-rfc.md#3-modelo-de-datos-y-cambios-a-la-base) · [ADR 0006](adr/0006-migraciones-con-flyway.md) ·
+[el pase a Neon](mediciones/08-migracion-neon.md)
 
 ### 12. ¿Cómo se sabe que funciona y que aguanta?
 

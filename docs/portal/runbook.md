@@ -131,6 +131,22 @@ AssertionError  available cash is 627500
 
 La colección espera los datos originales, y la primera corrida ya los cambió. Se baja y se levanta todo.
 
+## Contra la base de Cocos (Neon)
+
+`docker compose` usa siempre la copia local. Para apuntar la API a Neon, con la dirección en `DATABASE_URL` dentro de
+`.env` (ver `.env.example`):
+
+```bash
+./scripts/run-on-neon.sh
+```
+
+Queda solo la API, en <http://localhost:8080>. **Cada orden que se le mande se graba en esa base,** así que la prueba de
+humo, la colección de Postman y la prueba de carga no son para ella: van contra la copia local.
+
+Las migraciones ya están aplicadas ([cómo se hizo](../mediciones/08-migracion-neon.md)). En una base nueva, el mismo script
+con `--migrate` las aplica antes de arrancar, después de pedir confirmación. Correrlo otra vez no hace nada: Flyway mira
+su historial y ve que no queda ninguna pendiente.
+
 ## Otras tareas
 
 | Tarea | Comando | Qué necesita |
@@ -139,3 +155,4 @@ La colección espera los datos originales, y la primera corrida ya los cambió. 
 | Recorrer la API con Postman | `./scripts/run-postman.sh` | todo levantado, con los datos originales, y `curl` y `jq` |
 | Medir el tiempo de respuesta | `./scripts/run-load-test.sh` | Docker con unos 4 GB libres, porque la base vive en memoria; levanta y baja todo solo |
 | Ver este portal en local | `./scripts/portal.sh` | Docker; queda en <http://localhost:8000> |
+| Apuntar la API a Neon | `./scripts/run-on-neon.sh` | Docker y `DATABASE_URL` en `.env` |

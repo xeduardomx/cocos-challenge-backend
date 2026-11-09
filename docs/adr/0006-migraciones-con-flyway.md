@@ -5,8 +5,8 @@
 ## Contexto
 
 - Neon ya tiene las tablas y los datos de `database.sql`, y no tiene historial de migraciones (revisado en solo
-  lectura). Se trata como producción: mientras se desarrolla, solo se lee, y si se le aplican los cambios se decide en
-  la fase 8.
+  lectura). Se trata como producción: mientras se desarrolla, solo se lee. En la fase 8 se le aplicaron los cambios, una sola
+  vez ([`mediciones/08-migracion-neon.md`](../mediciones/08-migracion-neon.md)).
 - La copia local y los tests tienen que recorrer el mismo camino que Neon, para que lo que se pruebe sea lo que va a
   pasar.
 - Una migración que falla no puede dejar a Neon a medio cambiar.
@@ -40,7 +40,7 @@ siempre hacia adelante.
 - `baseline-on-migrate`, con la versión 1 descrita como "database.sql de Cocos".
 - `group`: todas las migraciones pendientes van en una sola transacción.
 - Spring Boot prende Flyway por defecto; acá se apaga, y lo prenden el compose de la copia local y los tests. A Neon
-  se lo migra a propósito, una vez, en la fase 8.
+  se lo migró a propósito, una vez, en la fase 8.
 
 ## Consecuencias
 

@@ -237,7 +237,7 @@ METR con límite $10.000 reservarían $1.000.000, y con $627.500 disponibles que
 | R-2 | **Un reintento compra dos veces.** Se compran 100 PAMP ($92.585), la respuesta se pierde y la app reintenta: 200 PAMP y $185.170 gastados. | Cada orden trae un identificador obligatorio que pone el cliente, como el `ClOrdID` de FIX. Si se repite con el mismo contenido, se devuelve la orden original; con otro contenido, error. Es único por usuario. Para volver a intentar una orden rechazada, la app manda una orden nueva, con otro identificador. |
 | R-3 | **Redondeo.** | La cantidad por monto se corta para abajo (A-6). Plata y precios, con 2 decimales y decimales exactos; los cálculos se redondean solo al final (el modo, en el RFC). |
 | R-4 | **Rendimiento con costo cero.** | Imposible si la base exige precio > 0; con posición ≤ 0, rendimiento vacío (A-2). |
-| R-5 | **Neon es modificable** por cualquiera que tenga la URL. | Todo corre contra la copia local; Neon, solo lectura. Si se le aplican las migraciones se decide en la fase 8. |
+| R-5 | **Neon es modificable** por cualquiera que tenga la URL. | Todo corre contra la copia local; Neon, solo lectura. En la fase 8 se le aplicaron las migraciones, una sola vez. |
 
 ## 8. Supuestos
 
