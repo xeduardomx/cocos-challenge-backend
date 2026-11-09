@@ -1,7 +1,7 @@
 # Verificación final
 
 > Corrida del 2026-11-09 sobre un clon limpio del commit `3bca905`, en la misma computadora de la
-> [medición de tiempo de respuesta](06-tiempo-de-respuesta.md). Después de esa corrida solo cambiaron documentos. GitHub
+> [medición de tiempo de respuesta](06-tiempo-de-respuesta.md). Después de esa corrida solo cambiaron documentos y la forma de apuntar a Neon, que se probó aparte: `docker compose up`, la prueba de humo y Postman en la copia local, y `run-on-neon.sh` con lecturas. GitHub
 > Actions está bloqueado en esta cuenta (RFC, sección 11.2): estos son los pasos de `.github/workflows/ci.yml`, corridos en
 > local, más los ejemplos del README y la medición con volumen. Postgres usó el puerto 5434, porque el 5433 estaba
 > ocupado en esa máquina.

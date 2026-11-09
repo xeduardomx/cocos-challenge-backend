@@ -1075,7 +1075,7 @@ decisión y es la base del alcance del PRD.
 | Las páginas que existen solo en el portal van en `docs/portal/`, y sus diagramas y tablas se toman de su documento, sin copiarlos | Fase 7; RFC, sección 11.6 |
 | Los paneles del tablero que cuentan órdenes van en un solo color: el rojo por defecto de Grafana, desde 80, hacía parecer un problema a las órdenes ejecutadas | Fase 7; RFC, sección 8.3 |
 | Un texto de búsqueda que queda vacío al sacarle los acentos no encuentra nada: la lista viene vacía | Fase 8; RFC, sección 4.3 |
-| `scripts/run-on-neon.sh` levanta la API contra Neon. Con `--migrate` aplica antes las migraciones, por la conexión directa y pidiendo confirmación | Fase 8; RFC, sección 3.6 |
+| `scripts/run-on-neon.sh` levanta la API, Prometheus y Grafana contra Neon. Con `--migrate` aplica antes las migraciones, por la conexión directa y pidiendo confirmación | Fase 8; RFC, sección 3.6 |
 | El lado de un pedido solo puede ser `BUY` o `SELL`, desde su tipo: el error y Swagger ya no ofrecen `CASH_IN` ni `CASH_OUT`, que después se rechazaban | Fase 8; RFC, sección 6.2 |
 
 **Cambios al modelo de datos:** decididos en el RFC (sección 3) y aplicados con migraciones en la fase 5, solo en la

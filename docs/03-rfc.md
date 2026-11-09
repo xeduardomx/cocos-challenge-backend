@@ -1310,6 +1310,8 @@ flowchart LR
   `127.0.0.1`, porque ni la API ni Grafana piden autenticación (sección 9), y sus puertos se cambian con `API_PORT`,
   `POSTGRES_PORT`, `PROMETHEUS_PORT` y `GRAFANA_PORT` si ya están ocupados (precisado al implementar, fases 5 y 6).
 - **Solo la API y la base:** `docker compose up api` levanta la API con lo que necesita.
+- **Contra Neon:** `scripts/run-on-neon.sh` levanta los mismos servicios sin la base local, con la dirección de `.env`
+  (sección 3.6).
 
 ### 11.4 La configuración
 

@@ -140,8 +140,9 @@ La colección espera los datos originales, y la primera corrida ya los cambió. 
 ./scripts/run-on-neon.sh
 ```
 
-Queda solo la API, en <http://localhost:8080>. **Cada orden que se le mande se graba en esa base,** así que la prueba de
-humo, la colección de Postman y la prueba de carga no son para ella: van contra la copia local.
+Levanta la API, Prometheus y Grafana en las mismas direcciones, sin la base local. **Cada orden que se le mande se graba
+en esa base,** así que la colección de Postman y la prueba de carga no son para ella: van contra la copia local. La prueba
+de humo solo lee, y pasa mientras el usuario 1 conserve sus números originales.
 
 Las migraciones ya están aplicadas ([cómo se hizo](../mediciones/08-migracion-neon.md)). En una base nueva, el mismo script
 con `--migrate` las aplica antes de arrancar, después de pedir confirmación. Correrlo otra vez no hace nada: Flyway mira

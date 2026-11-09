@@ -10,11 +10,12 @@ los datos, cada decisión con su porqué, el diseño, los diagramas y las medici
 
 ## Levantarla
 
-Alcanza con Docker y `docker compose`:
+Alcanza con Docker y `docker compose`. Hay dos comandos: los dos levantan la API, Prometheus y Grafana, y cambia la base.
 
-```bash
-docker compose up --build
-```
+| Para qué | Comando | Base |
+|---|---|---|
+| Usar la base que mandó Cocos | `./scripts/run-on-neon.sh` | Neon. Antes, una sola vez: `cp .env.example .env`, y pegar su dirección en `DATABASE_URL` |
+| Hacer pruebas con datos descartables | `docker compose up --build` | una copia local, que cada vez arranca con los datos originales |
 
 La primera vez compila la API y tarda unos minutos. Después:
 
@@ -25,32 +26,24 @@ La primera vez compila la API y tarda unos minutos. Después:
 | Especificación OpenAPI | http://localhost:8080/v3/api-docs |
 | Tablero de Grafana, sin usuario ni clave | http://localhost:3000 |
 | Prometheus | http://localhost:9090 |
-| Postgres, con usuario y clave `postgres` | `localhost:5433` |
+| Postgres, solo con la copia local, con usuario y clave `postgres` | `localhost:5433` |
 
 Para bajar todo: `docker compose down`.
 
-- **Los datos:** la base se arma con `docs/00-fuentes/database.sql` y las migraciones de la API, y vive en memoria. Cada
-  `docker compose up` arranca con los datos originales. `docker compose` nunca usa la base de Neon.
+- **Neon:** ya tiene aplicadas las migraciones, y sus datos no cambiaron
+  ([cómo se hizo](docs/mediciones/08-migracion-neon.md)). Cada orden que se le mande se graba ahí, así que la colección de
+  Postman y la prueba de carga van contra la copia local.
+- **La copia local:** se arma con `docs/00-fuentes/database.sql` y las migraciones de la API, y vive en memoria. Cada
+  `docker compose up` arranca con los datos originales, y nunca usa la base de Neon.
 - **Los puertos** se abren solo en tu máquina (`127.0.0.1`). Si alguno está ocupado, se mueve con una variable:
   `POSTGRES_PORT=5434 API_PORT=8081 docker compose up --build`. También `PROMETHEUS_PORT` y `GRAFANA_PORT`. Con otro
   puerto, los scripts lo reciben en `API_URL`, `PROMETHEUS_URL` y `GRAFANA_URL`.
 - **Si algo falla,** el [runbook](docs/portal/runbook.md) dice qué mirar y qué hacer.
 
-## Contra la base de Cocos (Neon)
-
-Con la dirección en `DATABASE_URL`, dentro de `.env` (ver `.env.example`), la API corre contra la base que mandó Cocos:
-
-```bash
-./scripts/run-on-neon.sh
-```
-
-Esa base ya tiene aplicadas las migraciones, y sus datos no cambiaron
-([cómo se hizo](docs/mediciones/08-migracion-neon.md)). Cada orden que se le mande se graba ahí, así que las pruebas de esta
-página van contra la copia local.
-
 ## Probarla
 
-Los ejemplos usan `curl` y `jq`, sobre los datos originales. El usuario 1 es el que tiene movimientos.
+Los ejemplos usan `curl` y `jq`, sobre los datos originales, y la orden se graba en la base que estés usando. El usuario 1
+es el que tiene movimientos.
 
 **El portfolio.** Tiene $753.000, pero $125.500 están reservados por dos compras pendientes: puede operar con $627.500.
 
