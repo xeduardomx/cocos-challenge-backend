@@ -2031,6 +2031,11 @@ con un 200, sin volver a evaluarla. Si ese identificador llega con otro contenid
 <p>Para que cada dato viva en un solo lugar: una tabla de posiciones sería una copia que puede diferir de las órdenes, y
 las reservas y el precio promedio igual salen de ellas. La duda era si calcular es lento, y se midió: con un índice, 1,2
 ms en la base para un usuario de 10.000 órdenes, con 2 millones en la tabla.</p>
+<p>Antes de entregar se volvió a evaluar la tabla por otra razón: el cálculo necesita todo el historial, y si algún día se
+borraran órdenes viejas daría mal. Se decidió mantenerlo, porque el enunciado indica <em>"utilizar todos los movimientos
+pertinentes que hay en la tabla <code>orders</code>, utilizando la columna <code>size</code>"</em>, y porque una tabla no vería lo que no pasa por
+la API, como un depósito o una orden límite que ejecute otro sistema. Antes de borrar historial, primero se guarda una
+foto de la cuenta.</p>
 <p><a href="01-decisiones/#a-4--las-posiciones-se-calculan-desde-orders-no-se-guardan">A-4</a> ·
 <a href="adr/0003-posiciones-calculadas/">ADR 0003</a> · <a href="03-rfc/#35-índices">RFC 3.5</a></p>
 <h3 id="4-cuánta-plata-puede-usar-un-usuario">4. ¿Cuánta plata puede usar un usuario?<a class="headerlink" href="#4-cuánta-plata-puede-usar-un-usuario" title="Permanent link">&para;</a></h3>

@@ -1298,6 +1298,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#hay-que-borrar-o-archivar-órdenes-viejas" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Hay que borrar o archivar órdenes viejas
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1830,6 +1841,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#hay-que-borrar-o-archivar-órdenes-viejas" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Hay que borrar o archivar órdenes viejas
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2047,6 +2069,10 @@ función aparecen desde el segundo, con al menos 15 segundos entre los dos, porq
                 expected 618241.5 to deeply equal 627500
 </code></pre></div>
 <p>La colección espera los datos originales, y la primera corrida ya los cambió. Se baja y se levanta todo.</p>
+<h3 id="hay-que-borrar-o-archivar-órdenes-viejas">Hay que borrar o archivar órdenes viejas<a class="headerlink" href="#hay-que-borrar-o-archivar-órdenes-viejas" title="Permanent link">&para;</a></h3>
+<p>No se hace sin un paso previo. Los pesos, las posiciones y el precio promedio se calculan desde la primera orden de cada
+usuario: sin esas filas darían mal, y sin ningún error. Antes hay que construir la foto a una fecha del
+<a href="../../adr/0003-posiciones-calculadas/">ADR 0003</a>, que hoy no existe.</p>
 <h2 id="contra-la-base-de-cocos-neon">Contra la base de Cocos (Neon)<a class="headerlink" href="#contra-la-base-de-cocos-neon" title="Permanent link">&para;</a></h2>
 <p><code>docker compose</code> usa siempre la copia local. Para apuntar la API a Neon, con la dirección en <code>DATABASE_URL</code> dentro de
 <code>.env</code> (ver <code>.env.example</code>):</p>

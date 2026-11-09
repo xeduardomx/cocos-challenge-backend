@@ -972,6 +972,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#revisión-fase-8-2026-11-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Revisión (fase 8, 2026-11-09)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1671,6 +1682,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#revisión-fase-8-2026-11-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Revisión (fase 8, 2026-11-09)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1796,7 +1818,7 @@
 
 <h1 id="adr-0003--las-posiciones-se-calculan-desde-orders-sin-tabla-de-posiciones">ADR 0003 — Las posiciones se calculan desde <code>orders</code>, sin tabla de posiciones<a class="headerlink" href="#adr-0003--las-posiciones-se-calculan-desde-orders-sin-tabla-de-posiciones" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p>Estado: <strong>aceptada</strong> · 2026-11-07 · Viene de A-4 (<code>01-decisiones.md</code>) y se aplica en el
+<p>Estado: <strong>aceptada</strong> · 2026-11-07, revisada el 2026-11-09 · Viene de A-4 (<code>01-decisiones.md</code>) y se aplica en el
 <a href="../../03-rfc/#41-la-cuenta-del-usuario-la-base-trae-las-órdenes-y-java-calcula">RFC, secciones 3.5 y 4.1</a></p>
 </blockquote>
 <h2 id="contexto">Contexto<a class="headerlink" href="#contexto" title="Permanent link">&para;</a></h2>
@@ -1841,10 +1863,34 @@ usan el portfolio y el envío (ADR 0001).</p>
 <li>Sin tabla de posiciones, no aparece el problema de "cantidad ≥ 0" con BMA: queda coherente con D-1.</li>
 <li>El usuario extremo, con un millón de órdenes, queda fuera del objetivo de tiempo de la sección 8.4: es el límite
   documentado de esta decisión.</li>
+<li><strong>El cálculo necesita todo el historial de órdenes</strong> (ver "Revisión", abajo).</li>
 <li><strong>Cuándo revisarla:</strong> si el portfolio de los usuarios del objetivo (hasta 10.000 órdenes) superara los 100 ms de la
-  sección 8.4. El paso siguiente sería D, la foto a una fecha. Con eso, las pendientes pasarían a ser la consulta más
-  lenta, y ahí entra el índice parcial que ya está medido (sección 3.5).</li>
+  sección 8.4, o si se decidiera borrar o archivar órdenes viejas. El paso siguiente sería D, la foto a una fecha. Con
+  eso, las pendientes pasarían a ser la consulta más lenta, y ahí entra el índice parcial que ya está medido (sección
+  3.5).</li>
 </ul>
+<h2 id="revisión-fase-8-2026-11-09">Revisión (fase 8, 2026-11-09)<a class="headerlink" href="#revisión-fase-8-2026-11-09" title="Permanent link">&para;</a></h2>
+<p>Antes de entregar, el autor volvió a evaluar la opción B por una razón que no se había mirado: <strong>el cálculo necesita
+todo el historial.</strong> Si dentro de unos años se borraran las órdenes más viejas de un usuario, los números darían mal y
+sin ningún error. Por ejemplo, sin las órdenes 1 a 4, el usuario 1 pasaría de $753.000 a −$209.900 en pesos y PAMP
+desaparecería. Una tabla con la posición vigente no dependería de ese historial.</p>
+<p><strong>Se mantiene A.</strong> La tabla sería válida, pero se descartó por esto:</p>
+<ol>
+<li><strong>El enunciado indica calcular desde las órdenes.</strong> <em>"Para hacer el calculo de la tenencia y pesos disponibles
+   utilizar todos los movimientos pertinentes que hay en la tabla <code>orders</code>, utilizando la columna <code>size</code>"</em>, y <em>"Para
+   calcular el valor de mercado, rendimiento y cantidad de acciones de cada posición usar las ordenes en estado
+   <code>FILLED</code> de cada activo"</em>. Lo de "actualizar el listado" ya se cumple: una orden ejecutada cuenta en el siguiente
+   portfolio (POR-8).</li>
+<li><strong>Una tabla no vería lo que no pasa por la API.</strong> La API no crea depósitos ni ejecuta órdenes límite (A-7, D-7): eso
+   lo hace otro sistema. Hoy, un <code>CASH_IN</code> nuevo o una límite que pasa a <code>FILLED</code> cuentan en el siguiente pedido. Con la
+   tabla no contarían, salvo que cada sistema la actualice o que un trigger lleve a la base el cálculo del PPC, que el
+   RFC deja en Java (sección 4.1).</li>
+<li><strong>Con las cantidades no alcanza.</strong> Para no depender del historial, también tendría que guardar el PPC y los pesos.</li>
+<li><strong>Borrar historial se planifica, y la opción D lo resuelve.</strong> Antes de borrar se guarda la foto: cantidad, PPC y
+   pesos a una fecha; después se suman solo las órdenes posteriores. Se escribe una sola vez y lo nuevo se sigue leyendo
+   de <code>orders</code>, así que el punto 2 no aparece.</li>
+</ol>
+<p>Hoy la API no borra órdenes, así que la foto no se construye: queda como paso obligatorio antes de borrar o archivar.</p>
 
 
 

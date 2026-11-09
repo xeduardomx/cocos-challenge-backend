@@ -3057,14 +3057,20 @@ miles de órdenes. Queda documentada como evolución posible, sin hacerla.
  exactas (por ejemplo, usuario + fecha) se definen ahí.
   4. <strong>Sin tabla de posiciones no aparece el problema de "cantidad ≥ 0"</strong> con BMA −10: queda coherente con D-1.
   5. <strong>La foto a una fecha queda como evolución posible.</strong> Se usaría si el portfolio supera el tiempo de respuesta
- objetivo que fije el RFC.
+ objetivo que fije el RFC, o antes de borrar órdenes viejas (decisión 9).
   6. <strong>La concurrencia de D-1 no cambia:</strong> las órdenes de un mismo usuario se procesan de a una. El mecanismo se
  elige en el RFC. <strong>Elegido en el RFC (sección 5.2, ADR 0004):</strong> un lock sobre la fila del usuario.
   7. <strong>Test funcional:</strong> el usuario 1 compra 10 PAMP a mercado ($925,85, o sea $9.258,50). El siguiente portfolio
  muestra 50 PAMP, PPC $929,17 ((40 × $930 + 10 × $925,85) ÷ 50) y pesos disponibles por $618.241,50. El valor
  total sigue en $889.756: comprar a precio de mercado no cambia el total, solo pasa plata de pesos a acciones.
   8. <strong>Esta decisión es candidata a ADR en la fase 3</strong> ("posiciones calculadas, no guardadas"), con la medición
- formal. <strong>Hecho:</strong> ADR 0003; la medición del RFC (sección 3.5) dio 1,2 ms para un usuario de 10.000 órdenes.</p>
+ formal. <strong>Hecho:</strong> ADR 0003; la medición del RFC (sección 3.5) dio 1,2 ms para un usuario de 10.000 órdenes.
+  9. <strong>Revisada en la fase 8 (2026-11-09): se mantiene.</strong> El autor volvió a evaluar la tabla de posiciones por una razón
+ que no se había mirado: el cálculo necesita todo el historial, y si se borraran órdenes viejas daría mal sin
+ avisar. Se descartó otra vez, porque el enunciado indica <em>"utilizar todos los movimientos pertinentes que hay en
+ la tabla <code>orders</code>, utilizando la columna <code>size</code>"</em>, y porque una tabla no vería lo que no pasa por la API. Antes de
+ borrar órdenes hay que guardar la foto a una fecha. El detalle está en el
+ <a href="../adr/0003-posiciones-calculadas/">ADR 0003</a>.</p>
 </li>
 </ul>
 <h3 id="a-5--qué-significa-similar-en-la-búsqueda">A-5 · Qué significa "similar" en la búsqueda<a class="headerlink" href="#a-5--qué-significa-similar-en-la-búsqueda" title="Permanent link">&para;</a></h3>
@@ -4290,13 +4296,13 @@ copia local. A Neon se le aplicaron en la fase 8, una sola vez (ADR 0006).</p>
 </tr>
 <tr>
 <td>Tabla de posiciones</td>
-<td>con un índice alcanza (medido)</td>
-<td>A-4</td>
+<td>con un índice alcanza (medido) y el enunciado indica calcular desde <code>orders</code>; se volvió a evaluar en la fase 8, por el riesgo de perder historial, y se descartó</td>
+<td>A-4, ADR 0003</td>
 </tr>
 <tr>
 <td>Foto del portfolio a una fecha</td>
-<td>evolución posible, si el portfolio supera el tiempo objetivo del RFC</td>
-<td>A-4</td>
+<td>evolución posible, si el portfolio supera el tiempo objetivo del RFC; paso obligatorio antes de borrar órdenes viejas</td>
+<td>A-4, ADR 0003</td>
 </tr>
 <tr>
 <td>Tolerancia a errores de tipeo en la búsqueda</td>

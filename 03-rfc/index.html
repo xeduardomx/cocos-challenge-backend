@@ -3618,6 +3618,10 @@ contra una base. El ADR 0001 ya puso los cálculos en Java puro.</p>
 <p><strong>El límite.</strong> Java recibe todas las órdenes ejecutadas y pendientes del usuario: 8.597 en el pesado, unas 850.000 en
 el extremo, que es el límite ya documentado en A-4 (<a href="../adr/0003-posiciones-calculadas/">ADR 0003</a>). El tiempo de punta a punta se mide en la fase 6, contra el
 objetivo de la sección 8.</p>
+<p><strong>Necesita todo el historial.</strong> El cálculo parte de la primera orden del usuario: si se borraran o archivaran órdenes
+viejas, los pesos y las posiciones darían mal, sin ningún error. Hoy la API no borra órdenes. Antes de hacerlo habría
+que guardar una foto a una fecha. También se volvió a evaluar una tabla de posiciones, y el
+<a href="../adr/0003-posiciones-calculadas/">ADR 0003</a> explica por qué se descartó.</p>
 <h3 id="42-el-último-precio-acción-por-acción">4.2 El último precio, acción por acción<a class="headerlink" href="#42-el-último-precio-acción-por-acción" title="Permanent link">&para;</a></h3>
 <div class="language-sql highlight"><pre><span></span><code><span class="k">select</span><span class="w"> </span><span class="n">i</span><span class="p">.</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="k">close</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">previousclose</span>
 <span class="k">from</span><span class="w"> </span><span class="k">unnest</span><span class="p">(:</span><span class="n">instrumentIds</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">i</span><span class="p">(</span><span class="n">id</span><span class="p">)</span>
