@@ -356,6 +356,8 @@ enseguida qué pasó con su orden. Estos casos son la base del test funcional qu
   ampliar las columnas de precios (D-4).
 - **Transferencias sin centavos:** la base guarda los montos de los depósitos y retiros como enteros. No afecta, porque
   la API no crea transferencias (D-9).
+- **El portfolio depende de conservar las órdenes:** se calcula desde la primera orden del usuario. Si algún día se
+  borran o archivan las viejas, antes hay que guardar una foto de la cuenta, o los números darían mal (A-4).
 
 ## 6. Lo que queda para el RFC
 

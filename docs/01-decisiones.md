@@ -505,7 +505,7 @@ Cerrada en D-1: la posición de BMA (−10) se muestra tal cual, con rendimiento
      exactas (por ejemplo, usuario + fecha) se definen ahí.
   4. **Sin tabla de posiciones no aparece el problema de "cantidad ≥ 0"** con BMA −10: queda coherente con D-1.
   5. **La foto a una fecha queda como evolución posible.** Se usaría si el portfolio supera el tiempo de respuesta
-     objetivo que fije el RFC.
+     objetivo que fije el RFC, o antes de borrar órdenes viejas (decisión 9).
   6. **La concurrencia de D-1 no cambia:** las órdenes de un mismo usuario se procesan de a una. El mecanismo se
      elige en el RFC. **Elegido en el RFC (sección 5.2, ADR 0004):** un lock sobre la fila del usuario.
   7. **Test funcional:** el usuario 1 compra 10 PAMP a mercado ($925,85, o sea $9.258,50). El siguiente portfolio
@@ -513,6 +513,12 @@ Cerrada en D-1: la posición de BMA (−10) se muestra tal cual, con rendimiento
      total sigue en $889.756: comprar a precio de mercado no cambia el total, solo pasa plata de pesos a acciones.
   8. **Esta decisión es candidata a ADR en la fase 3** ("posiciones calculadas, no guardadas"), con la medición
      formal. **Hecho:** ADR 0003; la medición del RFC (sección 3.5) dio 1,2 ms para un usuario de 10.000 órdenes.
+  9. **Revisada en la fase 8 (2026-11-09): se mantiene.** El autor volvió a evaluar la tabla de posiciones por una razón
+     que no se había mirado: el cálculo necesita todo el historial, y si se borraran órdenes viejas daría mal sin
+     avisar. Se descartó otra vez, porque el enunciado indica *"utilizar todos los movimientos pertinentes que hay en
+     la tabla `orders`, utilizando la columna `size`"*, y porque una tabla no vería lo que no pasa por la API. Antes de
+     borrar órdenes hay que guardar la foto a una fecha. El detalle está en el
+     [ADR 0003](adr/0003-posiciones-calculadas.md).
 
 ### A-5 · Qué significa "similar" en la búsqueda
 
@@ -1095,8 +1101,8 @@ copia local. A Neon se le aplicaron en la fase 8, una sola vez (ADR 0006).
 | Qué | Por qué | Dónde |
 |---|---|---|
 | Corregir datos heredados (orden 11, precio de la orden 10, `previousClose` de BBAR) | no le corresponde al desarrollador; se documentan | D-1, D-4, D-6 |
-| Tabla de posiciones | con un índice alcanza (medido) | A-4 |
-| Foto del portfolio a una fecha | evolución posible, si el portfolio supera el tiempo objetivo del RFC | A-4 |
+| Tabla de posiciones | con un índice alcanza (medido) y el enunciado indica calcular desde `orders`; se volvió a evaluar en la fase 8, por el riesgo de perder historial, y se descartó | A-4, ADR 0003 |
+| Foto del portfolio a una fecha | evolución posible, si el portfolio supera el tiempo objetivo del RFC; paso obligatorio antes de borrar órdenes viejas | A-4, ADR 0003 |
 | Tolerancia a errores de tipeo en la búsqueda | habría que inventar el umbral; mejora posible como "¿quisiste decir…?" | A-5 |
 | Bandas de precio como las de BYMA | el porcentaje no se pudo verificar y sería simular el mercado | A-6, parte 2 |
 | Ejecutar una LIMIT que cruza el precio | contradice el enunciado | A-6, parte 2 |

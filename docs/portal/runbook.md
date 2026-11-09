@@ -131,6 +131,12 @@ AssertionError  available cash is 627500
 
 La colección espera los datos originales, y la primera corrida ya los cambió. Se baja y se levanta todo.
 
+### Hay que borrar o archivar órdenes viejas
+
+No se hace sin un paso previo. Los pesos, las posiciones y el precio promedio se calculan desde la primera orden de cada
+usuario: sin esas filas darían mal, y sin ningún error. Antes hay que construir la foto a una fecha del
+[ADR 0003](../adr/0003-posiciones-calculadas.md), que hoy no existe.
+
 ## Contra la base de Cocos (Neon)
 
 `docker compose` usa siempre la copia local. Para apuntar la API a Neon, con la dirección en `DATABASE_URL` dentro de

@@ -52,6 +52,12 @@ Para que cada dato viva en un solo lugar: una tabla de posiciones sería una cop
 las reservas y el precio promedio igual salen de ellas. La duda era si calcular es lento, y se midió: con un índice, 1,2
 ms en la base para un usuario de 10.000 órdenes, con 2 millones en la tabla.
 
+Antes de entregar se volvió a evaluar la tabla por otra razón: el cálculo necesita todo el historial, y si algún día se
+borraran órdenes viejas daría mal. Se decidió mantenerlo, porque el enunciado indica *"utilizar todos los movimientos
+pertinentes que hay en la tabla `orders`, utilizando la columna `size`"*, y porque una tabla no vería lo que no pasa por
+la API, como un depósito o una orden límite que ejecute otro sistema. Antes de borrar historial, primero se guarda una
+foto de la cuenta.
+
 [A-4](01-decisiones.md#a-4--las-posiciones-se-calculan-desde-orders-no-se-guardan) ·
 [ADR 0003](adr/0003-posiciones-calculadas.md) · [RFC 3.5](03-rfc.md#35-índices)
 

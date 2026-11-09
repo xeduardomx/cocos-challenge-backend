@@ -530,6 +530,11 @@ contra una base. El ADR 0001 ya puso los cálculos en Java puro.
 el extremo, que es el límite ya documentado en A-4 ([ADR 0003](adr/0003-posiciones-calculadas.md)). El tiempo de punta a punta se mide en la fase 6, contra el
 objetivo de la sección 8.
 
+**Necesita todo el historial.** El cálculo parte de la primera orden del usuario: si se borraran o archivaran órdenes
+viejas, los pesos y las posiciones darían mal, sin ningún error. Hoy la API no borra órdenes. Antes de hacerlo habría
+que guardar una foto a una fecha. También se volvió a evaluar una tabla de posiciones, y el
+[ADR 0003](adr/0003-posiciones-calculadas.md) explica por qué se descartó.
+
 ### 4.2 El último precio, acción por acción
 
 ```sql
