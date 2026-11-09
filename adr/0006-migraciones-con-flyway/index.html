@@ -1299,6 +1299,8 @@
       
         
       
+        
+      
     
     
     
@@ -1502,6 +1504,33 @@
     
   
   Verificación final
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/08-migracion-neon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  El pase a Neon
 
     
   </span>
@@ -1772,8 +1801,8 @@
 <h2 id="contexto">Contexto<a class="headerlink" href="#contexto" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Neon ya tiene las tablas y los datos de <code>database.sql</code>, y no tiene historial de migraciones (revisado en solo
-  lectura). Se trata como producción: mientras se desarrolla, solo se lee, y si se le aplican los cambios se decide en
-  la fase 8.</li>
+  lectura). Se trata como producción: mientras se desarrolla, solo se lee. En la fase 8 se le aplicaron los cambios, una sola
+  vez (<a href="../../mediciones/08-migracion-neon/"><code>mediciones/08-migracion-neon.md</code></a>).</li>
 <li>La copia local y los tests tienen que recorrer el mismo camino que Neon, para que lo que se pruebe sea lo que va a
   pasar.</li>
 <li>Una migración que falla no puede dejar a Neon a medio cambiar.</li>
@@ -1803,7 +1832,7 @@ siempre hacia adelante.</p>
 <li><code>baseline-on-migrate</code>, con la versión 1 descrita como "database.sql de Cocos".</li>
 <li><code>group</code>: todas las migraciones pendientes van en una sola transacción.</li>
 <li>Spring Boot prende Flyway por defecto; acá se apaga, y lo prenden el compose de la copia local y los tests. A Neon
-  se lo migra a propósito, una vez, en la fase 8.</li>
+  se lo migró a propósito, una vez, en la fase 8.</li>
 </ul>
 <h2 id="consecuencias">Consecuencias<a class="headerlink" href="#consecuencias" title="Permanent link">&para;</a></h2>
 <ul>

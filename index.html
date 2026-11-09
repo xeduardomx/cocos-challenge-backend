@@ -1414,6 +1414,8 @@
       
         
       
+        
+      
     
     
     
@@ -1617,6 +1619,33 @@
     
   
   Verificación final
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./mediciones/08-migracion-neon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  El pase a Neon
 
     
   </span>
@@ -2041,9 +2070,11 @@ arquitectura hexagonal no aportaban. Las consultas importantes son SQL propio de
 <h3 id="11-se-tocó-la-base-de-cocos">11. ¿Se tocó la base de Cocos?<a class="headerlink" href="#11-se-tocó-la-base-de-cocos" title="Permanent link">&para;</a></h3>
 <p>Se trata como producción: mientras se desarrolló, solo se leyó. La API y los tests corren contra una copia local,
 armada con <code>database.sql</code> y nuestras migraciones: reglas que miran una fila, tres columnas nuevas en <code>orders</code> y un
-índice nuevo para las consultas. Si a la base de Cocos se le aplican esas migraciones se decide al final.</p>
+índice nuevo para las consultas. Al final, con todo probado, se le aplicaron esas migraciones una sola vez, como un pase a
+producción: el enunciado permite ajustar la base si se justifica. Los datos no cambiaron.</p>
 <p><a href="01-decisiones/#base-de-neon-se-trata-como-producción">Base de Neon</a> ·
-<a href="03-rfc/#3-modelo-de-datos-y-cambios-a-la-base">RFC 3</a> · <a href="adr/0006-migraciones-con-flyway/">ADR 0006</a></p>
+<a href="03-rfc/#3-modelo-de-datos-y-cambios-a-la-base">RFC 3</a> · <a href="adr/0006-migraciones-con-flyway/">ADR 0006</a> ·
+<a href="mediciones/08-migracion-neon/">el pase a Neon</a></p>
 <h3 id="12-cómo-se-sabe-que-funciona-y-que-aguanta">12. ¿Cómo se sabe que funciona y que aguanta?<a class="headerlink" href="#12-cómo-se-sabe-que-funciona-y-que-aguanta" title="Permanent link">&para;</a></h3>
 <p>Tests en tres niveles, con los casos del PRD: los cálculos en Java puro, y las consultas y las funciones de punta a punta
 contra un Postgres real. Los 20 casos del envío son el test funcional que pide el enunciado, y el build falla si la

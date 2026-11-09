@@ -1304,6 +1304,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#contra-la-base-de-cocos-neon" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Contra la base de Cocos (Neon)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#otras-tareas" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1361,6 +1372,8 @@
       
         
           
+        
+      
         
       
         
@@ -1602,6 +1615,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../mediciones/08-migracion-neon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  El pase a Neon
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../mediciones/10-resultados/" class="md-nav__link">
         
   
@@ -1792,6 +1832,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contra-la-base-de-cocos-neon" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Contra la base de Cocos (Neon)
+      </span>
+    </span>
+  </a>
   
 </li>
       
@@ -1996,6 +2047,16 @@ función aparecen desde el segundo, con al menos 15 segundos entre los dos, porq
                 expected 618241.5 to deeply equal 627500
 </code></pre></div>
 <p>La colección espera los datos originales, y la primera corrida ya los cambió. Se baja y se levanta todo.</p>
+<h2 id="contra-la-base-de-cocos-neon">Contra la base de Cocos (Neon)<a class="headerlink" href="#contra-la-base-de-cocos-neon" title="Permanent link">&para;</a></h2>
+<p><code>docker compose</code> usa siempre la copia local. Para apuntar la API a Neon, con la dirección en <code>DATABASE_URL</code> dentro de
+<code>.env</code> (ver <code>.env.example</code>):</p>
+<div class="language-bash highlight"><pre><span></span><code>./scripts/run-on-neon.sh
+</code></pre></div>
+<p>Queda solo la API, en <a href="http://localhost:8080">http://localhost:8080</a>. <strong>Cada orden que se le mande se graba en esa base,</strong> así que la prueba de
+humo, la colección de Postman y la prueba de carga no son para ella: van contra la copia local.</p>
+<p>Las migraciones ya están aplicadas (<a href="../../mediciones/08-migracion-neon/">cómo se hizo</a>). En una base nueva, el mismo script
+con <code>--migrate</code> las aplica antes de arrancar, después de pedir confirmación. Correrlo otra vez no hace nada: Flyway mira
+su historial y ve que no queda ninguna pendiente.</p>
 <h2 id="otras-tareas">Otras tareas<a class="headerlink" href="#otras-tareas" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2025,6 +2086,11 @@ función aparecen desde el segundo, con al menos 15 segundos entre los dos, porq
 <td>Ver este portal en local</td>
 <td><code>./scripts/portal.sh</code></td>
 <td>Docker; queda en <a href="http://localhost:8000">http://localhost:8000</a></td>
+</tr>
+<tr>
+<td>Apuntar la API a Neon</td>
+<td><code>./scripts/run-on-neon.sh</code></td>
+<td>Docker y <code>DATABASE_URL</code> en <code>.env</code></td>
 </tr>
 </tbody>
 </table>

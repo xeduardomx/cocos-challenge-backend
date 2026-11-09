@@ -17,7 +17,7 @@
         <link rel="prev" href="../06-tiempo-de-respuesta/">
       
       
-        <link rel="next" href="../10-resultados/">
+        <link rel="next" href="../08-migracion-neon/">
       
       
         
@@ -1205,6 +1205,8 @@
       
         
       
+        
+      
     
     
     
@@ -1440,6 +1442,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../08-migracion-neon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  El pase a Neon
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../10-resultados/" class="md-nav__link">
         
   
@@ -1596,6 +1625,8 @@
       
         
       
+        
+      
     
     
     
@@ -1629,7 +1660,7 @@
 
 <h1 id="verificación-final">Verificación final<a class="headerlink" href="#verificación-final" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p>Corrida del 2026-11-08 sobre un clon limpio del commit <code>473c95f</code>, en la misma computadora de la
+<p>Corrida del 2026-11-09 sobre un clon limpio del commit <code>3bca905</code>, en la misma computadora de la
 <a href="../06-tiempo-de-respuesta/">medición de tiempo de respuesta</a>. Después de esa corrida solo cambiaron documentos. GitHub
 Actions está bloqueado en esta cuenta (RFC, sección 11.2): estos son los pasos de <code>.github/workflows/ci.yml</code>, corridos en
 local, más los ejemplos del README y la medición con volumen. Postgres usó el puerto 5434, porque el 5433 estaba
@@ -1647,7 +1678,7 @@ ocupado en esa máquina.</p>
 <tr>
 <td>Formato, análisis estático, tests y cobertura</td>
 <td><code>./mvnw -B verify</code>, con Temurin 25 en Docker</td>
-<td>371 tests, sin fallas. Cobertura: 99,1 % de las líneas y 95,5 % de las ramas (el piso es 85 % y 80 %)</td>
+<td>372 tests, sin fallas. Cobertura: 99,1 % de las líneas y 95,4 % de las ramas (el piso es 85 % y 80 %)</td>
 </tr>
 <tr>
 <td>Levantar todo</td>
@@ -1672,12 +1703,12 @@ ocupado en esa máquina.</p>
 <tr>
 <td>Tiempo de respuesta con 2 millones de órdenes</td>
 <td><code>./scripts/run-load-test.sh</code></td>
-<td>código 0, con todos los umbrales cumplidos. El peor percentil 95 es el envío del usuario pesado: 59,68 ms</td>
+<td>código 0, con todos los umbrales cumplidos. El peor percentil 95 es el envío del usuario pesado: 57,13 ms</td>
 </tr>
 </tbody>
 </table>
 <div class="language-text highlight"><pre><span></span><code>== ./mvnw -B verify
-Tests run: 371, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 372, Failures: 0, Errors: 0, Skipped: 0
 All coverage checks have been met.
 BUILD SUCCESS
 
@@ -1704,8 +1735,9 @@ assertions 19, failed 0
 exit: 0
 </code></pre></div>
 <p><strong>La memoria de la medición con volumen.</strong> La base vive en memoria, así que esta corrida es la que más usa. Medido con
-<code>docker stats</code> cada pocos segundos, el pico de los contenedores juntos fue de 3,98 GiB: Postgres 1,73, la API 1,38, Grafana
-0,83 y Prometheus 0,03. Por eso el README pide unos 4 GB libres.</p>
+<code>docker stats</code> cada pocos segundos, el pico de los contenedores juntos fue de 3,28 GiB: Postgres 1,73, Grafana 0,84, la API
+0,65, y k6 y Prometheus 0,03 cada uno. En la corrida anterior fue de 3,98 GiB, porque la API llegó a 1,38. Por eso el README
+pide unos 4 GB libres.</p>
 
 
 
@@ -1760,13 +1792,13 @@ exit: 0
         
         
           
-          <a href="../10-resultados/" class="md-footer__link md-footer__link--next" aria-label="Siguiente: Resultados de la prueba de la sección 10 del RFC">
+          <a href="../08-migracion-neon/" class="md-footer__link md-footer__link--next" aria-label="Siguiente: El pase a Neon">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Siguiente
               </span>
               <div class="md-ellipsis">
-                Resultados de la prueba de la sección 10 del RFC
+                El pase a Neon
               </div>
             </div>
             <div class="md-footer__button md-icon">

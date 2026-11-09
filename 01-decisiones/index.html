@@ -1692,6 +1692,8 @@
       
         
       
+        
+      
     
     
     
@@ -1895,6 +1897,33 @@
     
   
   Verificación final
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/08-migracion-neon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  El pase a Neon
 
     
   </span>
@@ -2613,6 +2642,10 @@ tipos, cada uno con su porqué:</p>
   evalúa aplicarle las mismas migraciones una vez, como un pase a producción. <strong>Cómo, decidido en el RFC (sección
   3.6, ADR 0006):</strong> con Flyway, que anota a <code>database.sql</code> como versión 1 y aplica todos los cambios en una sola
   transacción; la API no migra sola salvo que se le pida.</li>
+<li><strong>Decidido en la fase 8 (2026-11-09): se le aplicaron las migraciones.</strong> El enunciado da libertad para <em>"modificar,
+  agregar o ajustar tablas"</em> si se justifica, y <em>"la base de datos provista"</em> es esta. La base de cada candidato es propia.
+  Antes se confirmó que seguía idéntica a <code>database.sql</code> y se guardó un respaldo; los datos no cambiaron
+  (<a href="../mediciones/08-migracion-neon/"><code>mediciones/08-migracion-neon.md</code></a>).</li>
 <li><strong>Por qué:</strong></li>
 <li>El mail pide que <em>"el proyecto tiene que poder ser ejecutado localmente"</em>.</li>
 <li>Los tests graban órdenes. Contra Neon, cada corrida cambiaría la plata y las posiciones del usuario 1, y los
@@ -3100,7 +3133,7 @@ miles de órdenes. Queda documentada como evolución posible, sin hacerla.
 <li><strong>Qué devuelve:</strong> id, ticker, nombre, último precio y variación diaria. El id hace falta para mandar una orden;
       el precio es lo que muestra una pantalla de búsqueda. Precio y variación quedan vacíos para PGR e IRCP (D-2).</li>
 <li><strong>Para el bloque del esquema:</strong> extensión <code>unaccent</code> (disponible en Neon, no instalada). En la copia local se
-      instala con una migración; en Neon, se decide en la fase 8. Con 65 activos la búsqueda no necesita índice; se
+      instala con una migración; en Neon, se instaló en la fase 8. Con 65 activos la búsqueda no necesita índice; se
       evalúa ahí midiendo con volumen, como en A-4.</li>
 <li><strong>Tests:</strong> "rio" incluye MOLI; "grupo galicia" devuelve GGAL; "pa" devuelve PAMP primero; "pesos" no devuelve
       nada; "_" no devuelve nada; un texto vacío da 400.</li>
@@ -4194,10 +4227,18 @@ decisión y es la base del alcance del PRD.</p>
 <td>Un texto de búsqueda que queda vacío al sacarle los acentos no encuentra nada: la lista viene vacía</td>
 <td>Fase 8; RFC, sección 4.3</td>
 </tr>
+<tr>
+<td><code>scripts/run-on-neon.sh</code> levanta la API contra Neon. Con <code>--migrate</code> aplica antes las migraciones, por la conexión directa y pidiendo confirmación</td>
+<td>Fase 8; RFC, sección 3.6</td>
+</tr>
+<tr>
+<td>El lado de un pedido solo puede ser <code>BUY</code> o <code>SELL</code>, desde su tipo: el error y Swagger ya no ofrecen <code>CASH_IN</code> ni <code>CASH_OUT</code>, que después se rechazaban</td>
+<td>Fase 8; RFC, sección 6.2</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Cambios al modelo de datos:</strong> decididos en el RFC (sección 3) y aplicados con migraciones en la fase 5, solo en la
-copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).</p>
+copia local. A Neon se le aplicaron en la fase 8, una sola vez (ADR 0006).</p>
 <table>
 <thead>
 <tr>
