@@ -4,7 +4,6 @@ import com.cocos.challenge.orders.OrderLimits;
 import com.cocos.challenge.orders.OrderType;
 import com.cocos.challenge.orders.submission.SubmitOrderCommand;
 import com.cocos.challenge.shared.domain.Decimals;
-import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.shared.validation.MaxScale;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.NotNull;
@@ -21,7 +20,7 @@ import org.jspecify.annotations.Nullable;
 public record SubmitOrderRequest(
     @NotNull(message = "{order.client-order-id-missing}") UUID clientOrderId,
     @NotNull(message = "{order.instrument-id-missing}") Long instrumentId,
-    @NotNull(message = "{order.side-missing}") OrderSide side,
+    @NotNull(message = "{order.side-missing}") TradeSide side,
     @NotNull(message = "{order.type-missing}") OrderType type,
     @Positive(message = "{order.quantity-not-positive}") @Nullable Integer quantity,
     @Positive(message = "{order.amount-not-positive}")
@@ -35,6 +34,6 @@ public record SubmitOrderRequest(
 
   public SubmitOrderCommand toCommand(long userId) {
     return new SubmitOrderCommand(
-        userId, clientOrderId, instrumentId, side, type, quantity, amount, price);
+        userId, clientOrderId, instrumentId, side.toOrderSide(), type, quantity, amount, price);
   }
 }

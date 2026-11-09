@@ -38,7 +38,7 @@ class SubmitOrderRequestValidationTest {
   private static SubmitOrderRequest requestOf(
       @Nullable UUID clientOrderId,
       @Nullable Long instrumentId,
-      @Nullable OrderSide side,
+      @Nullable TradeSide side,
       @Nullable OrderType type,
       @Nullable Integer quantity,
       @Nullable BigDecimal amount,
@@ -48,7 +48,7 @@ class SubmitOrderRequestValidationTest {
 
   private static SubmitOrderRequest request(
       @Nullable UUID clientOrderId,
-      @Nullable OrderSide side,
+      @Nullable TradeSide side,
       @Nullable OrderType type,
       @Nullable Integer quantity,
       @Nullable BigDecimal amount,
@@ -58,12 +58,12 @@ class SubmitOrderRequestValidationTest {
 
   private static SubmitOrderRequest marketBuyOf(
       @Nullable Integer quantity, @Nullable BigDecimal amount) {
-    return request(UUID.randomUUID(), OrderSide.BUY, OrderType.MARKET, quantity, amount, null);
+    return request(UUID.randomUUID(), TradeSide.BUY, OrderType.MARKET, quantity, amount, null);
   }
 
   private static SubmitOrderRequest limitBuyOf(
       @Nullable Integer quantity, @Nullable BigDecimal price) {
-    return request(UUID.randomUUID(), OrderSide.BUY, OrderType.LIMIT, quantity, null, price);
+    return request(UUID.randomUUID(), TradeSide.BUY, OrderType.LIMIT, quantity, null, price);
   }
 
   /** The violations as "field -> message template", so a test sees both at once. */
@@ -94,7 +94,7 @@ class SubmitOrderRequestValidationTest {
 
   @Test
   void rejectsAMissingClientOrderId() {
-    SubmitOrderRequest request = request(null, OrderSide.BUY, OrderType.MARKET, 10, null, null);
+    SubmitOrderRequest request = request(null, TradeSide.BUY, OrderType.MARKET, 10, null, null);
 
     assertThat(violationsOf(request))
         .containsExactly("clientOrderId -> {order.client-order-id-missing}");
@@ -103,7 +103,7 @@ class SubmitOrderRequestValidationTest {
   @Test
   void rejectsAMissingInstrument() {
     SubmitOrderRequest request =
-        requestOf(UUID.randomUUID(), null, OrderSide.BUY, OrderType.MARKET, 10, null, null);
+        requestOf(UUID.randomUUID(), null, TradeSide.BUY, OrderType.MARKET, 10, null, null);
 
     assertThat(violationsOf(request))
         .containsExactly("instrumentId -> {order.instrument-id-missing}");
@@ -115,14 +115,6 @@ class SubmitOrderRequestValidationTest {
 
     assertThat(violationsOf(request))
         .containsExactlyInAnyOrder("side -> {order.side-missing}", "type -> {order.type-missing}");
-  }
-
-  @Test
-  void rejectsASideThatIsNotATrade() {
-    SubmitOrderRequest request =
-        request(UUID.randomUUID(), OrderSide.CASH_IN, OrderType.MARKET, 10, null, null);
-
-    assertThat(violationsOf(request)).containsExactly("side -> {order.side-not-trade}");
   }
 
   @Test
@@ -199,7 +191,7 @@ class SubmitOrderRequestValidationTest {
   void rejectsAMarketOrderWithAPrice() {
     SubmitOrderRequest request =
         request(
-            UUID.randomUUID(), OrderSide.BUY, OrderType.MARKET, 10, null, new BigDecimal("925.85"));
+            UUID.randomUUID(), TradeSide.BUY, OrderType.MARKET, 10, null, new BigDecimal("925.85"));
 
     assertThat(violationsOf(request)).containsExactly("price -> {order.market-has-price}");
   }
@@ -209,7 +201,7 @@ class SubmitOrderRequestValidationTest {
     SubmitOrderRequest request =
         request(
             UUID.randomUUID(),
-            OrderSide.CASH_OUT,
+            TradeSide.BUY,
             OrderType.MARKET,
             null,
             null,
@@ -217,9 +209,7 @@ class SubmitOrderRequestValidationTest {
 
     assertThat(violationsOf(request))
         .containsExactlyInAnyOrder(
-            "side -> {order.side-not-trade}",
-            "quantity -> {order.quantity-or-amount-missing}",
-            "price -> {order.market-has-price}");
+            "quantity -> {order.quantity-or-amount-missing}", "price -> {order.market-has-price}");
   }
 
   @Test
@@ -252,7 +242,7 @@ class SubmitOrderRequestValidationTest {
   void buildsTheCommandWithTheUserOfTheAddress() {
     UUID clientOrderId = UUID.randomUUID();
     SubmitOrderRequest request =
-        request(clientOrderId, OrderSide.SELL, OrderType.LIMIT, 5, null, new BigDecimal("900"));
+        request(clientOrderId, TradeSide.SELL, OrderType.LIMIT, 5, null, new BigDecimal("900"));
 
     var command = request.toCommand(1);
 

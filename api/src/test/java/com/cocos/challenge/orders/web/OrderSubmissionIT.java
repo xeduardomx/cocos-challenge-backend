@@ -496,8 +496,23 @@ class OrderSubmissionIT {
     JsonNode error = response.json().get("errors").get(0);
     assertThat(error.get("field").asString()).isEqualTo("side");
     assertThat(error.get("message").asString())
-        .isEqualTo(
-            "El valor de side no es válido: tiene que ser uno de BUY, SELL, CASH_IN, CASH_OUT.");
+        .isEqualTo("El valor de side no es válido: tiene que ser uno de BUY, SELL.");
+  }
+
+  @Test
+  void offersTheSameValuesWhenTheSideIsADeposit() {
+    ApiResponse response =
+        submit(
+            USER_ONE,
+            order(
+                UUID.randomUUID(),
+                PAMP,
+                "\"side\": \"CASH_IN\", \"type\": \"MARKET\", \"quantity\": 10"));
+
+    JsonNode error = response.json().get("errors").get(0);
+    assertThat(error.get("field").asString()).isEqualTo("side");
+    assertThat(error.get("message").asString())
+        .isEqualTo("El valor de side no es válido: tiene que ser uno de BUY, SELL.");
   }
 
   @Test
