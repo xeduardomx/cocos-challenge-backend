@@ -4629,6 +4629,8 @@ un clon limpio, está en <a href="../mediciones/08-verificacion-final/"><code>me
   <code>127.0.0.1</code>, porque ni la API ni Grafana piden autenticación (sección 9), y sus puertos se cambian con <code>API_PORT</code>,
   <code>POSTGRES_PORT</code>, <code>PROMETHEUS_PORT</code> y <code>GRAFANA_PORT</code> si ya están ocupados (precisado al implementar, fases 5 y 6).</li>
 <li><strong>Solo la API y la base:</strong> <code>docker compose up api</code> levanta la API con lo que necesita.</li>
+<li><strong>Contra Neon:</strong> <code>scripts/run-on-neon.sh</code> levanta los mismos servicios sin la base local, con la dirección de <code>.env</code>
+  (sección 3.6).</li>
 </ul>
 <h3 id="114-la-configuración">11.4 La configuración<a class="headerlink" href="#114-la-configuración" title="Permanent link">&para;</a></h3>
 <p><code>application.yml</code> trae los valores para correr en local, y todo lo que cambia según dónde corre llega por variables de

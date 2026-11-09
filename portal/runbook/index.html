@@ -2052,8 +2052,9 @@ función aparecen desde el segundo, con al menos 15 segundos entre los dos, porq
 <code>.env</code> (ver <code>.env.example</code>):</p>
 <div class="language-bash highlight"><pre><span></span><code>./scripts/run-on-neon.sh
 </code></pre></div>
-<p>Queda solo la API, en <a href="http://localhost:8080">http://localhost:8080</a>. <strong>Cada orden que se le mande se graba en esa base,</strong> así que la prueba de
-humo, la colección de Postman y la prueba de carga no son para ella: van contra la copia local.</p>
+<p>Levanta la API, Prometheus y Grafana en las mismas direcciones, sin la base local. <strong>Cada orden que se le mande se graba
+en esa base,</strong> así que la colección de Postman y la prueba de carga no son para ella: van contra la copia local. La prueba
+de humo solo lee, y pasa mientras el usuario 1 conserve sus números originales.</p>
 <p>Las migraciones ya están aplicadas (<a href="../../mediciones/08-migracion-neon/">cómo se hizo</a>). En una base nueva, el mismo script
 con <code>--migrate</code> las aplica antes de arrancar, después de pedir confirmación. Correrlo otra vez no hace nada: Flyway mira
 su historial y ve que no queda ninguna pendiente.</p>
