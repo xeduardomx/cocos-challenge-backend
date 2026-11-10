@@ -119,7 +119,7 @@ acciones no es un error: se graba como `REJECTED`, responde 201 y trae el motivo
 | Qué | Comando | Qué necesita |
 |---|---|---|
 | Prueba de humo: Prometheus lee la API, Grafana tiene el tablero y el usuario 1 da los números originales | `./scripts/smoke-test.sh` | todo levantado, `curl` y `jq` |
-| Colección de Postman: recorre la API en nueve pasos, con sus tests | `./scripts/run-postman.sh` | todo levantado, recién arrancado |
+| Colección de Postman: recorre la API en trece pasos, con sus tests | `./scripts/run-postman.sh` | todo levantado, recién arrancado |
 | Todos los tests, formato, análisis estático y cobertura | `cd api && ./mvnw verify` | Java 25 y Docker |
 | Tiempo de respuesta con 2 millones de órdenes | `./scripts/run-load-test.sh` | Docker con unos 4 GB libres, porque la base vive en memoria; levanta y baja todo solo |
 

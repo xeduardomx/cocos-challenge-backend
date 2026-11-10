@@ -119,3 +119,16 @@ exit: 0
 
 El log de cada orden sale con el nombre nuevo de la clase, `com.cocos.challenge.orders.observability.OrderEventLogger`,
 y los contadores `orders_recorded_total`, `orders_replayed_total` y `orders_cancelled_total` contaron cada una.
+
+## La colección de Postman, con lo reservado (2026-11-10)
+
+La colección sumó cuatro pasos: una venta límite que queda `NEW`, su cancelación y dos portfolios, uno con las dos
+órdenes pendientes y otro después de cancelarlas. Comparan contra lo reservado en el paso 1: la compra límite suma
+$100.000 a `cash.reserved` y no reserva acciones, y la venta suma 5 a `reservedQuantity` de PAMP
+([RFC, sección 11.5](../03-rfc.md#115-la-colección-de-postman)). Sobre un `up` nuevo:
+
+```text
+== ./scripts/run-postman.sh
+requests  13, failed 0
+assertions 32, failed 0
+```

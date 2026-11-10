@@ -1440,11 +1440,16 @@ En `postman/`, con la colección y un entorno local (la dirección de la API). R
 2. la búsqueda de "pamp";
 3. una compra a mercado, que queda `FILLED`;
 4. una compra límite, que queda `NEW`;
-5. el listado de las pendientes;
-6. la cancelación de esa compra;
-7. un reintento de la compra del paso 3, con el mismo identificador, que devuelve la misma orden (200);
-8. el identificador del paso 3 con otro contenido (422);
-9. una compra de $700.000, que queda `REJECTED`.
+5. una venta límite de 5 PAMP, que también queda `NEW`;
+6. el portfolio con las dos reservadas: la compra suma $100.000 a `cash.reserved` y la venta suma 5 a
+   `reservedQuantity` de PAMP;
+7. el listado de las pendientes;
+8. la cancelación de la compra;
+9. la cancelación de la venta;
+10. el portfolio otra vez, con lo reservado como al principio;
+11. un reintento de la compra del paso 3, con el mismo identificador, que devuelve la misma orden (200);
+12. el identificador del paso 3 con otro contenido (422);
+13. una compra de $700.000, que queda `REJECTED`.
 
 Cada paso que necesita un identificador nuevo lo genera con `{{$guid}}`, y cada paso verifica su respuesta con tests
 de la colección: por eso CI la puede correr con Newman (11.2).
