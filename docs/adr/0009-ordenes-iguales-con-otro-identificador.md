@@ -51,7 +51,7 @@ Lo que se toma de ahí:
 | A. No construir nada y dejarlo documentado | cero código | el duplicado pasa siempre |
 | B. Un cache en la memoria de la API: usuario y huella, con vencimiento | no toca la base | con dos instancias de la API no funciona, porque cada una tiene su memoria. Hay que cuidar a mano dos pedidos simultáneos y no anotar una orden cuya transacción se deshizo. Suma código: el vencimiento y la limpieza |
 | C. Un almacén compartido con vencimiento, como Redis | funciona con varias instancias y antes de llegar a la base | una pieza más para levantar, operar y probar. Sigue separado de la transacción: una orden anotada puede no haberse grabado |
-| **D. Una consulta a `orders`, dentro del turno** | funciona con varias instancias, porque el dato está en la base. No hay carrera: el turno hace que la segunda siempre vea a la primera. Usa la huella y el índice que ya existen. Es una consulta y un `if` | una consulta más por orden aceptada (medido abajo) |
+| **D. Una consulta a `orders`, dentro del turno** | funciona con varias instancias, porque el dato está en la base. No hay carrera: el turno hace que la segunda siempre vea a la primera. Usa la huella y el índice que ya existen. Es una consulta y un `if` | una consulta más por orden aceptada: 0,011 ms en la base para un usuario de 10.000 órdenes (medido, en "Consecuencias") |
 
 **Qué se hace con la orden parecida**
 
@@ -94,17 +94,17 @@ en un minuto una persona sí decide repetir una compra.
 - **D: una consulta a `orders`, dentro del turno,** después de evaluar la orden y solo si iba a quedar `FILLED` o `NEW`.
 - **Es un posible duplicado** si el mismo usuario tiene otra orden con la misma huella, en estado `FILLED` o `NEW`,
   grabada hace menos de 5 segundos. Las dos horas salen del reloj de la base: la de la orden anterior es la del momento
-  en que se grabó (RFC, sección 3.4), y "ahora" es `clock_timestamp()`. Así no importa si los relojes de dos instancias
-  de la API difieren.
+  en que se grabó (RFC, sección 3.4), y "ahora" es `statement_timestamp()`, el momento en que arranca la consulta. Así
+  no importa si los relojes de dos instancias de la API difieren.
 - **Responde 409,** con el tipo `/problems/possible-duplicate-order` y el número de la orden anterior en
   `existingOrderId`. No graba nada, así que no gasta el identificador: el mismo pedido se puede reenviar tal cual.
 - **La ventana es configurable** (`cocos.orders.duplicates.window`, 5 segundos por defecto). Con 0, el control queda
-  apagado.
+  apagado, y un valor negativo no deja arrancar la API. En el `docker compose` se cambia con `DUPLICATE_ORDER_WINDOW`.
 
 ```sql
 select id from orders
 where userid = :userId
-  and datetime > clock_timestamp() - :ventana
+  and datetime > statement_timestamp() - :ventana
   and requestfingerprint = :huella
   and clientorderid <> :clientOrderId
   and status in ('FILLED', 'NEW')
@@ -136,6 +136,19 @@ limit 1
   apaga con 0.
 - **Cuántas veces actúa** se ve sin una métrica nueva: son las respuestas 409 del envío, que `http_server_requests`
   ya cuenta por dirección, método y código (RFC, sección 8.2). Es el dato para ajustar la ventana.
+- **"Ahora" es `statement_timestamp()`, no `clock_timestamp()`** (encontrado al medir). La primera versión usaba
+  `clock_timestamp()`, como la hora de las órdenes. Con 2 millones de órdenes, el percentil 95 del envío del usuario
+  pesado subió de unos 57 ms a 72,9 ms. `clock_timestamp()` es volátil, puede cambiar en cada fila, así que Postgres no
+  la usa como límite del recorrido del índice: buscaba por usuario y descartaba después, una por una, sus 10.000
+  órdenes. `statement_timestamp()` es estable durante la consulta, y con ella el índice recorre solo la ventana:
+
+  | Reloj | Filas leídas y descartadas | Páginas leídas | Tiempo en la base |
+  |---|---|---|---|
+  | `clock_timestamp()` | 10.000 | 271 | 1,2 a 1,4 ms |
+  | `statement_timestamp()` | 0 | 3 | 0,011 ms |
+
+  El detalle está en [`mediciones/05-duplicado-resultados.md`](../mediciones/05-duplicado-resultados.md). Un test lo
+  cuida: cuenta las filas que la consulta trae de la tabla, y tienen que ser 0.
 - **Las órdenes viejas no tienen huella,** así que nunca cuentan como la primera.
 - **Una orden con el mismo identificador no cuenta** (encontrado al implementar). Esa es un reintento, y lo contestan
   la búsqueda por identificador o la regla de unicidad (ADR 0005). Sin esa condición, el test del camino sin turno

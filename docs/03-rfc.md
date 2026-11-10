@@ -843,7 +843,7 @@ usuario con la misma huella, también `FILLED` o `NEW`, grabada hace menos de 5 
 ```sql
 select id from orders
 where userid = :userId
-  and datetime > clock_timestamp() - :ventana
+  and datetime > statement_timestamp() - :ventana
   and requestfingerprint = :huella
   and clientorderid <> :clientOrderId
   and status in ('FILLED', 'NEW')
@@ -887,7 +887,13 @@ sequenceDiagram
   segunda siempre ve a la primera, ya confirmada. Con un cache en memoria habría que resolver eso a mano, y con dos
   instancias de la API no funcionaría.
 - **Un solo reloj.** La hora de la orden anterior la puso la base al grabarla (sección 3.4), y "ahora" es
-  `clock_timestamp()`: no importa si los relojes de dos instancias de la API difieren.
+  `statement_timestamp()`, el momento en que arranca la consulta: no importa si los relojes de dos instancias de la API
+  difieren.
+- **Por qué `statement_timestamp()` y no `clock_timestamp()`** (encontrado al medir, fase 8). `clock_timestamp()` es
+  volátil: puede cambiar en cada fila, así que Postgres no la usa como límite del recorrido del índice. La primera
+  versión buscaba por usuario y descartaba después, una por una, las 10.000 órdenes del usuario pesado, y el percentil
+  95 de su envío subió de unos 57 ms a 72,9 ms. `statement_timestamp()` es estable durante la consulta, y el índice
+  recorre solo la ventana ([`mediciones/05-duplicado-resultados.md`](mediciones/05-duplicado-resultados.md)).
 - **Qué es "igual".** La misma huella (5.3): el activo, el lado, el tipo, la cantidad o el monto y el precio límite, tal
   como se mandaron. "10 PAMP" y "$9.258,50 de PAMP" son dos pedidos distintos. Las órdenes viejas no tienen huella, así
   que nunca cuentan como la primera.
@@ -896,7 +902,8 @@ sequenceDiagram
   (5.3). Dentro del turno nunca aparece, porque la búsqueda por identificador va antes. En el camino sin turno que
   cubre la regla de unicidad sí: sin esa condición, el test de ese camino recibía un 409 en vez de reintentar.
 - **Cuánto cuesta.** Una consulta más por orden aceptada, que usa el índice por (usuario, fecha, id) de la sección 3.5
-  y lee solo las órdenes de ese usuario de los últimos 5 segundos.
+  y lee solo las órdenes de ese usuario de los últimos 5 segundos: 3 páginas y 0,011 ms en la base para el usuario de
+  10.000 órdenes (medido).
 - **Lo que no frena.** Un reintento con otro identificador que llega pasados los 5 segundos: la API no lo puede
   distinguir de una orden nueva. Contra eso la app tiene que repetir el identificador (5.3). Y si la app, ante el 409,
   espera y reenvía sola, el duplicado entra igual: tiene que mostrarle el aviso a la persona.
@@ -1364,6 +1371,10 @@ del objetivo, como límite documentado (A-4): su portfolio lee unas 850.000 órd
 usuario extremo tarda entre 0,66 y 0,94 segundos por portfolio. Los números, la máquina y cómo repetirlo están en
 [`mediciones/06-tiempo-de-respuesta.md`](mediciones/06-tiempo-de-respuesta.md).
 
+**Medido de nuevo en la fase 8,** con el control de posibles duplicados (sección 5.5): se cumple igual. El peor
+percentil 95 sigue siendo el envío del usuario pesado, 59,58 ms. Esa medición encontró que la primera versión de la
+consulta nueva leía todas las órdenes del usuario, y se corrigió (72,9 ms antes de corregirla).
+
 ## 9. Seguridad
 
 - **Sin autenticación,** porque el enunciado dice que no hace falta (S-5). La consecuencia está documentada:
@@ -1541,6 +1552,10 @@ flowchart LR
 entorno: la base (sección 9), si migra al arrancar (sección 3.6) y los números de la sección 6.6. No hay perfiles de
 Spring: una sola configuración, y las variables la pisan. Para apuntar a Neon, `scripts/run-on-neon.sh` llena las variables de
 la base desde `.env`, que nunca se sube al repo.
+
+El compose también deja cambiar la ventana del posible duplicado (sección 5.5), con `DUPLICATE_ORDER_WINDOW`: por
+ejemplo, `DUPLICATE_ORDER_WINDOW=0s docker compose up --build` apaga el control. Un valor negativo no deja arrancar la
+API (agregado en la fase 8).
 
 ### 11.5 La colección de Postman
 

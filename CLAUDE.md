@@ -121,5 +121,9 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
   (`docs/02-prd.md`, sección 2).
 - El resto del diseño (cálculos, órdenes simultáneas, contratos, errores, seguridad, tests y build): **decidido en el
   RFC** (2026-11-07), `docs/03-rfc.md`, con sus ADR en `docs/adr/`.
+- Órdenes iguales con otro identificador: **decidido en la fase 8** (2026-11-10). Una segunda red, después del
+  identificador: una orden igual a otra aceptada del mismo usuario hace menos de 5 segundos se frena con 409. Es una
+  consulta a `orders` dentro del turno, con la huella que ya se guarda
+  (`docs/adr/0009-ordenes-iguales-con-otro-identificador.md`).
 - Neon: **decidido en la fase 8** (2026-11-09). Se le aplicaron las migraciones, una sola vez, y
   `scripts/run-on-neon.sh` apunta la API a esa base (ver "Base de Neon" en `docs/01-decisiones.md`).

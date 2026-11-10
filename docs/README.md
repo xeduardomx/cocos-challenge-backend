@@ -144,7 +144,7 @@ Tests en tres niveles, con los casos del PRD: los cálculos en Java puro, y las 
 contra un Postgres real. Los 27 casos del envío son el test funcional que pide el enunciado, y el build falla si la
 cobertura baja de 85 % de las líneas o 80 % de las ramas. Y se midió con 2
 millones de órdenes: el objetivo era un percentil 95 por debajo de 100 ms, y el peor caso, el envío de un usuario con
-10.000 órdenes, dio 61,15 ms. Es una carga moderada en una computadora de escritorio: sirve como orden de magnitud.
+10.000 órdenes, dio 59,58 ms. Es una carga moderada en una computadora de escritorio: sirve como orden de magnitud.
 
 [RFC 10](03-rfc.md#10-estrategia-de-tests) · [RFC 8.4](03-rfc.md#84-el-objetivo-de-tiempo-de-respuesta-gen-8) ·
 [la medición](mediciones/06-tiempo-de-respuesta.md)

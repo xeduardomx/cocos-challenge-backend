@@ -1149,6 +1149,7 @@ decisión y es la base del alcance del PRD.
 | Prometheus y Grafana escuchan solo en `127.0.0.1`, con los puertos configurables (`PROMETHEUS_PORT`, `GRAFANA_PORT`), y sus datos viven en memoria | Fase 6; RFC, sección 11.3 |
 | Los paneles por función no incluyen `/actuator/*` y distinguen el método (el envío y el listado comparten dirección); el tablero es la página de inicio de Grafana | Fase 6; RFC, sección 8.3 |
 | Medición con k6: nueve escenarios, 10 pedidos por segundo cada uno, con calentamiento. La semilla de volumen deposita 100.000.000 por usuario: con 1.000.000 se rechazaba el 37 % de las compras de los típicos y todas las del pesado | Fase 6; `mediciones/06-tiempo-de-respuesta.md` |
+| En la prueba de carga, cada orden es distinta de las que su usuario mandó recién: rotan los centavos del monto o del precio límite, con un rango por escenario. Si no, el control de posibles duplicados frenaría casi todas | Fase 8; `mediciones/06-tiempo-de-respuesta.md` |
 | El portal corre con la imagen de Docker de Zensical. La prueba con los documentos reales pasó, y Docusaurus no hizo falta | Fase 7; RFC, sección 11.6 |
 | Las páginas que existen solo en el portal van en `docs/portal/`, y sus diagramas y tablas se toman de su documento, sin copiarlos | Fase 7; RFC, sección 11.6 |
 | Los paneles del tablero que cuentan órdenes van en un solo color: el rojo por defecto de Grafana, desde 80, hacía parecer un problema a las órdenes ejecutadas | Fase 7; RFC, sección 8.3 |
