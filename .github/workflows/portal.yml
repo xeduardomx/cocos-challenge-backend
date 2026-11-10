@@ -1,0 +1,45 @@
+name: Portal
+
+# Publishes the documentation portal on GitHub Pages (RFC 11.6). Only from main: the branch with the deliverable.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portal
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Build the portal
+        run: ./scripts/portal.sh build
+
+      - name: Upload the portal
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - name: Publish the portal
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -2,8 +2,8 @@
 
 > Corrida del 2026-11-08 en una computadora de escritorio, con la API, Postgres 18.6, Prometheus, Grafana y k6 2.3.0 en
 > Docker en la misma máquina, y los datos en memoria: sirven como orden de magnitud. Es la salida de
-> [`scripts/run-load-test.sh`](../../scripts/run-load-test.sh), que carga
-> [`perf/seed-volume.sql`](../../perf/seed-volume.sql) y corre [`perf/load-test.js`](../../perf/load-test.js) con k6.
+> [`scripts/run-load-test.sh`](https://github.com/xeduardomx/cocos-challenge-backend/blob/main/scripts/run-load-test.sh), que carga
+> [`perf/seed-volume.sql`](https://github.com/xeduardomx/cocos-challenge-backend/blob/main/perf/seed-volume.sql) y corre [`perf/load-test.js`](https://github.com/xeduardomx/cocos-challenge-backend/blob/main/perf/load-test.js) con k6.
 
 ## Qué se midió y con qué objetivo
 
@@ -53,7 +53,7 @@ datos de Postgres viven en memoria (`tmpfs`).
 
 ## Los datos y la carga
 
-Los datos son los del RFC 3.5, armados con [`perf/seed-volume.sql`](../../perf/seed-volume.sql) sobre el esquema ya
+Los datos son los del RFC 3.5, armados con [`perf/seed-volume.sql`](https://github.com/xeduardomx/cocos-challenge-backend/blob/main/perf/seed-volume.sql) sobre el esquema ya
 migrado: 2.010.011 órdenes, 342 MB de tabla.
 
 | Usuario | Id | Órdenes | Ejecutadas y pendientes (las que lee la cuenta) |
@@ -103,6 +103,8 @@ docker compose down
 
 k6 terminó con código 0, con los nueve umbrales de tiempo y los demás cumplidos. En cada escenario, pedidos y tiempos en milisegundos:
 
+<!-- --8<-- [start:resultado-volumen] -->
+
 | Escenario | Pedidos | p50 (ms) | p95 (ms) | p99 (ms) | Máximo (ms) | p95 de la corrida anterior (ms) |
 |---|---|---|---|---|---|---|
 | `search` | 600 | 3,06 | **4,53** | 5,45 | 33,33 | 4,59 |
@@ -114,6 +116,8 @@ k6 terminó con código 0, con los nueve umbrales de tiempo y los demás cumplid
 | `list_heavy` | 601 | 4,18 | **8,31** | 9,15 | 11,12 | 8,21 |
 | `cancel_typical` (solo el pedido de cancelar) | 601 | 1,87 | **3,1** | 4,1 | 5,24 | 3,12 |
 | `cancel_heavy` (solo el pedido de cancelar) | 601 | 1,49 | **3,09** | 3,69 | 4,47 | 3,2 |
+
+<!-- --8<-- [end:resultado-volumen] -->
 
 La última columna es el percentil 95 de una corrida anterior con la misma carga y los mismos datos. Entre las dos
 corridas, la mayor diferencia es de 1,24 ms, en `submit_heavy`.

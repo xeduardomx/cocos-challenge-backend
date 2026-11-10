@@ -56,6 +56,17 @@ Recorre la API completa en nueve pasos, con sus tests, y se corre con Newman en 
 Va sobre los datos originales (el paso 1 espera $627.500 disponibles), así que corre sobre un `docker compose up` nuevo:
 una segunda corrida sin bajar y volver a levantar falla. Para usarla desde Postman, importá los dos archivos de `postman/`.
 
+## Portal de documentación
+
+El análisis, las decisiones, el PRD, el RFC, los diagramas, el runbook y las métricas, navegables y con buscador, en
+https://xeduardomx.github.io/cocos-challenge-backend/. Se genera desde `docs/`, y para verlo en local alcanza con Docker:
+
+```bash
+./scripts/portal.sh
+```
+
+Queda en http://localhost:8000. Si el puerto está ocupado, se mueve con `PORTAL_PORT`.
+
 ## Tiempo de respuesta con volumen
 
 Levanta todo de cero, carga 2 millones de órdenes, mide las cinco funciones con k6 y baja todo al terminar. Tarda unos

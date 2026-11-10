@@ -1,0 +1,4 @@
+/* Wider pages than the theme default: the RFC has long tables and diagrams. */
+.md-grid {
+  max-width: 88rem;
+}

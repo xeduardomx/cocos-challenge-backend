@@ -50,7 +50,7 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
 | 4 | Plan de implementación en tareas chicas | `docs/04-plan.md` | writing-plans |
 | 5 | Implementación con TDD | código + tests | test-driven-development, executing-plans |
 | 6 | Observabilidad: métricas, tablero con Prometheus y Grafana (New Relic, documentado) y medición del tiempo de respuesta | código + tablero | — |
-| 7 | Portal HTML tipo Confluence: análisis, PRD, RFC, diagramas, runbook, métricas | `docs/portal/` | — |
+| 7 | Portal HTML tipo Confluence: análisis, PRD, RFC, diagramas, runbook, métricas | `docs/README.md` (portada), `docs/portal/` y `zensical.toml` | — |
 | 8 | Revisión y entrega: review, verificación, README, mail | repo + mail | requesting-code-review, verification-before-completion, finishing-a-development-branch |
 
 ## Ramas, commits y repo (decidido el 2026-11-06)
@@ -114,7 +114,7 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
 - Documentos y diagramas: **decidido al arrancar el RFC** (2026-11-07). Los documentos se escriben en Markdown, que es
   la única fuente. Los diagramas van en Mermaid, adentro del Markdown, porque GitHub los dibuja solo. El portal HTML
   de la fase 7 se genera desde esos mismos archivos y no se escribe a mano, así nunca dicen cosas distintas. La
-  herramienta: Zensical, con Docusaurus como alternativa (RFC, sección 11.6).
+  herramienta: Zensical; la prueba de la fase 7 pasó y Docusaurus no hizo falta (RFC, sección 11.6).
 - Nice to have del enunciado: **decidido en el PRD**, se entrega una colección de Postman con el recorrido completo
   (`docs/02-prd.md`, sección 2).
 - El resto del diseño (cálculos, órdenes simultáneas, contratos, errores, seguridad, tests y build): **decidido en el
