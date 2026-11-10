@@ -50,7 +50,9 @@
   ([`mediciones/05-resultados.md`](../mediciones/05-resultados.md)).
 - Un pedido que da error (400) no graba nada, así que no gasta el identificador.
 - Si el cliente genera un identificador nuevo en cada reintento, la protección no funciona. Es un error del cliente
-  que ninguna API puede arreglar, y queda documentado (R-2).
+  que la API no puede arreglar del todo, porque no distingue ese pedido de una orden nueva (R-2). Sí lo puede mitigar:
+  el [ADR 0009](0009-ordenes-iguales-con-otro-identificador.md) agrega una segunda red, que frena la orden igual que
+  llega en los primeros 5 segundos (revisado en la fase 8, 2026-11-10).
 - El `v1` de la huella permite cambiar la forma más adelante sin confundir huellas viejas con nuevas.
 - **Cuándo revisarla:** si los identificadores tuvieran que vencer, por ejemplo, para no guardarlos para siempre con
   mucho volumen. Ahí pasarían a una tabla propia con vencimiento, como hace Stripe con sus claves.

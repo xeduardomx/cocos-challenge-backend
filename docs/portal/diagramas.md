@@ -1,6 +1,6 @@
 # Diagramas
 
-Los siete diagramas del RFC, juntos. Cada uno se toma de su sección al generar el portal, así nunca dicen algo distinto
+Los ocho diagramas del RFC, juntos. Cada uno se toma de su sección al generar el portal, así nunca dicen algo distinto
 de lo que dice el RFC.
 
 ## Todo el sistema
@@ -44,6 +44,13 @@ La respuesta se pierde, la app reintenta con el mismo identificador y recibe la 
 [RFC, sección 5.3](../03-rfc.md#53-reintentos).
 
 --8<-- "03-rfc.md:reintento"
+
+## La misma orden con otro identificador
+
+Si la app manda la misma orden con un identificador nuevo, no es un reintento: una segunda red la frena si llega dentro
+de los 5 segundos. Detalle en el [RFC, sección 5.5](../03-rfc.md#55-la-misma-orden-con-otro-identificador).
+
+--8<-- "03-rfc.md:duplicado"
 
 ## Qué levanta `docker compose up`
 
