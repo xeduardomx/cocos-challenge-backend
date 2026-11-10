@@ -221,6 +221,18 @@ El modelo de Cocos se mantiene: las cuatro tablas, sus columnas y sus nombres (C
 - **un índice nuevo para las consultas,** con su medición antes y después (principio 5). Las reglas de unicidad crean
   los suyos.
 
+**Los cambios, migración por migración.** Cada uno es un archivo de `api/src/main/resources/db/migration/` (sección
+3.6), y ninguno borra datos de Cocos.
+
+| Migración | Qué cambia | Tipo | Para qué | Detalle |
+|---|---|---|---|---|
+| V1 | `database.sql` de Cocos | se anota, no se ejecuta | marca el punto de partida, que Neon ya tenía | 3.6 |
+| V2 | `unaccent` | extensión | buscar sin acentos: "compania" encuentra "Compañía" (A-5) | 3.5 |
+| V3 | datos obligatorios, valores permitidos y unicidad en `orders`, `instruments` y `marketdata` | reglas: `not null`, `check` y `unique` | que la base no acepte datos imposibles | 3.2 |
+| V4 | `clientOrderId`, `requestFingerprint` y `rejectionReason`, con sus reglas | columnas nuevas, `unique` y `check` | que un reintento no cree otra orden, y que una `REJECTED` diga por qué | 3.3 y 3.2 |
+| V5 | `datetime` | cambio de tipo, valor por defecto y `not null` | hora con zona, puesta por la base al grabar | 3.4 |
+| V6 | `orders_user_datetime_idx` | índice | portfolio, listado y paginación rápidos para cualquier usuario | 3.5 |
+
 Todo se probó en la copia local (Postgres 18.6, con `database.sql`). La forma exacta está en
 [`mediciones/03-esquema.sql`](mediciones/03-esquema.sql), el borrador verificado del que salieron las migraciones de la
 fase 5. Cómo se aplican las migraciones, y qué pasa con Neon, está en la sección 3.6. Lo que esta sección marca como
@@ -278,18 +290,18 @@ erDiagram
 Cada regla mira una sola fila. Las que necesitan sumar muchas filas, o mirar otra tabla, van en el código (principio
 3, D-1).
 
-| Tabla | Regla | Por qué |
-|---|---|---|
-| `orders` | Obligatorios: activo, usuario, cantidad, tipo, lado, estado y fecha | una orden sin usuario o sin cantidad no se puede calcular (E-1) |
-| `orders` | El lado, el tipo y el estado, solo con los valores del enunciado | `side = 'COMPRA'` es un dato imposible (E-2) |
-| `orders` | Cantidad de 1 o más | una orden de 0 acciones nunca se graba (A-6) |
-| `orders` | Precio mayor a 0, y vacío solo en una `REJECTED` a mercado | una orden a mercado sobre un activo sin cotización queda sin precio (A-6). Con precio mayor a 0, el costo nunca es cero (A-2, R-4) |
-| `orders` | En depósitos y retiros (`CASH_IN`, `CASH_OUT`), precio 1 | `size × price` es el monto en pesos: con precio 2, un depósito de $1.000 valdría $2.000 (D-9) |
-| `orders` | El identificador es único por usuario, y viaja con su huella: están las dos o ninguna | un reintento no crea otra orden, y dos usuarios pueden usar el mismo identificador (R-2) |
-| `orders` | El motivo del rechazo: uno de los tres códigos, y solo en una `REJECTED` | un motivo de rechazo en una orden ejecutada no tiene sentido (A-6) |
-| `instruments` | Ticker, nombre y tipo obligatorios; el ticker, único | la búsqueda y el portfolio muestran el ticker, y dos activos con el mismo serían ambiguos (E-1, E-3) |
-| `marketdata` | Activo, fecha y cierre obligatorios; una fila por acción y fecha | el último precio es el cierre de la fecha más reciente, y tiene que haber uno solo (D-3) |
-| `marketdata` | Precios mayores a 0; mínimo menor o igual al máximo; apertura y cierre entre los dos | un precio de $0, o un mínimo mayor al máximo, son imposibles (D-5) |
+| Tabla | Regla | Cómo queda en la base | Por qué |
+|---|---|---|---|
+| `orders` | Obligatorios: activo, usuario, cantidad, tipo, lado, estado y fecha | `not null` en las siete columnas (la fecha, en V5) | una orden sin usuario o sin cantidad no se puede calcular (E-1) |
+| `orders` | El lado, el tipo y el estado, solo con los valores del enunciado | un `check` por columna, con la lista de valores: los mismos enums que usa Java | `side = 'COMPRA'` es un dato imposible (E-2) |
+| `orders` | Cantidad de 1 o más | `check (size >= 1)` | una orden de 0 acciones nunca se graba (A-6) |
+| `orders` | Precio mayor a 0, y vacío solo en una `REJECTED` a mercado | dos `check`: `price > 0`, y `price is not null or (status = 'REJECTED' and type = 'MARKET')` | una orden a mercado sobre un activo sin cotización queda sin precio (A-6). Con precio mayor a 0, el costo nunca es cero (A-2, R-4) |
+| `orders` | En depósitos y retiros (`CASH_IN`, `CASH_OUT`), precio 1 | `check`: si el lado es `CASH_IN` o `CASH_OUT`, `price = 1` | `size × price` es el monto en pesos: con precio 2, un depósito de $1.000 valdría $2.000 (D-9) |
+| `orders` | El identificador es único por usuario, y viaja con su huella: están las dos o ninguna | `unique (userid, clientOrderId)`, y un `check`: las dos vacías o las dos con valor (V4) | un reintento no crea otra orden, ni aunque lleguen dos a la vez, y dos usuarios pueden usar el mismo identificador (R-2) |
+| `orders` | El motivo del rechazo: uno de los tres códigos, y solo en una `REJECTED` | dos `check`: la lista de códigos, y vacío salvo en una `REJECTED` (V4) | un motivo de rechazo en una orden ejecutada no tiene sentido (A-6) |
+| `instruments` | Ticker, nombre y tipo obligatorios; el ticker, único | `not null` en las tres, y `unique (ticker)`, que crea su índice | la búsqueda y el portfolio muestran el ticker, y dos activos con el mismo serían ambiguos (E-1, E-3) |
+| `marketdata` | Activo, fecha y cierre obligatorios; una fila por acción y fecha | `not null` en las tres, y `unique (instrumentid, date)`, que crea el índice que usa el último precio (3.5) | el último precio es el cierre de la fecha más reciente, y tiene que haber uno solo (D-3) |
+| `marketdata` | Precios mayores a 0; mínimo menor o igual al máximo; apertura y cierre entre los dos | dos `check`: los cinco precios mayores a 0, y el rango | un precio de $0, o un mínimo mayor al máximo, son imposibles (D-5) |
 
 `users` no cambia: la API solo verifica que el usuario exista. El tipo de activo no se limita a `ACCIONES` y
 `MONEDA`: el catálogo podría sumar bonos o CEDEAR, y la API solo distingue la moneda del resto.
@@ -317,11 +329,11 @@ se acerca a esos números, y los precios se quedan en 2 decimales (D-4).
 
 ### 3.3 Columnas nuevas en `orders`
 
-| Columna | Tipo | Qué guarda | En las 11 órdenes viejas |
-|---|---|---|---|
-| `clientOrderId` | `uuid` | el identificador que pone la app en cada orden (R-2) | vacía |
-| `requestFingerprint` | `varchar(64)` | la huella del pedido: un resumen de sus datos (SHA-256, en hexadecimal) | vacía |
-| `rejectionReason` | `varchar(30)` | el motivo del rechazo: `INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` o `NO_MARKET_PRICE` | vacía, también en la orden 6 (LIS-4) |
+| Columna | Tipo | Qué guarda | Para qué | En las 11 órdenes viejas |
+|---|---|---|---|---|
+| `clientOrderId` | `uuid` | el identificador que pone la app en cada orden (R-2) | si la app reintenta el mismo pedido, la API devuelve la orden ya grabada (200) en lugar de crear otra | vacía |
+| `requestFingerprint` | `varchar(64)` | la huella del pedido: un resumen de sus datos (SHA-256, en hexadecimal) | si llega el mismo identificador con otro contenido, la API responde 422 en lugar de devolver una orden que no es la pedida | vacía |
+| `rejectionReason` | `varchar(30)` | el motivo del rechazo: `INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` o `NO_MARKET_PRICE` | el usuario sabe por qué se rechazó, y la métrica de rechazos cuenta por motivo (GEN-4) | vacía, también en la orden 6 (LIS-4) |
 
 Siguen la convención de las columnas de Cocos: se escriben `clientOrderId` y Postgres las guarda en minúsculas
 (`clientorderid`), igual que `instrumentId`. Con `client_order_id` habría dos convenciones en la misma tabla.
@@ -343,6 +355,12 @@ Siguen la convención de las columnas de Cocos: se escriben `clientOrderId` y Po
 
 ### 3.4 La fecha y hora de las órdenes
 
+| Cambio a `datetime` | Tipo | Qué hace | Por qué |
+|---|---|---|---|
+| `timestamp` a `timestamptz` | cambio de tipo | guarda la hora con zona, y las horas existentes se leen como hora argentina | sin zona, la hora es ambigua, y la sesión de Neon está en GMT |
+| `default clock_timestamp()` | valor por defecto | la base pone la hora en el momento en que graba la orden | `now()` daría la hora en que empezó la transacción, antes de esperar el turno |
+| obligatoria | `not null` | ninguna orden queda sin hora | el portfolio, el listado y el cursor ordenan por hora |
+
 - **Pasa a fecha y hora con zona** (`timestamptz`), leyendo las fechas existentes como hora argentina (D-10). La
   conversión nombra la zona (`AT TIME ZONE 'America/Argentina/Buenos_Aires'`), y la orden 2 sigue a las 12:31 de
   Buenos Aires. Con la conversión simple, la base usaría la zona de la sesión, que en Neon es GMT, y la orden 2
@@ -356,6 +374,17 @@ Siguen la convención de las columnas de Cocos: se escriben `clientOrderId` y Po
   (sección 6), así no se pierde precisión al pasar de página (A-7).
 
 ### 3.5 Índices
+
+| Qué | Tipo | Qué hace | Por qué |
+|---|---|---|---|
+| `orders_user_datetime_idx`, sobre `(userid, datetime, id)` | índice nuevo (V6) | encuentra las órdenes de un usuario ya ordenadas por hora | lo usan el portfolio, la cuenta del envío, el listado y su cursor; las mediciones están abajo |
+| `unique (ticker)` en `instruments` | índice que crea la regla (V3) | impide dos activos con el mismo ticker | viene con la regla de unicidad; la búsqueda no lo usa, porque recorre los 65 activos (4.3) |
+| `unique (instrumentid, date)` en `marketdata` | índice que crea la regla (V3) | encuentra el precio más reciente de cada acción | viene con la regla; lo usa la búsqueda del último precio (4.2) |
+| `unique (userid, clientOrderId)` en `orders` | índice que crea la regla (V4) | encuentra una orden por su identificador | viene con la regla; lo usa cada envío para detectar un reintento |
+| `unaccent` | extensión (V2) | saca los acentos | la búsqueda sin acentos (A-5); `pg_trgm` no hace falta |
+
+Por eso se dice "un solo índice nuevo": es el único que se creó a propósito con `create index`. Los otros tres
+vienen con su regla de unicidad, porque así la asegura Postgres.
 
 **Cómo se midió.** En la copia local, con este esquema y 2.010.011 órdenes: las 11 de Cocos y 2.010.000 inventadas,
 repartidas así:
