@@ -918,6 +918,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#revisión-fase-8-2026-11-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Revisión (fase 8, 2026-11-10)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1671,6 +1682,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#revisión-fase-8-2026-11-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Revisión (fase 8, 2026-11-10)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1796,7 +1818,7 @@
 
 <h1 id="adr-0001--capas-agrupadas-por-función-no-hexagonal">ADR 0001 — Capas agrupadas por función, no hexagonal<a class="headerlink" href="#adr-0001--capas-agrupadas-por-función-no-hexagonal" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p>Estado: <strong>aceptada</strong> · 2026-11-07 · Se aplica en el <a href="../../03-rfc/#2-arquitectura">RFC, sección 2</a></p>
+<p>Estado: <strong>aceptada</strong> · 2026-11-07, revisada el 2026-11-10 · Se aplica en el <a href="../../03-rfc/#2-arquitectura">RFC, sección 2</a></p>
 </blockquote>
 <h2 id="contexto">Contexto<a class="headerlink" href="#contexto" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1855,6 +1877,25 @@ otra forma.</p>
 <li><strong>Cuándo revisarla:</strong> si la API tuviera que mandar órdenes a un mercado real (por ejemplo, a BYMA). Ese sí es un
   sistema externo que se va a querer simular en los tests y poder cambiar: ahí conviene un puerto para el mercado. Se
   agrega ese puerto, no toda la arquitectura.</li>
+</ul>
+<h2 id="revisión-fase-8-2026-11-10">Revisión (fase 8, 2026-11-10)<a class="headerlink" href="#revisión-fase-8-2026-11-10" title="Permanent link">&para;</a></h2>
+<p>Al repasar el código antes de entregar, el autor vio que la decisión no se leía en las carpetas. Las funciones estaban
+separadas, pero adentro de cada una había clases de capas distintas en la misma carpeta. Por ejemplo, <code>account</code> tenía
+juntos el service, el repository, la configuración, los records y los errores. En la raíz de <code>orders</code> estaban
+<code>OrderRepository</code>, <code>NewOrder</code>, <code>OrderMetrics</code> y <code>OrdersConfiguration</code>. Solo <code>web</code> tenía su propia carpeta.</p>
+<p><strong>Se mantiene A, y ahora se ve en los paquetes.</strong> Adentro de cada función hay un paquete por capa, con los mismos
+nombres en todas: <code>web</code>, <code>service</code>, <code>domain</code>, <code>repository</code>, <code>config</code>, <code>error</code> y <code>observability</code> (RFC, sección 2).</p>
+<ul>
+<li><strong>Qué cambió:</strong> 57 clases y 23 tests cambiaron de paquete. No cambió ninguna línea de lógica: solo las líneas
+  <code>package</code> e <code>import</code>.</li>
+<li><strong>Cómo se verificó:</strong> los mismos 372 tests y la misma cobertura, clase por clase, antes y después. Además se levantó
+  todo con <code>docker compose up --build</code> y se corrieron la prueba de humo, la colección de Postman y la medición con
+  volumen (<a href="../../mediciones/08-verificacion-final/#después-de-reordenar-los-paquetes-2026-11-10">detalle</a>).</li>
+<li><strong>Por qué no la opción C</strong> (una carpeta por tipo para toda la API): vale lo mismo que arriba. Lo de las órdenes
+  quedaría repartido en siete carpetas y mezclado con lo del portfolio, y dejaría de verse en los paquetes que
+  <code>account</code> e <code>instruments</code> no dependen de <code>orders</code>.</li>
+<li><strong>Qué se perdió:</strong> en <code>orders</code>, las carpetas por caso de uso (<code>submission</code>, <code>cancellation</code> y <code>listing</code>). Los services
+  llevan el caso de uso en el nombre, por ejemplo <code>OrderSubmissionService</code>, y <code>domain</code> conserva la división por tema.</li>
 </ul>
 
 

@@ -2334,7 +2334,7 @@ que nombra.</p>
   <code>orders</code>) más <code>shared</code>, con los subpaquetes de la "Estructura de archivos".
 - Las dependencias van de cada función hacia <code>account</code> e <code>instruments</code>, nunca al revés (ADR 0001).
 - Los cálculos y las reglas van en clases de Java puro, sin anotaciones de Spring. Se registran como beans en la
-  <code>@Configuration</code> de su paquete.</p>
+  <code>@Configuration</code> de su función.</p>
 <p><strong>Plata y valores</strong>
 - Plata y precios en <code>BigDecimal</code>, nunca en <code>double</code>. Las divisiones van con <code>MathContext.DECIMAL128</code>, con un solo
   redondeo al final, a 2 decimales y con <code>RoundingMode.HALF_UP</code>. La cantidad por monto se corta con
@@ -2409,35 +2409,62 @@ otra cosa.</p>
     │   ├── shared/
     │   │   ├── domain/        OrderSide, OrderStatus, Decimals
     │   │   ├── error/         ProblemType, ApiException, InvalidRequestException, FieldViolation, ApiExceptionHandler
-    │   │   ├── web/           RequestIds, RequestIdFilter, OpenApiConfiguration
+    │   │   ├── web/           RequestIds, RequestIdFilter, OpenApiConfiguration, LocaleConfiguration,
+    │   │   │                  ProblemBody
     │   │   ├── validation/    MaxScale, MaxScaleValidator
     │   │   └── display/       DisplayProperties, DisplayFormatter, DisplayConfiguration
-    │   ├── account/           AccountEntry, Position, Account, AccountCalculator, AccountRepository, AccountService,
-    │   │                      AccountProperties, AccountConfiguration, UserNotFoundException, UserBusyException,
-    │   │                      TurnMetrics
-    │   ├── instruments/       Instrument, MarketPrice, InstrumentRepository, MarketPriceRepository, InstrumentCatalog
-    │   │   ├── search/        SearchProperties, SearchResult, InstrumentSearchService
-    │   │   └── web/           InstrumentController, InstrumentSearchResponse, InstrumentSummary
-    │   ├── portfolio/         Portfolio, PositionValuation, PortfolioValuator, PortfolioService, PortfolioConfiguration
-    │   │   └── web/           PortfolioController, PortfolioResponse, CashResponse, PositionResponse
-    │   └── orders/            OrderType, RejectionReason, OrderLimits, StoredOrder, NewOrder, OrderRepository,
-    │       │                  OrderNotFoundException, OrdersConfiguration, OrderMetrics, OrderEventLogger
-    │       ├── submission/    SubmitOrderCommand, RequestFingerprint, QuantityResolver, ResolvedOrder, SubmissionResult,
-    │       │                  OrderSubmissionService, OrderSubmissionTransaction, InvalidOrderException,
+    │   ├── account/
+    │   │   ├── domain/        AccountEntry, Position, Account, AccountCalculator
+    │   │   ├── service/       AccountService
+    │   │   ├── repository/    AccountRepository
+    │   │   ├── config/        AccountProperties, AccountConfiguration
+    │   │   ├── error/         UserNotFoundException, UserBusyException
+    │   │   └── observability/ TurnMetrics
+    │   ├── instruments/
+    │   │   ├── domain/        Instrument, MarketPrice, SearchResult
+    │   │   ├── service/       InstrumentCatalog, InstrumentSearchService
+    │   │   ├── repository/    InstrumentRepository, MarketPriceRepository
+    │   │   ├── config/        SearchProperties
+    │   │   └── web/           InstrumentController, InstrumentSearchResponse, InstrumentSummary,
+    │   │                      InstrumentApiExamples
+    │   ├── portfolio/
+    │   │   ├── domain/        Portfolio, PositionValuation, PortfolioValuator
+    │   │   ├── service/       PortfolioService
+    │   │   ├── config/        PortfolioConfiguration
+    │   │   └── web/           PortfolioController, PortfolioResponse, CashResponse, PositionResponse,
+    │   │                      PortfolioApiExamples
+    │   └── orders/
+    │       ├── domain/        OrderType, RejectionReason, OrderLimits, StoredOrder, NewOrder
+    │       │   ├── submission/  SubmitOrderCommand, RequestFingerprint, QuantityResolver, ResolvedOrder,
+    │       │   │                SubmissionResult
+    │       │   ├── evaluation/  OrderCandidate, OrderDecision, OrderEvaluator, RejectionRule,
+    │       │   │                QuotedInstrumentRule, EnoughCashRule, EnoughSharesRule
+    │       │   └── listing/     OrderCursor, OrderPage, OrderSortKey
+    │       ├── service/       OrderSubmissionService, OrderSubmissionTransaction, OrderCancellationService,
+    │       │                  OrderQueryService
+    │       ├── repository/    OrderRepository
+    │       ├── config/        OrdersConfiguration, OrderPageProperties
+    │       ├── error/         OrderNotFoundException, OrderNotCancellableException, InvalidOrderException,
     │       │                  ClientOrderIdReusedException
-    │       ├── evaluation/    OrderCandidate, OrderDecision, OrderEvaluator, RejectionRule, QuotedInstrumentRule,
-    │       │                  EnoughCashRule, EnoughSharesRule
-    │       ├── cancellation/  OrderCancellationService, OrderNotCancellableException
-    │       ├── listing/       OrderCursor, OrderPage, OrderPageProperties, OrderQueryService
+    │       ├── observability/ OrderMetrics, OrderEventLogger
     │       └── web/           OrderController, SubmitOrderRequest, ConsistentOrderRequest,
-    │                          ConsistentOrderRequestValidator, OrderResponse, OrderResponseMapper, OrderPageResponse
+    │                          ConsistentOrderRequestValidator, TradeSide, OrderResponse, OrderResponseMapper,
+    │                          OrderPageResponse, OrderApiExamples
     ├── main/resources/        application.yml, messages.properties, db/migration/V2__… a V6__…
     └── test/java/com/cocos/challenge/
         ├── support/           PostgresContainer, IntegrationTest, OriginalData, OriginalDataExtension,
-        │                      ApiClient, TestData, Concurrency
+        │                      ApiClient, TestData, Concurrency, OrderRequests, LogLines
         └── (los mismos paquetes que main, con sus tests)
 docker-compose.yml   scripts/   postman/   observability/   perf/   .github/workflows/ci.yml   README.md
 </code></pre></div>
+<blockquote>
+<p>Al ejecutar: este árbol es el vigente. En la revisión final (fase 8, 2026-11-10) las clases de cada función se
+agruparon en un paquete por capa, sin cambiar lógica
+(<a href="../adr/0001-capas-por-funcion/#revisión-fase-8-2026-11-10">ADR 0001, "Revisión"</a>). Las tareas de abajo nombran las
+carpetas con las que se construyó, y lo construido es lo que vale. Por ejemplo, lo que una tarea crea en
+<code>orders/submission/</code> hoy está en <code>orders/domain/submission/</code>, <code>orders/service/</code> y <code>orders/error/</code>. El árbol también
+suma las clases que aparecieron al ejecutar, como <code>TradeSide</code> y <code>OrderSortKey</code>.</p>
+</blockquote>
 <p>Cada paquete y subpaquete lleva su <code>package-info.java</code> con <code>@NullMarked</code>, el aviso de JSpecify con el que NullAway
 revisa ese paquete. Lo que puede faltar se marca con <code>@Nullable</code>.</p>
 <h2 id="diseño-del-código-solid-y-patrones">Diseño del código: SOLID y patrones<a class="headerlink" href="#diseño-del-código-solid-y-patrones" title="Permanent link">&para;</a></h2>

@@ -2071,6 +2071,8 @@ no se piden y, sin autenticación, cualquiera podría crear plata.</p>
 <p>Lo único de afuera es la base, y lo más delicado se prueba contra Postgres real de todas formas: los puertos de la
 arquitectura hexagonal no aportaban. Las consultas importantes son SQL propio de Postgres (<code>FOR UPDATE</code>, <code>LATERAL</code>,
 <code>unaccent</code>), y JPA agrega comportamiento escondido justo en el camino más delicado.</p>
+<p>En el código, cada función es un paquete (<code>account</code>, <code>instruments</code>, <code>portfolio</code> y <code>orders</code>), y adentro hay un paquete
+por capa: <code>web</code>, <code>service</code>, <code>domain</code> y <code>repository</code>, entre otros.</p>
 <p><a href="adr/0001-capas-por-funcion/">ADR 0001</a> · <a href="adr/0002-sql-directo-con-jdbcclient/">ADR 0002</a></p>
 <h3 id="11-se-tocó-la-base-de-cocos">11. ¿Se tocó la base de Cocos?<a class="headerlink" href="#11-se-tocó-la-base-de-cocos" title="Permanent link">&para;</a></h3>
 <p>Se trata como producción: mientras se desarrolló, solo se leyó. La API y los tests corren contra una copia local,

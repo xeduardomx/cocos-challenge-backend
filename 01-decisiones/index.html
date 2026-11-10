@@ -3622,7 +3622,10 @@ no pide</strong> (cancelar y listar órdenes) y deja afuera las transferencias. 
   del índice de A-4.</p>
 <h4 id="transferencias-cash_in-y-cash_out-por-api-fuera-de-alcance">Transferencias (<code>CASH_IN</code> y <code>CASH_OUT</code>) por API: fuera de alcance<a class="headerlink" href="#transferencias-cash_in-y-cash_out-por-api-fuera-de-alcance" title="Permanent link">&para;</a></h4>
 <ul>
-<li><strong>Lo que dice el enunciado:</strong> <em>"se pueden modelar como ordenes"</em>. Describe cómo están guardadas; no pide crearlas.</li>
+<li><strong>Lo que dice el enunciado:</strong> <em>"Las transferencias entrantes y salientes se pueden modelar como ordenes"</em>. Describe
+  cómo están guardadas; no pide crearlas. Y define el envío como compra o venta: <em>"se podrá enviar una orden de compra o
+  venta del activo"</em>, y <em>"Las ordenes tienen un atributo llamado <code>side</code> que describe si la orden es de compra (<code>BUY</code>) o
+  venta (<code>SELL</code>)"</em>.</li>
 <li><strong>Por qué quedan afuera:</strong></li>
 <li>No se piden.</li>
 <li><strong>En la vida real, la plata no entra porque el usuario lo dice:</strong> un <code>CASH_IN</code> llega del banco cuando se acredita

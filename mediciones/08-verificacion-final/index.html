@@ -1414,6 +1414,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Verificación final
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -1429,6 +1446,37 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="Tabla de contenidos">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#después-de-reordenar-los-paquetes-2026-11-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Después de reordenar los paquetes (2026-11-10)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1523,6 +1571,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -1534,6 +1587,25 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#después-de-reordenar-los-paquetes-2026-11-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Después de reordenar los paquetes (2026-11-10)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1661,7 +1733,7 @@
 <h1 id="verificación-final">Verificación final<a class="headerlink" href="#verificación-final" title="Permanent link">&para;</a></h1>
 <blockquote>
 <p>Corrida del 2026-11-09 sobre un clon limpio del commit <code>3bca905</code>, en la misma computadora de la
-<a href="../06-tiempo-de-respuesta/">medición de tiempo de respuesta</a>. Después de esa corrida solo cambiaron documentos y la forma de apuntar a Neon, que se probó aparte: <code>docker compose up</code>, la prueba de humo y Postman en la copia local, y <code>run-on-neon.sh</code> con lecturas. GitHub
+<a href="../06-tiempo-de-respuesta/">medición de tiempo de respuesta</a>. Después de esa corrida cambiaron documentos, la forma de apuntar a Neon, que se probó aparte (<code>docker compose up</code>, la prueba de humo y Postman en la copia local, y <code>run-on-neon.sh</code> con lecturas), y el paquete de cada clase, con todos los pasos repetidos sobre otro clon limpio (<a href="#después-de-reordenar-los-paquetes-2026-11-10">abajo</a>). GitHub
 Actions está bloqueado en esta cuenta (RFC, sección 11.2): estos son los pasos de <code>.github/workflows/ci.yml</code>, corridos en
 local, más los ejemplos del README y la medición con volumen. Postgres usó el puerto 5434, porque el 5433 estaba
 ocupado en esa máquina.</p>
@@ -1738,6 +1810,158 @@ exit: 0
 <code>docker stats</code> cada pocos segundos, el pico de los contenedores juntos fue de 3,28 GiB: Postgres 1,73, Grafana 0,84, la API
 0,65, y k6 y Prometheus 0,03 cada uno. En la corrida anterior fue de 3,98 GiB, porque la API llegó a 1,38. Por eso el README
 pide unos 4 GB libres.</p>
+<h2 id="después-de-reordenar-los-paquetes-2026-11-10">Después de reordenar los paquetes (2026-11-10)<a class="headerlink" href="#después-de-reordenar-los-paquetes-2026-11-10" title="Permanent link">&para;</a></h2>
+<p>Las clases de cada función se agruparon en un paquete por capa, sin cambiar lógica
+(<a href="../../adr/0001-capas-por-funcion/#revisión-fase-8-2026-11-10">ADR 0001, "Revisión"</a>).</p>
+<p><strong>Antes y después de mover las clases,</strong> en el directorio de trabajo:</p>
+<table>
+<thead>
+<tr>
+<th>Qué</th>
+<th>Antes</th>
+<th>Después</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tests</td>
+<td>372, sin fallas</td>
+<td>372, sin fallas, con la misma cantidad en cada una de las 44 clases de test</td>
+</tr>
+<tr>
+<td>Cobertura, del informe de JaCoCo</td>
+<td>865 de 873 líneas y 228 de 239 ramas, en 89 clases</td>
+<td>lo mismo, clase por clase</td>
+</tr>
+<tr>
+<td>Código</td>
+<td></td>
+<td>80 archivos movidos (57 clases y 23 tests) y 15 con otros <code>import</code>: solo cambian las líneas <code>package</code> e <code>import</code>. Cada paquete nuevo tiene su <code>package-info.java</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Todos los pasos de arriba, otra vez,</strong> sobre un clon limpio del commit <code>f56af3d</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Paso</th>
+<th>Comando</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Formato, análisis estático, tests y cobertura</td>
+<td><code>./mvnw -B verify</code>, con Temurin 25 en Docker</td>
+<td>372 tests, sin fallas. Cobertura: 99,1 % de las líneas y 95,4 % de las ramas</td>
+</tr>
+<tr>
+<td>Levantar todo</td>
+<td><code>docker compose up -d --build --wait</code></td>
+<td>código 0</td>
+</tr>
+<tr>
+<td>Prueba de humo</td>
+<td><code>./scripts/smoke-test.sh</code></td>
+<td>pasó</td>
+</tr>
+<tr>
+<td>Ejemplos del README</td>
+<td>los <code>curl</code> de "Probarla"</td>
+<td>las respuestas que muestra el README</td>
+</tr>
+<tr>
+<td>Colección de Postman, sobre un <code>up</code> nuevo</td>
+<td><code>./scripts/run-postman.sh</code></td>
+<td>9 pedidos y 19 aserciones, sin fallas</td>
+</tr>
+<tr>
+<td>Tiempo de respuesta con 2 millones de órdenes</td>
+<td><code>./scripts/run-load-test.sh</code></td>
+<td>código 0, con todos los umbrales cumplidos. El peor percentil 95 sigue siendo el envío del usuario pesado: 56,12 ms (antes, 57,13)</td>
+</tr>
+</tbody>
+</table>
+<div class="language-text highlight"><pre><span></span><code>== ./mvnw -B verify
+Tests run: 372, Failures: 0, Errors: 0, Skipped: 0
+All coverage checks have been met.
+BUILD SUCCESS
+
+== docker compose up -d --build --wait
+exit: 0
+
+== ./scripts/smoke-test.sh
+Smoke test passed: Prometheus scrapes the API, Grafana has the dashboard and a healthy data source, and user 1 has cash 627500 and total value 889756.
+
+== los ejemplos del README
+{"totalValue":889756,"cash":{"balance":753000,"reserved":125500,"available":627500}}
+{"ticker":"PAMP","name":"Pampa Holding S.A.","lastPrice":925.85}
+{"id":12,"ticker":"PAMP","quantity":10,"price":925.85,"amount":9258.5,"status":"FILLED"}
+el mismo pedido otra vez: 200
+{"id":7,"ticker":"BMA","status":"NEW"}
+{"id":5,"ticker":"LOMA","status":"NEW"}
+{"id":7,"status":"CANCELLED"}
+
+== ./scripts/run-postman.sh
+requests   9, failed 0
+assertions 19, failed 0
+
+== ./scripts/run-load-test.sh
+exit: 0
+</code></pre></div>
+<p><strong>Además, a mano,</strong> con el usuario 1 y sobre los datos originales, antes del commit:</p>
+<table>
+<thead>
+<tr>
+<th>Pedido</th>
+<th>Respuesta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Portfolio</td>
+<td>$889.756 en total y $627.500 disponibles</td>
+</tr>
+<tr>
+<td>Búsqueda de "pamp"</td>
+<td>PAMP, a $925,85</td>
+</tr>
+<tr>
+<td>Compra a mercado de 2 PAMP</td>
+<td>201, <code>FILLED</code> a $925,85</td>
+</tr>
+<tr>
+<td>El mismo pedido otra vez</td>
+<td>200, con la misma orden</td>
+</tr>
+<tr>
+<td>Venta límite de 15 PAMP a $1.000</td>
+<td>201, <code>NEW</code>; el portfolio muestra <code>reservedQuantity</code> 15</td>
+</tr>
+<tr>
+<td>Venta a mercado de 30 PAMP, con 27 libres</td>
+<td><code>REJECTED</code> por <code>INSUFFICIENT_SHARES</code></td>
+</tr>
+<tr>
+<td>Cancelar la venta límite</td>
+<td>200, <code>CANCELLED</code>; <code>reservedQuantity</code> vuelve a 0</td>
+</tr>
+<tr>
+<td>Cancelarla otra vez</td>
+<td>409, con <code>currentStatus</code> <code>CANCELLED</code></td>
+</tr>
+<tr>
+<td>Portfolio del usuario 999</td>
+<td>404</td>
+</tr>
+<tr>
+<td>Orden límite sin precio y sin identificador</td>
+<td>400, con los dos errores</td>
+</tr>
+</tbody>
+</table>
+<p>El log de cada orden sale con el nombre nuevo de la clase, <code>com.cocos.challenge.orders.observability.OrderEventLogger</code>,
+y los contadores <code>orders_recorded_total</code>, <code>orders_replayed_total</code> y <code>orders_cancelled_total</code> contaron cada una.</p>
 
 
 
