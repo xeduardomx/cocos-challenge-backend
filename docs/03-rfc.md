@@ -665,7 +665,7 @@ Solo una orden `NEW` cambia de estado; las otras tres son finales (D-7). Nuestro
 
 ### 5.2 El turno del usuario
 
-La transacción del envío empieza tomando el turno del usuario, con un lock sobre su fila de `users`
+La transacción del envío empieza tomando el turno del usuario, con un lock sobre su fila de `users` (un bloqueo pesimista)
 ([ADR 0004](adr/0004-turno-del-usuario.md)):
 
 ```sql
@@ -721,7 +721,7 @@ la API responde 503 con "intentá de nuevo" (sección 7). Reintentar con el mism
 | Opción | Por qué no |
 |---|---|
 | Un lock de Postgres sin fila (`pg_advisory_xact_lock`) | hace lo mismo, pero no verifica que el usuario exista, y sus números se comparten con cualquier otro uso de esos locks en la base |
-| Nivel `SERIALIZABLE` | Postgres detecta el choque y aborta una de las dos transacciones: la API tendría que reintentar la orden entera, con más código y una orden evaluada dos veces |
+| Un bloqueo optimista: nivel `SERIALIZABLE`, o una columna `version` en `users` que se revisa al grabar | si otra orden se adelantó, la transacción se deshace: la API tendría que reintentar la orden entera, con más código y una orden evaluada dos veces. La columna, además, cambia una tabla de Cocos |
 | Un lock en Java | solo funciona con una instancia de la API |
 | Un `UPDATE` condicionado sobre una tabla de saldos y posiciones, o la regla "cantidad ≥ 0" | es lo más simple cuando la regla mira una sola fila, y así se cancela (5.4). Acá no hay una fila con el número: la tenencia y los pesos son la suma de las órdenes. La tabla se descartó en A-4 y D-1: BMA ya está en −10 |
 | Un solo comando que lee la cuenta y graba (`insert ... select`), sin turno | graba todo o nada, pero no pone los pedidos en fila: dos a la vez ven la misma cuenta, y la posición queda en −10 (prueba G) |
