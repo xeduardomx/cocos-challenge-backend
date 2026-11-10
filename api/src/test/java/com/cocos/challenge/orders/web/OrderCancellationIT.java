@@ -5,7 +5,7 @@ import static com.cocos.challenge.support.OrderRequests.marketBuy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 
-import com.cocos.challenge.orders.OrderRepository;
+import com.cocos.challenge.orders.repository.OrderRepository;
 import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.support.ApiClient;
 import com.cocos.challenge.support.ApiClient.ApiResponse;

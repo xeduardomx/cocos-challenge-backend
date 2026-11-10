@@ -31,10 +31,10 @@ El análisis y las decisiones tienen que verse en el repo, separados del código
 ## Base de datos
 
 - La URL está en `.env` (`DATABASE_URL`, gitignoreado). **Nunca** escribir credenciales en otro archivo.
-- **La base de Neon es de Cocos y se trata como producción: mientras desarrollamos, solo lectura.** Explorar sí;
-  insertar, borrar o migrar, no. Desarrollo y tests van contra una copia local en Docker armada con `database.sql`
-  y nuestras migraciones. Si al final se aplican las migraciones en Neon se decide en la fase 8
-  (ver `docs/01-decisiones.md`).
+- **La base de Neon es de Cocos y se trata como producción: solo lectura.** Explorar sí; insertar, borrar o migrar, no.
+  Desarrollo y tests van contra una copia local en Docker armada con `database.sql` y nuestras migraciones. Las
+  migraciones se le aplicaron una vez, el 2026-11-09, con aprobación del autor (`docs/mediciones/08-migracion-neon.md`).
+  Cualquier otro cambio, solo si el autor lo pide.
 - Para explorarla hace falta un `psql` moderno (Neon usa `channel_binding` y SNI).
 
 ## Cómo se trabaja (ciclo de desarrollo)
@@ -101,7 +101,9 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
 ## Decisiones de diseño: dónde quedó cada una
 
 - Arquitectura: **decidida en el RFC** (2026-11-07). Capas agrupadas por función, no hexagonal, con los cálculos en
-  Java puro y la cuenta del usuario calculada en un solo lugar (`docs/adr/0001-capas-por-funcion.md`).
+  Java puro y la cuenta del usuario calculada en un solo lugar (`docs/adr/0001-capas-por-funcion.md`). Adentro de cada
+  función, un paquete por capa (`web`, `service`, `domain`, `repository`, `config`, `error`, `observability`), desde la
+  revisión del 2026-11-10.
 - Versiones y acceso a datos: **decididos en el RFC** (2026-11-07). Java 25 y Spring Boot 4.1; SQL directo con
   `JdbcClient`, no JPA ni jOOQ (`docs/adr/0002-sql-directo-con-jdbcclient.md`).
 - Cambios a la base: **decididos en el RFC** (2026-11-07, sección 3). Reglas que miran una sola fila, tres columnas
@@ -119,5 +121,5 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
   (`docs/02-prd.md`, sección 2).
 - El resto del diseño (cálculos, órdenes simultáneas, contratos, errores, seguridad, tests y build): **decidido en el
   RFC** (2026-11-07), `docs/03-rfc.md`, con sus ADR en `docs/adr/`.
-- **Queda abierta una sola:** si a Neon se le aplican las migraciones. Se decide en la fase 8 (ver "Base de Neon" en
-  `docs/01-decisiones.md`).
+- Neon: **decidido en la fase 8** (2026-11-09). Se le aplicaron las migraciones, una sola vez, y
+  `scripts/run-on-neon.sh` apunta la API a esa base (ver "Base de Neon" en `docs/01-decisiones.md`).

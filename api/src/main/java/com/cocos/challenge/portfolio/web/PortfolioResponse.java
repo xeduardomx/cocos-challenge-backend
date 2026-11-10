@@ -1,6 +1,6 @@
 package com.cocos.challenge.portfolio.web;
 
-import com.cocos.challenge.portfolio.Portfolio;
+import com.cocos.challenge.portfolio.domain.Portfolio;
 import java.math.BigDecimal;
 import java.util.List;
 

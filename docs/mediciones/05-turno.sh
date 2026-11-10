@@ -37,6 +37,23 @@ returning status || ' (vio ' || :posicion || ')';
 commit;
 SQL
 
+# La misma venta en un solo comando, sin transacción ni turno: lee la posición, espera 1 segundo y graba.
+cat > "$W/venta-en-un-comando.sql" <<'SQL'
+\set ON_ERROR_STOP 1
+with cuenta as (
+  select coalesce(sum(case when side = 'BUY' then size when side = 'SELL' then -size end), 0) as posicion
+  from orders where userid = 5 and instrumentid = 31 and status = 'FILLED'
+), venta as (
+  insert into orders (instrumentid, userid, size, price, type, side, status, clientOrderId, requestFingerprint, rejectionReason)
+  select 31, 5, 15, 1502.80, 'MARKET', 'SELL', case when posicion >= 15 then 'FILLED' else 'REJECTED' end,
+         gen_random_uuid(), md5(random()::text) || md5(random()::text),
+         case when posicion >= 15 then null else 'INSUFFICIENT_SHARES' end
+  from cuenta, pg_sleep(1)
+  returning status
+)
+select venta.status || ' (vio ' || cuenta.posicion || ')' from venta, cuenta;
+SQL
+
 # Un pedido con un identificador fijo: si ya existe, devuelve la orden original; si no, la crea.
 cat > "$W/reintento.sql" <<'SQL'
 \set ON_ERROR_STOP 1
@@ -101,3 +118,8 @@ done
 echo '== Dos cancelaciones a la vez de la orden 7'
 par cancelar.sql 'read committed' 0
 echo "F. un solo UPDATE condicionado | pedido 1: $r1 | pedido 2: $r2 | estado final: $(psql_c -c 'select status from orders where id = 7')"
+
+echo '== Dos ventas de 15 BMA a la vez, teniendo 20, cada una en un solo comando'
+psql_c -c "delete from orders where userid = 5 and side = 'SELL'"
+par venta-en-un-comando.sql 'read committed' 0
+echo "G. un solo INSERT ... SELECT, sin turno | venta 1: $r1 | venta 2: $r2 | posición final: $(posicion)"

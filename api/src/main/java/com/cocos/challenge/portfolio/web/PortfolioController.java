@@ -1,6 +1,6 @@
 package com.cocos.challenge.portfolio.web;
 
-import com.cocos.challenge.portfolio.PortfolioService;
+import com.cocos.challenge.portfolio.service.PortfolioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;

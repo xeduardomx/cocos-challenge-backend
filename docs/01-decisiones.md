@@ -108,6 +108,10 @@ El detalle se trabaja en el bloque del esquema, que se hace en el RFC (fase 3).
   evalúa aplicarle las mismas migraciones una vez, como un pase a producción. **Cómo, decidido en el RFC (sección
   3.6, ADR 0006):** con Flyway, que anota a `database.sql` como versión 1 y aplica todos los cambios en una sola
   transacción; la API no migra sola salvo que se le pida.
+- **Decidido en la fase 8 (2026-11-09): se le aplicaron las migraciones.** El enunciado da libertad para *"modificar,
+  agregar o ajustar tablas"* si se justifica, y *"la base de datos provista"* es esta. La base de cada candidato es propia.
+  Antes se confirmó que seguía idéntica a `database.sql` y se guardó un respaldo; los datos no cambiaron
+  ([`mediciones/08-migracion-neon.md`](mediciones/08-migracion-neon.md)).
 - **Por qué:**
   - El mail pide que *"el proyecto tiene que poder ser ejecutado localmente"*.
   - Los tests graban órdenes. Contra Neon, cada corrida cambiaría la plata y las posiciones del usuario 1, y los
@@ -298,7 +302,8 @@ pagar 0,6 centavos, así que es una cuenta, no un precio operado. La base lo gua
      permite ejecutarlo.
   4. **Tests independientes:** cada test arma sus propios datos (su usuario con su depósito `CASH_IN`). Si todos
      usaran al usuario 1, se pisarían entre sí y el resultado dependería del orden en que corren. Los números de
-     referencia del usuario 1 se verifican en tests que solo leen.
+     referencia del usuario 1 se verifican en tests que solo leen. **Resuelto en el RFC (sección 10.2):** antes de cada
+     test la base vuelve a los datos originales, así que los casos del usuario 1 también pueden escribir.
   5. **El email no se devuelve ni se loguea:** el portfolio no lo necesita y es un dato personal.
   6. **Test:** el portfolio del usuario 2 da $0 con la lista vacía, y el del usuario 99 da 404.
 
@@ -500,14 +505,20 @@ Cerrada en D-1: la posición de BMA (−10) se muestra tal cual, con rendimiento
      exactas (por ejemplo, usuario + fecha) se definen ahí.
   4. **Sin tabla de posiciones no aparece el problema de "cantidad ≥ 0"** con BMA −10: queda coherente con D-1.
   5. **La foto a una fecha queda como evolución posible.** Se usaría si el portfolio supera el tiempo de respuesta
-     objetivo que fije el RFC.
+     objetivo que fije el RFC, o antes de borrar órdenes viejas (decisión 9).
   6. **La concurrencia de D-1 no cambia:** las órdenes de un mismo usuario se procesan de a una. El mecanismo se
      elige en el RFC. **Elegido en el RFC (sección 5.2, ADR 0004):** un lock sobre la fila del usuario.
   7. **Test funcional:** el usuario 1 compra 10 PAMP a mercado ($925,85, o sea $9.258,50). El siguiente portfolio
      muestra 50 PAMP, PPC $929,17 ((40 × $930 + 10 × $925,85) ÷ 50) y pesos disponibles por $618.241,50. El valor
      total sigue en $889.756: comprar a precio de mercado no cambia el total, solo pasa plata de pesos a acciones.
   8. **Esta decisión es candidata a ADR en la fase 3** ("posiciones calculadas, no guardadas"), con la medición
-     formal.
+     formal. **Hecho:** ADR 0003; la medición del RFC (sección 3.5) dio 1,2 ms para un usuario de 10.000 órdenes.
+  9. **Revisada en la fase 8 (2026-11-09): se mantiene.** El autor volvió a evaluar la tabla de posiciones por una razón
+     que no se había mirado: el cálculo necesita todo el historial, y si se borraran órdenes viejas daría mal sin
+     avisar. Se descartó otra vez, porque el enunciado indica *"utilizar todos los movimientos pertinentes que hay en
+     la tabla `orders`, utilizando la columna `size`"*, y porque una tabla no vería lo que no pasa por la API. Antes de
+     borrar órdenes hay que guardar la foto a una fecha. El detalle está en el
+     [ADR 0003](adr/0003-posiciones-calculadas.md).
 
 ### A-5 · Qué significa "similar" en la búsqueda
 
@@ -550,7 +561,7 @@ Cerrada en D-1: la posición de BMA (−10) se muestra tal cual, con rendimiento
   11. **Qué devuelve:** id, ticker, nombre, último precio y variación diaria. El id hace falta para mandar una orden;
       el precio es lo que muestra una pantalla de búsqueda. Precio y variación quedan vacíos para PGR e IRCP (D-2).
   12. **Para el bloque del esquema:** extensión `unaccent` (disponible en Neon, no instalada). En la copia local se
-      instala con una migración; en Neon, se decide en la fase 8. Con 65 activos la búsqueda no necesita índice; se
+      instala con una migración; en Neon, se instaló en la fase 8. Con 65 activos la búsqueda no necesita índice; se
       evalúa ahí midiendo con volumen, como en A-4.
   13. **Tests:** "rio" incluye MOLI; "grupo galicia" devuelve GGAL; "pa" devuelve PAMP primero; "pesos" no devuelve
       nada; "_" no devuelve nada; un texto vacío da 400.
@@ -814,7 +825,10 @@ no pide** (cancelar y listar órdenes) y deja afuera las transferencias. Cada co
 
 #### Transferencias (`CASH_IN` y `CASH_OUT`) por API: fuera de alcance
 
-- **Lo que dice el enunciado:** *"se pueden modelar como ordenes"*. Describe cómo están guardadas; no pide crearlas.
+- **Lo que dice el enunciado:** *"Las transferencias entrantes y salientes se pueden modelar como ordenes"*. Describe
+  cómo están guardadas; no pide crearlas. Y define el envío como compra o venta: *"se podrá enviar una orden de compra o
+  venta del activo"*, y *"Las ordenes tienen un atributo llamado `side` que describe si la orden es de compra (`BUY`) o
+  venta (`SELL`)"*.
 - **Por qué quedan afuera:**
   1. No se piden.
   2. **En la vida real, la plata no entra porque el usuario lo dice:** un `CASH_IN` llega del banco cuando se acredita
@@ -1069,9 +1083,12 @@ decisión y es la base del alcance del PRD.
 | El portal corre con la imagen de Docker de Zensical. La prueba con los documentos reales pasó, y Docusaurus no hizo falta | Fase 7; RFC, sección 11.6 |
 | Las páginas que existen solo en el portal van en `docs/portal/`, y sus diagramas y tablas se toman de su documento, sin copiarlos | Fase 7; RFC, sección 11.6 |
 | Los paneles del tablero que cuentan órdenes van en un solo color: el rojo por defecto de Grafana, desde 80, hacía parecer un problema a las órdenes ejecutadas | Fase 7; RFC, sección 8.3 |
+| Un texto de búsqueda que queda vacío al sacarle los acentos no encuentra nada: la lista viene vacía | Fase 8; RFC, sección 4.3 |
+| `scripts/run-on-neon.sh` levanta la API, Prometheus y Grafana contra Neon. Con `--migrate` aplica antes las migraciones, por la conexión directa y pidiendo confirmación | Fase 8; RFC, sección 3.6 |
+| El lado de un pedido solo puede ser `BUY` o `SELL`, desde su tipo: el error y Swagger ya no ofrecen `CASH_IN` ni `CASH_OUT`, que después se rechazaban | Fase 8; RFC, sección 6.2 |
 
 **Cambios al modelo de datos:** decididos en el RFC (sección 3) y aplicados con migraciones en la fase 5, solo en la
-copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).
+copia local. A Neon se le aplicaron en la fase 8, una sola vez (ADR 0006).
 
 | Cambio | Dónde |
 |---|---|
@@ -1087,8 +1104,8 @@ copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).
 | Qué | Por qué | Dónde |
 |---|---|---|
 | Corregir datos heredados (orden 11, precio de la orden 10, `previousClose` de BBAR) | no le corresponde al desarrollador; se documentan | D-1, D-4, D-6 |
-| Tabla de posiciones | con un índice alcanza (medido) | A-4 |
-| Foto del portfolio a una fecha | evolución posible, si el portfolio supera el tiempo objetivo del RFC | A-4 |
+| Tabla de posiciones | con un índice alcanza (medido) y el enunciado indica calcular desde `orders`; se volvió a evaluar en la fase 8, por el riesgo de perder historial, y se descartó | A-4, ADR 0003 |
+| Foto del portfolio a una fecha | evolución posible, si el portfolio supera el tiempo objetivo del RFC; paso obligatorio antes de borrar órdenes viejas | A-4, ADR 0003 |
 | Tolerancia a errores de tipeo en la búsqueda | habría que inventar el umbral; mejora posible como "¿quisiste decir…?" | A-5 |
 | Bandas de precio como las de BYMA | el porcentaje no se pudo verificar y sería simular el mercado | A-6, parte 2 |
 | Ejecutar una LIMIT que cruza el precio | contradice el enunciado | A-6, parte 2 |
@@ -1122,7 +1139,7 @@ copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).
    "modelo y cambios a la base" en el RFC. La lista de abajo queda escrita como insumo.
 6. ~~**Repaso rápido de riesgos (R-1 a R-5) y supuestos (S-1 a S-5)**~~ Cerrado: R-2 con identificador de orden
    obligatorio; el resto, resuelto en otras decisiones o confirmado (ver "Riesgos y supuestos del análisis: repaso").
-7. **Repaso final de dudas sobre los conceptos.** Pospuesto a pedido del autor: se hace más adelante.
+7. ~~**Repaso final de dudas sobre los conceptos.**~~ Quedó como preparación personal del autor, fuera de estos documentos.
 8. ~~**Reescritura de `01-analisis.md`**~~ Hecha el 2026-11-06: resumen de todas las decisiones con el resumen del
    inventario, y números de referencia del usuario 1 recalculados en la copia local (con escenarios nuevos de envío,
    cancelación, listado y búsqueda). Se sacaron las preguntas para Cocos y el supuesto S-3, y se corrigieron
@@ -1131,8 +1148,7 @@ copia local. A Neon se le aplican, si se decide, en la fase 8 (ADR 0006).
    vacío con la posición en 0 o negativa (A-2, decisión 5) e identificador nuevo para volver a mandar una orden
    rechazada (R-2). Se integra a `develop` con un PR.
 
-**Fase 1 cerrada.** Sigue la fase 2, el PRD, en la rama `docs/phase-2-prd`. El repaso de conceptos (punto 7) sigue
-pospuesto.
+**Fase 1 cerrada.** Sigue la fase 2, el PRD, en la rama `docs/phase-2-prd`.
 
 ### Ideas anotadas para fases siguientes
 
@@ -1174,5 +1190,5 @@ copia local.
 - **R-2:** columna para el identificador de la orden (vacía en las 11 órdenes viejas), única por (usuario,
   identificador); huella del pedido o pedido tal cual, para comparar el contenido en un reintento (recomendada: la
   huella).
-- **C-2, abierta:** ¿renombrar columnas (por ejemplo, `instrumentid` → `instrument_id`)? Propuesta: no, para que
+- **C-2, cerrada:** ¿renombrar columnas (por ejemplo, `instrumentid` → `instrument_id`)? No, para que
   cualquiera que consulte la base con los nombres que conoce siga pudiendo hacerlo.

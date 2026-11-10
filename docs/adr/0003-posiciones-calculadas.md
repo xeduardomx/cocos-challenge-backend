@@ -1,6 +1,6 @@
 # ADR 0003 — Las posiciones se calculan desde `orders`, sin tabla de posiciones
 
-> Estado: **aceptada** · 2026-11-07 · Viene de A-4 (`01-decisiones.md`) y se aplica en el
+> Estado: **aceptada** · 2026-11-07, revisada el 2026-11-09 · Viene de A-4 (`01-decisiones.md`) y se aplica en el
 > [RFC, secciones 3.5 y 4.1](../03-rfc.md#41-la-cuenta-del-usuario-la-base-trae-las-órdenes-y-java-calcula)
 
 ## Contexto
@@ -50,6 +50,33 @@ usan el portfolio y el envío (ADR 0001).
 - Sin tabla de posiciones, no aparece el problema de "cantidad ≥ 0" con BMA: queda coherente con D-1.
 - El usuario extremo, con un millón de órdenes, queda fuera del objetivo de tiempo de la sección 8.4: es el límite
   documentado de esta decisión.
+- **El cálculo necesita todo el historial de órdenes** (ver "Revisión", abajo).
 - **Cuándo revisarla:** si el portfolio de los usuarios del objetivo (hasta 10.000 órdenes) superara los 100 ms de la
-  sección 8.4. El paso siguiente sería D, la foto a una fecha. Con eso, las pendientes pasarían a ser la consulta más
-  lenta, y ahí entra el índice parcial que ya está medido (sección 3.5).
+  sección 8.4, o si se decidiera borrar o archivar órdenes viejas. El paso siguiente sería D, la foto a una fecha. Con
+  eso, las pendientes pasarían a ser la consulta más lenta, y ahí entra el índice parcial que ya está medido (sección
+  3.5).
+
+## Revisión (fase 8, 2026-11-09)
+
+Antes de entregar, el autor volvió a evaluar la opción B por una razón que no se había mirado: **el cálculo necesita
+todo el historial.** Si dentro de unos años se borraran las órdenes más viejas de un usuario, los números darían mal y
+sin ningún error. Por ejemplo, sin las órdenes 1 a 4, el usuario 1 pasaría de $753.000 a −$209.900 en pesos y PAMP
+desaparecería. Una tabla con la posición vigente no dependería de ese historial.
+
+**Se mantiene A.** La tabla sería válida, pero se descartó por esto:
+
+1. **El enunciado indica calcular desde las órdenes.** *"Para hacer el calculo de la tenencia y pesos disponibles
+   utilizar todos los movimientos pertinentes que hay en la tabla `orders`, utilizando la columna `size`"*, y *"Para
+   calcular el valor de mercado, rendimiento y cantidad de acciones de cada posición usar las ordenes en estado
+   `FILLED` de cada activo"*. Lo de "actualizar el listado" ya se cumple: una orden ejecutada cuenta en el siguiente
+   portfolio (POR-8).
+2. **Una tabla no vería lo que no pasa por la API.** La API no crea depósitos ni ejecuta órdenes límite (A-7, D-7): eso
+   lo hace otro sistema. Hoy, un `CASH_IN` nuevo o una límite que pasa a `FILLED` cuentan en el siguiente pedido. Con la
+   tabla no contarían, salvo que cada sistema la actualice o que un trigger lleve a la base el cálculo del PPC, que el
+   RFC deja en Java (sección 4.1).
+3. **Con las cantidades no alcanza.** Para no depender del historial, también tendría que guardar el PPC y los pesos.
+4. **Borrar historial se planifica, y la opción D lo resuelve.** Antes de borrar se guarda la foto: cantidad, PPC y
+   pesos a una fecha; después se suman solo las órdenes posteriores. Se escribe una sola vez y lo nuevo se sigue leyendo
+   de `orders`, así que el punto 2 no aparece.
+
+Hoy la API no borra órdenes, así que la foto no se construye: queda como paso obligatorio antes de borrar o archivar.

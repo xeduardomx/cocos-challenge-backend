@@ -175,7 +175,7 @@ Ver D-1: se muestra tal cual.
 - La pregunta que decidía era si calcular es lento. Se midió (sección 1): con un índice por usuario, 3 ms para un
   usuario con 10.000 órdenes.
 - "Cuando una orden se ejecuta, actualizar el listado de posiciones" se cumple solo, porque el listado se arma con
-  las órdenes del momento. Candidata a ADR en el RFC.
+  las órdenes del momento. Quedó en el ADR 0003.
 
 ### A-5. "Similar" en la búsqueda: contiene, palabra por palabra
 
@@ -237,7 +237,7 @@ METR con límite $10.000 reservarían $1.000.000, y con $627.500 disponibles que
 | R-2 | **Un reintento compra dos veces.** Se compran 100 PAMP ($92.585), la respuesta se pierde y la app reintenta: 200 PAMP y $185.170 gastados. | Cada orden trae un identificador obligatorio que pone el cliente, como el `ClOrdID` de FIX. Si se repite con el mismo contenido, se devuelve la orden original; con otro contenido, error. Es único por usuario. Para volver a intentar una orden rechazada, la app manda una orden nueva, con otro identificador. |
 | R-3 | **Redondeo.** | La cantidad por monto se corta para abajo (A-6). Plata y precios, con 2 decimales y decimales exactos; los cálculos se redondean solo al final (el modo, en el RFC). |
 | R-4 | **Rendimiento con costo cero.** | Imposible si la base exige precio > 0; con posición ≤ 0, rendimiento vacío (A-2). |
-| R-5 | **Neon es modificable** por cualquiera que tenga la URL. | Todo corre contra la copia local; Neon, solo lectura. Si se le aplican las migraciones se decide en la fase 8. |
+| R-5 | **Neon es modificable** por cualquiera que tenga la URL. | Todo corre contra la copia local; Neon, solo lectura. En la fase 8 se le aplicaron las migraciones, una sola vez. |
 
 ## 8. Supuestos
 
@@ -363,7 +363,6 @@ no hay acciones compradas a ningún precio (A-2).
 - **RFC (fase 3):** arquitectura; contratos de API (direcciones, códigos HTTP, formato de fechas); el mecanismo para
   procesar de a una las órdenes de un usuario (R-1); los cambios al esquema con sus migraciones (sección 5); el modo
   de redondeo, el tamaño de página, el largo máximo de la búsqueda y el formato del identificador de orden.
-- **Pendiente del análisis:** un repaso final de dudas sobre los conceptos, pospuesto a pedido del autor.
 
 ## Anexo: consultas de verificación
 

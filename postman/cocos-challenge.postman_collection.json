@@ -33,6 +33,12 @@
               "});",
               "pm.test(\"available cash is 627500\", function () {",
               "  pm.expect(pm.response.json().cash.available).to.eql(627500);",
+              "});",
+              "pm.test(\"keeps what is reserved at the start\", function () {",
+              "  const portfolio = pm.response.json();",
+              "  const position = (portfolio, ticker) => portfolio.positions.find(p => p.ticker === ticker);",
+              "  pm.collectionVariables.set('initialReservedCash', portfolio.cash.reserved);",
+              "  pm.collectionVariables.set('initialReservedPamp', position(portfolio, 'PAMP').reservedQuantity);",
               "});"
             ]
           }
@@ -182,7 +188,97 @@
       ]
     },
     {
-      "name": "5. List the NEW orders",
+      "name": "5. Sell 5 PAMP with limit 1000",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOrderId\": \"{{$guid}}\",\n  \"instrumentId\": 47,\n  \"side\": \"SELL\",\n  \"type\": \"LIMIT\",\n  \"quantity\": 5,\n  \"price\": 1000\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 201\", function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"order is NEW\", function () {",
+              "  pm.expect(pm.response.json().status).to.eql('NEW');",
+              "});",
+              "pm.test(\"keeps the order id\", function () {",
+              "  pm.collectionVariables.set('pendingSaleId', pm.response.json().id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Portfolio with both orders reserved",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/portfolio",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "portfolio"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const portfolio = pm.response.json();",
+              "const position = (portfolio, ticker) => portfolio.positions.find(p => p.ticker === ticker);",
+              "pm.test(\"the buy reserves cash: 10 at 10000\", function () {",
+              "  const initial = Number(pm.collectionVariables.get('initialReservedCash'));",
+              "  pm.expect(portfolio.cash.reserved).to.eql(initial + 100000);",
+              "});",
+              "pm.test(\"the buy reserves no METR shares\", function () {",
+              "  pm.expect(position(portfolio, 'METR').reservedQuantity).to.eql(0);",
+              "});",
+              "pm.test(\"the sale reserves 5 PAMP shares\", function () {",
+              "  const initial = Number(pm.collectionVariables.get('initialReservedPamp'));",
+              "  pm.expect(position(portfolio, 'PAMP').reservedQuantity).to.eql(initial + 5);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. List the NEW orders",
       "request": {
         "method": "GET",
         "header": [],
@@ -213,9 +309,10 @@
               "pm.test(\"status is 200\", function () {",
               "  pm.response.to.have.status(200);",
               "});",
-              "pm.test(\"the order of step 4 is listed\", function () {",
+              "pm.test(\"the orders of steps 4 and 5 are listed\", function () {",
               "  const ids = pm.response.json().orders.map(o => o.id);",
               "  pm.expect(ids).to.include(Number(pm.collectionVariables.get('pendingOrderId')));",
+              "  pm.expect(ids).to.include(Number(pm.collectionVariables.get('pendingSaleId')));",
               "});"
             ]
           }
@@ -223,7 +320,7 @@
       ]
     },
     {
-      "name": "6. Cancel the order of step 4",
+      "name": "8. Cancel the order of step 4",
       "request": {
         "method": "POST",
         "header": [],
@@ -259,7 +356,83 @@
       ]
     },
     {
-      "name": "7. Retry the order of step 3",
+      "name": "9. Cancel the order of step 5",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/orders/{{pendingSaleId}}/cancel",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "orders",
+            "{{pendingSaleId}}",
+            "cancel"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"order is CANCELLED\", function () {",
+              "  pm.expect(pm.response.json().status).to.eql('CANCELLED');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Portfolio after both cancellations",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/portfolio",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "portfolio"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const portfolio = pm.response.json();",
+              "const position = (portfolio, ticker) => portfolio.positions.find(p => p.ticker === ticker);",
+              "pm.test(\"reserved cash is back to the start\", function () {",
+              "  pm.expect(portfolio.cash.reserved).to.eql(Number(pm.collectionVariables.get('initialReservedCash')));",
+              "});",
+              "pm.test(\"reserved PAMP shares are back to the start\", function () {",
+              "  const initial = Number(pm.collectionVariables.get('initialReservedPamp'));",
+              "  pm.expect(position(portfolio, 'PAMP').reservedQuantity).to.eql(initial);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Retry the order of step 3",
       "request": {
         "method": "POST",
         "header": [
@@ -302,7 +475,7 @@
       ]
     },
     {
-      "name": "8. Reuse the client order id with other content",
+      "name": "12. Reuse the client order id with other content",
       "request": {
         "method": "POST",
         "header": [
@@ -342,7 +515,7 @@
       ]
     },
     {
-      "name": "9. Buy 700000 of PAMP",
+      "name": "13. Buy 700000 of PAMP",
       "request": {
         "method": "POST",
         "header": [

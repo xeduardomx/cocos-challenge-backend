@@ -1,6 +1,6 @@
 package com.cocos.challenge.portfolio.web;
 
-import com.cocos.challenge.portfolio.PositionValuation;
+import com.cocos.challenge.portfolio.domain.PositionValuation;
 import java.math.BigDecimal;
 import org.jspecify.annotations.Nullable;
 

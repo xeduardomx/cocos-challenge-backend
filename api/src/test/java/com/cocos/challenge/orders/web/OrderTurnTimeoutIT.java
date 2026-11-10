@@ -3,7 +3,7 @@ package com.cocos.challenge.orders.web;
 import static com.cocos.challenge.support.OrderRequests.marketBuy;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.cocos.challenge.account.UserBusyException;
+import com.cocos.challenge.account.error.UserBusyException;
 import com.cocos.challenge.shared.web.RequestIds;
 import com.cocos.challenge.support.ApiClient;
 import com.cocos.challenge.support.ApiClient.ApiResponse;

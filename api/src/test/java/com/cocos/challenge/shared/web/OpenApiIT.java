@@ -40,6 +40,21 @@ class OpenApiIT {
   }
 
   @Test
+  void offersOnlyBuyAndSellAsTheSideOfAnOrder() {
+    JsonNode sides =
+        api.get(API_DOCS)
+            .json()
+            .path("components")
+            .path("schemas")
+            .path("SubmitOrderRequest")
+            .path("properties")
+            .path("side")
+            .path("enum");
+
+    assertThat(sides).extracting(JsonNode::asString).containsExactly("BUY", "SELL");
+  }
+
+  @Test
   void documentsEveryErrorAsAProblem() {
     JsonNode responses =
         api.get(API_DOCS)

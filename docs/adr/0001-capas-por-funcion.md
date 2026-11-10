@@ -1,6 +1,6 @@
 # ADR 0001 — Capas agrupadas por función, no hexagonal
 
-> Estado: **aceptada** · 2026-11-07 · Se aplica en el [RFC, sección 2](../03-rfc.md#2-arquitectura)
+> Estado: **aceptada** · 2026-11-07, revisada el 2026-11-10 · Se aplica en el [RFC, sección 2](../03-rfc.md#2-arquitectura)
 
 ## Contexto
 
@@ -20,8 +20,8 @@
 - A favor: es la menor cantidad de piezas que resuelve el problema, y todo lo de una función está junto: un cambio en
   el envío toca un solo paquete.
 - En contra: el service usa el repository directamente, sin una interfaz en el medio. Para probar un service sin base
-  habría que simular el repository. Acá no hace falta: los services se prueban contra Postgres real a propósito,
-  porque ahí está lo delicado.
+  habría que simular el repository. Acá casi no hace falta: lo delicado de los services se prueba contra Postgres real a
+  propósito, y la simulación queda para casos puntuales.
 
 **B. Hexagonal (puertos y adaptadores), o Clean Architecture, que sigue la misma idea.** El núcleo define interfaces
 ("puertos") para todo lo de afuera, y afuera se implementan ("adaptadores"): uno para HTTP, otro para la base. El
@@ -34,7 +34,7 @@ núcleo no conoce Spring ni la base.
   - Hay que copiar datos entre el modelo del núcleo y el de cada borde (la fila de la base, el JSON).
   - Lo más delicado no se puede probar con una implementación falsa: el bloqueo y la transacción hay que probarlos
     contra Postgres igual.
-- Ejemplo, mandar una orden: con A son `OrderController` → `OrderService` → `OrderRepository`. Con B se suman un
+- Ejemplo, mandar una orden: con A son `OrderController` → `OrderSubmissionService` → `OrderRepository`. Con B se suman un
   puerto de entrada (el caso de uso), un puerto de salida (el repositorio) con su adaptador para la base, y la
   conversión entre la orden del núcleo y la fila de `orders`.
 
@@ -61,3 +61,24 @@ otra forma.
 - **Cuándo revisarla:** si la API tuviera que mandar órdenes a un mercado real (por ejemplo, a BYMA). Ese sí es un
   sistema externo que se va a querer simular en los tests y poder cambiar: ahí conviene un puerto para el mercado. Se
   agrega ese puerto, no toda la arquitectura.
+
+## Revisión (fase 8, 2026-11-10)
+
+Al repasar el código antes de entregar, el autor vio que la decisión no se leía en las carpetas. Las funciones estaban
+separadas, pero adentro de cada una había clases de capas distintas en la misma carpeta. Por ejemplo, `account` tenía
+juntos el service, el repository, la configuración, los records y los errores. En la raíz de `orders` estaban
+`OrderRepository`, `NewOrder`, `OrderMetrics` y `OrdersConfiguration`. Solo `web` tenía su propia carpeta.
+
+**Se mantiene A, y ahora se ve en los paquetes.** Adentro de cada función hay un paquete por capa, con los mismos
+nombres en todas: `web`, `service`, `domain`, `repository`, `config`, `error` y `observability` (RFC, sección 2).
+
+- **Qué cambió:** 57 clases y 23 tests cambiaron de paquete. No cambió ninguna línea de lógica: solo las líneas
+  `package` e `import`.
+- **Cómo se verificó:** los mismos 372 tests y la misma cobertura, clase por clase, antes y después. Además se levantó
+  todo con `docker compose up --build` y se corrieron la prueba de humo, la colección de Postman y la medición con
+  volumen ([detalle](../mediciones/08-verificacion-final.md#después-de-reordenar-los-paquetes-2026-11-10)).
+- **Por qué no la opción C** (una carpeta por tipo para toda la API): vale lo mismo que arriba. Lo de las órdenes
+  quedaría repartido en siete carpetas y mezclado con lo del portfolio, y dejaría de verse en los paquetes que
+  `account` e `instruments` no dependen de `orders`.
+- **Qué se perdió:** en `orders`, las carpetas por caso de uso (`submission`, `cancellation` y `listing`). Los services
+  llevan el caso de uso en el nombre, por ejemplo `OrderSubmissionService`, y `domain` conserva la división por tema.

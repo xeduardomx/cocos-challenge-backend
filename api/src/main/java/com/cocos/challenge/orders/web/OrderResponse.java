@@ -1,7 +1,7 @@
 package com.cocos.challenge.orders.web;
 
-import com.cocos.challenge.orders.OrderType;
-import com.cocos.challenge.orders.RejectionReason;
+import com.cocos.challenge.orders.domain.OrderType;
+import com.cocos.challenge.orders.domain.RejectionReason;
 import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.shared.domain.OrderStatus;
 import java.math.BigDecimal;

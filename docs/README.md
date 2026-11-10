@@ -27,6 +27,7 @@ Cada fase cerró con su documento, y ese documento se aprobó antes de seguir.
 | 5. Implementación, con el test primero | la API y sus tests |
 | 6. Observabilidad y medición | [métricas](portal/metricas.md) y [mediciones](mediciones/README.md) |
 | 7. Este portal | se genera desde los mismos documentos, así nunca dicen cosas distintas |
+| 8. Revisión final | [verificación sobre un clon limpio](mediciones/08-verificacion-final.md) |
 
 ## Las decisiones clave en 12 preguntas
 
@@ -50,6 +51,12 @@ con un 200, sin volver a evaluarla. Si ese identificador llega con otro contenid
 Para que cada dato viva en un solo lugar: una tabla de posiciones sería una copia que puede diferir de las órdenes, y
 las reservas y el precio promedio igual salen de ellas. La duda era si calcular es lento, y se midió: con un índice, 1,2
 ms en la base para un usuario de 10.000 órdenes, con 2 millones en la tabla.
+
+Antes de entregar se volvió a evaluar la tabla por otra razón: el cálculo necesita todo el historial, y si algún día se
+borraran órdenes viejas daría mal. Se decidió mantenerlo, porque el enunciado indica *"utilizar todos los movimientos
+pertinentes que hay en la tabla `orders`, utilizando la columna `size`"*, y porque una tabla no vería lo que no pasa por
+la API, como un depósito o una orden límite que ejecute otro sistema. Antes de borrar historial, primero se guarda una
+foto de la cuenta.
 
 [A-4](01-decisiones.md#a-4--las-posiciones-se-calculan-desde-orders-no-se-guardan) ·
 [ADR 0003](adr/0003-posiciones-calculadas.md) · [RFC 3.5](03-rfc.md#35-índices)
@@ -107,16 +114,21 @@ Lo único de afuera es la base, y lo más delicado se prueba contra Postgres rea
 arquitectura hexagonal no aportaban. Las consultas importantes son SQL propio de Postgres (`FOR UPDATE`, `LATERAL`,
 `unaccent`), y JPA agrega comportamiento escondido justo en el camino más delicado.
 
+En el código, cada función es un paquete (`account`, `instruments`, `portfolio` y `orders`), y adentro hay un paquete
+por capa: `web`, `service`, `domain` y `repository`, entre otros.
+
 [ADR 0001](adr/0001-capas-por-funcion.md) · [ADR 0002](adr/0002-sql-directo-con-jdbcclient.md)
 
 ### 11. ¿Se tocó la base de Cocos?
 
 Se trata como producción: mientras se desarrolló, solo se leyó. La API y los tests corren contra una copia local,
 armada con `database.sql` y nuestras migraciones: reglas que miran una fila, tres columnas nuevas en `orders` y un
-índice nuevo para las consultas. Si a la base de Cocos se le aplican esas migraciones se decide al final.
+índice nuevo para las consultas. Al final, con todo probado, se le aplicaron esas migraciones una sola vez, como un pase a
+producción: el enunciado permite ajustar la base si se justifica. Los datos no cambiaron.
 
 [Base de Neon](01-decisiones.md#base-de-neon-se-trata-como-producción) ·
-[RFC 3](03-rfc.md#3-modelo-de-datos-y-cambios-a-la-base) · [ADR 0006](adr/0006-migraciones-con-flyway.md)
+[RFC 3](03-rfc.md#3-modelo-de-datos-y-cambios-a-la-base) · [ADR 0006](adr/0006-migraciones-con-flyway.md) ·
+[el pase a Neon](mediciones/08-migracion-neon.md)
 
 ### 12. ¿Cómo se sabe que funciona y que aguanta?
 

@@ -116,6 +116,14 @@ class InstrumentSearchIT {
   }
 
   @Test
+  void findsNothingForAQueryMadeOnlyOfAccentMarks() {
+    ApiResponse response = searchEncoded("%CC%81");
+
+    assertThat(response.status()).isEqualTo(200);
+    assertThat(response.json().get("instruments")).isEmpty();
+  }
+
+  @Test
   void rejectsAMissingQuery() {
     assertRejectedQuery(api.get("/instruments"));
   }

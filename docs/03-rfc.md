@@ -52,7 +52,7 @@ está en el PRD. Esta sección junta lo que condiciona el cómo y los criterios 
 | **Java** | el mail de Cocos, que pisa el Node.js del enunciado (C-1) | el lenguaje está dado; el framework y las librerías se eligen en la sección 2 |
 | **Se ejecuta localmente con un comando** | el mail, GEN-2 | todo se levanta con `docker compose up`, y alcanza con tener Docker |
 | **La base ya existe y tiene datos** | el enunciado; `database.sql`, idéntico a Neon: 4 usuarios, 66 instrumentos, 126 precios y 11 órdenes | se cambia con migraciones y solo donde se justifica. Los datos heredados no se corrigen (D-1, D-4, D-6), así que cada regla nueva tiene que convivir con los que ya están |
-| **Neon se trata como producción** | "Base de Neon" | la API y los tests corren contra una copia local en Postgres 18, la misma versión mayor que Neon; los tests nunca tocan Neon. La dirección de la base se configura, y si a Neon se le aplican las migraciones se decide en la fase 8 |
+| **Neon se trata como producción** | "Base de Neon" | la API y los tests corren contra una copia local en Postgres 18, la misma versión mayor que Neon; los tests nunca tocan Neon. La dirección de la base se configura, y en la fase 8 se le aplicaron las migraciones, una sola vez (sección 3.6) |
 | **Sin autenticación** | el enunciado (S-5) | el número de usuario viaja en cada pedido; en producción saldría de la sesión |
 | **No se simula el mercado** | el enunciado | una orden a mercado se resuelve en el momento, al último precio; una límite aceptada queda pendiente hasta que el usuario la cancela. No hay horario de mercado ni vencimientos |
 | **Hoy hay 11 órdenes, pero el diseño tiene que aguantar volumen** | "Esquema: se mejora", A-4, A-7, GEN-8 | cada consulta se piensa para mucho volumen y se mide con 2 millones de órdenes (sección 3.5), como en el análisis |
@@ -151,6 +151,23 @@ flowchart LR
 
 `shared` no aparece en el diagrama porque lo usan todos.
 
+**Adentro de cada función, un paquete por capa.** Los nombres son los mismos en todas, así se sabe dónde buscar:
+
+| Paquete | Qué tiene | Ejemplo en `orders` |
+|---|---|---|
+| `web` | el controller, con el pedido y la respuesta en JSON y su validación | `OrderController`, `SubmitOrderRequest`, `OrderResponse` |
+| `service` | los services: los pasos de cada función y su transacción | `OrderSubmissionService`, `OrderCancellationService`, `OrderQueryService` |
+| `domain` | los records, los enums y los cálculos en Java puro | `StoredOrder`, `OrderType`, `OrderEvaluator` y sus reglas |
+| `repository` | el SQL | `OrderRepository` |
+| `config` | los beans y los números configurables | `OrdersConfiguration`, `OrderPageProperties` |
+| `error` | los errores de la función | `OrderNotFoundException` |
+| `observability` | las métricas y los logs de negocio | `OrderMetrics`, `OrderEventLogger` |
+
+- **Cada función tiene solo los paquetes que usa.** `portfolio` no tiene `repository`: lee de la base a través de
+  `account` e `instruments`. `account` no tiene `web`: no tiene una dirección propia.
+- **En `orders`, `domain` se divide además por tema:** `submission`, `evaluation` y `listing`.
+- **`shared` se ordena por tema** (`domain`, `error`, `web`, `validation` y `display`), porque no es una función.
+
 **Por qué no hexagonal** (ni Clean Architecture, que sigue la misma idea). Sus interfaces ("puertos") sirven para
 cambiar lo de afuera sin tocar el núcleo, y acá lo único de afuera es la base. Lo más delicado, la transacción del envío, se prueba contra Postgres real de todas formas.
 Cambiaría si la API mandara órdenes a un mercado real: ahí se agrega un puerto para el mercado, no toda la
@@ -204,8 +221,20 @@ El modelo de Cocos se mantiene: las cuatro tablas, sus columnas y sus nombres (C
 - **un índice nuevo para las consultas,** con su medición antes y después (principio 5). Las reglas de unicidad crean
   los suyos.
 
+**Los cambios, migración por migración.** Cada uno es un archivo de `api/src/main/resources/db/migration/` (sección
+3.6), y ninguno borra datos de Cocos.
+
+| Migración | Qué cambia | Tipo | Para qué | Detalle |
+|---|---|---|---|---|
+| V1 | `database.sql` de Cocos | se anota, no se ejecuta | marca el punto de partida, que Neon ya tenía | 3.6 |
+| V2 | `unaccent` | extensión | buscar sin acentos: "compania" encuentra "Compañía" (A-5) | 3.5 |
+| V3 | datos obligatorios, valores permitidos y unicidad en `orders`, `instruments` y `marketdata` | reglas: `not null`, `check` y `unique` | que la base no acepte datos imposibles | 3.2 |
+| V4 | `clientOrderId`, `requestFingerprint` y `rejectionReason`, con sus reglas | columnas nuevas, `unique` y `check` | que un reintento no cree otra orden, y que una `REJECTED` diga por qué | 3.3 y 3.2 |
+| V5 | `datetime` | cambio de tipo, valor por defecto y `not null` | hora con zona, puesta por la base al grabar | 3.4 |
+| V6 | `orders_user_datetime_idx` | índice | portfolio, listado y paginación rápidos para cualquier usuario | 3.5 |
+
 Todo se probó en la copia local (Postgres 18.6, con `database.sql`). La forma exacta está en
-[`mediciones/03-esquema.sql`](mediciones/03-esquema.sql), el borrador verificado del que sale la migración de la
+[`mediciones/03-esquema.sql`](mediciones/03-esquema.sql), el borrador verificado del que salieron las migraciones de la
 fase 5. Cómo se aplican las migraciones, y qué pasa con Neon, está en la sección 3.6. Lo que esta sección marca como
 probado tiene su script y su salida en [`mediciones/`](mediciones/); las trampas y Flyway, en
 [`03-pruebas-resultados.md`](mediciones/03-pruebas-resultados.md).
@@ -261,18 +290,18 @@ erDiagram
 Cada regla mira una sola fila. Las que necesitan sumar muchas filas, o mirar otra tabla, van en el código (principio
 3, D-1).
 
-| Tabla | Regla | Por qué |
-|---|---|---|
-| `orders` | Obligatorios: activo, usuario, cantidad, tipo, lado, estado y fecha | una orden sin usuario o sin cantidad no se puede calcular (E-1) |
-| `orders` | El lado, el tipo y el estado, solo con los valores del enunciado | `side = 'COMPRA'` es un dato imposible (E-2) |
-| `orders` | Cantidad de 1 o más | una orden de 0 acciones nunca se graba (A-6) |
-| `orders` | Precio mayor a 0, y vacío solo en una `REJECTED` a mercado | una orden a mercado sobre un activo sin cotización queda sin precio (A-6). Con precio mayor a 0, el costo nunca es cero (A-2, R-4) |
-| `orders` | En depósitos y retiros (`CASH_IN`, `CASH_OUT`), precio 1 | `size × price` es el monto en pesos: con precio 2, un depósito de $1.000 valdría $2.000 (D-9) |
-| `orders` | El identificador es único por usuario, y viaja con su huella: están las dos o ninguna | un reintento no crea otra orden, y dos usuarios pueden usar el mismo identificador (R-2) |
-| `orders` | El motivo del rechazo: uno de los tres códigos, y solo en una `REJECTED` | un motivo de rechazo en una orden ejecutada no tiene sentido (A-6) |
-| `instruments` | Ticker, nombre y tipo obligatorios; el ticker, único | la búsqueda y el portfolio muestran el ticker, y dos activos con el mismo serían ambiguos (E-1, E-3) |
-| `marketdata` | Activo, fecha y cierre obligatorios; una fila por acción y fecha | el último precio es el cierre de la fecha más reciente, y tiene que haber uno solo (D-3) |
-| `marketdata` | Precios mayores a 0; mínimo menor o igual al máximo; apertura y cierre entre los dos | un precio de $0, o un mínimo mayor al máximo, son imposibles (D-5) |
+| Tabla | Regla | Cómo queda en la base | Por qué |
+|---|---|---|---|
+| `orders` | Obligatorios: activo, usuario, cantidad, tipo, lado, estado y fecha | `not null` en las siete columnas (la fecha, en V5) | una orden sin usuario o sin cantidad no se puede calcular (E-1) |
+| `orders` | El lado, el tipo y el estado, solo con los valores del enunciado | un `check` por columna, con la lista de valores: los mismos enums que usa Java | `side = 'COMPRA'` es un dato imposible (E-2) |
+| `orders` | Cantidad de 1 o más | `check (size >= 1)` | una orden de 0 acciones nunca se graba (A-6) |
+| `orders` | Precio mayor a 0, y vacío solo en una `REJECTED` a mercado | dos `check`: `price > 0`, y `price is not null or (status = 'REJECTED' and type = 'MARKET')` | una orden a mercado sobre un activo sin cotización queda sin precio (A-6). Con precio mayor a 0, el costo nunca es cero (A-2, R-4) |
+| `orders` | En depósitos y retiros (`CASH_IN`, `CASH_OUT`), precio 1 | `check`: si el lado es `CASH_IN` o `CASH_OUT`, `price = 1` | `size × price` es el monto en pesos: con precio 2, un depósito de $1.000 valdría $2.000 (D-9) |
+| `orders` | El identificador es único por usuario, y viaja con su huella: están las dos o ninguna | `unique (userid, clientOrderId)`, y un `check`: las dos vacías o las dos con valor (V4) | un reintento no crea otra orden, ni aunque lleguen dos a la vez, y dos usuarios pueden usar el mismo identificador (R-2) |
+| `orders` | El motivo del rechazo: uno de los tres códigos, y solo en una `REJECTED` | dos `check`: la lista de códigos, y vacío salvo en una `REJECTED` (V4) | un motivo de rechazo en una orden ejecutada no tiene sentido (A-6) |
+| `instruments` | Ticker, nombre y tipo obligatorios; el ticker, único | `not null` en las tres, y `unique (ticker)`, que crea su índice | la búsqueda y el portfolio muestran el ticker, y dos activos con el mismo serían ambiguos (E-1, E-3) |
+| `marketdata` | Activo, fecha y cierre obligatorios; una fila por acción y fecha | `not null` en las tres, y `unique (instrumentid, date)`, que crea el índice que usa el último precio (3.5) | el último precio es el cierre de la fecha más reciente, y tiene que haber uno solo (D-3) |
+| `marketdata` | Precios mayores a 0; mínimo menor o igual al máximo; apertura y cierre entre los dos | dos `check`: los cinco precios mayores a 0, y el rango | un precio de $0, o un mínimo mayor al máximo, son imposibles (D-5) |
 
 `users` no cambia: la API solo verifica que el usuario exista. El tipo de activo no se limita a `ACCIONES` y
 `MONEDA`: el catálogo podría sumar bonos o CEDEAR, y la API solo distingue la moneda del resto.
@@ -300,11 +329,11 @@ se acerca a esos números, y los precios se quedan en 2 decimales (D-4).
 
 ### 3.3 Columnas nuevas en `orders`
 
-| Columna | Tipo | Qué guarda | En las 11 órdenes viejas |
-|---|---|---|---|
-| `clientOrderId` | `uuid` | el identificador que pone la app en cada orden (R-2) | vacía |
-| `requestFingerprint` | `varchar(64)` | la huella del pedido: un resumen de sus datos (SHA-256, en hexadecimal) | vacía |
-| `rejectionReason` | `varchar(30)` | el motivo del rechazo: `INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` o `NO_MARKET_PRICE` | vacía, también en la orden 6 (LIS-4) |
+| Columna | Tipo | Qué guarda | Para qué | En las 11 órdenes viejas |
+|---|---|---|---|---|
+| `clientOrderId` | `uuid` | el identificador que pone la app en cada orden (R-2) | si la app reintenta el mismo pedido, la API devuelve la orden ya grabada (200) en lugar de crear otra | vacía |
+| `requestFingerprint` | `varchar(64)` | la huella del pedido: un resumen de sus datos (SHA-256, en hexadecimal) | si llega el mismo identificador con otro contenido, la API responde 422 en lugar de devolver una orden que no es la pedida | vacía |
+| `rejectionReason` | `varchar(30)` | el motivo del rechazo: `INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` o `NO_MARKET_PRICE` | el usuario sabe por qué se rechazó, y la métrica de rechazos cuenta por motivo (GEN-4) | vacía, también en la orden 6 (LIS-4) |
 
 Siguen la convención de las columnas de Cocos: se escriben `clientOrderId` y Postgres las guarda en minúsculas
 (`clientorderid`), igual que `instrumentId`. Con `client_order_id` habría dos convenciones en la misma tabla.
@@ -326,6 +355,12 @@ Siguen la convención de las columnas de Cocos: se escriben `clientOrderId` y Po
 
 ### 3.4 La fecha y hora de las órdenes
 
+| Cambio a `datetime` | Tipo | Qué hace | Por qué |
+|---|---|---|---|
+| `timestamp` a `timestamptz` | cambio de tipo | guarda la hora con zona, y las horas existentes se leen como hora argentina | sin zona, la hora es ambigua, y la sesión de Neon está en GMT |
+| `default clock_timestamp()` | valor por defecto | la base pone la hora en el momento en que graba la orden | `now()` daría la hora en que empezó la transacción, antes de esperar el turno |
+| obligatoria | `not null` | ninguna orden queda sin hora | el portfolio, el listado y el cursor ordenan por hora |
+
 - **Pasa a fecha y hora con zona** (`timestamptz`), leyendo las fechas existentes como hora argentina (D-10). La
   conversión nombra la zona (`AT TIME ZONE 'America/Argentina/Buenos_Aires'`), y la orden 2 sigue a las 12:31 de
   Buenos Aires. Con la conversión simple, la base usaría la zona de la sesión, que en Neon es GMT, y la orden 2
@@ -339,6 +374,17 @@ Siguen la convención de las columnas de Cocos: se escriben `clientOrderId` y Po
   (sección 6), así no se pierde precisión al pasar de página (A-7).
 
 ### 3.5 Índices
+
+| Qué | Tipo | Qué hace | Por qué |
+|---|---|---|---|
+| `orders_user_datetime_idx`, sobre `(userid, datetime, id)` | índice nuevo (V6) | encuentra las órdenes de un usuario ya ordenadas por hora | lo usan el portfolio, la cuenta del envío, el listado y su cursor; las mediciones están abajo |
+| `unique (ticker)` en `instruments` | índice que crea la regla (V3) | impide dos activos con el mismo ticker | viene con la regla de unicidad; la búsqueda no lo usa, porque recorre los 65 activos (4.3) |
+| `unique (instrumentid, date)` en `marketdata` | índice que crea la regla (V3) | encuentra el precio más reciente de cada acción | viene con la regla; lo usa la búsqueda del último precio (4.2) |
+| `unique (userid, clientOrderId)` en `orders` | índice que crea la regla (V4) | encuentra una orden por su identificador | viene con la regla; lo usa cada envío para detectar un reintento |
+| `unaccent` | extensión (V2) | saca los acentos | la búsqueda sin acentos (A-5); `pg_trgm` no hace falta |
+
+Por eso se dice "un solo índice nuevo": es el único que se creó a propósito con `create index`. Los otros tres
+vienen con su regla de unicidad, porque así la asegura Postgres.
 
 **Cómo se midió.** En la copia local, con este esquema y 2.010.011 órdenes: las 11 de Cocos y 2.010.000 inventadas,
 repartidas así:
@@ -446,7 +492,7 @@ después.
 **Cómo se arranca sobre una base con datos y sin historial.** `database.sql` es la versión 1, y nuestras migraciones
 empiezan en la 2. Con `baseline-on-migrate`, Flyway encuentra una base con tablas y sin historial, la anota como
 versión 1 sin tocarla ("database.sql de Cocos") y aplica de la 2 en adelante. La copia local se arma igual que Neon:
-Postgres carga `database.sql` al crear la base, y después la API migra. Así, el camino que va a recorrer Neon es el que
+Postgres carga `database.sql` al crear la base, y después la API migra. Así, el camino que recorrió Neon es el que
 se prueba todos los días.
 
 - **Probado** con Flyway 12.4.0 en la copia local (Postgres 18.6). Anotó la versión 1, aplicó la 2, y una segunda
@@ -454,10 +500,11 @@ se prueba todos los días.
 - **Neon, revisado en solo lectura:** no tiene historial de migraciones y `unaccent` está disponible, sin instalar.
   Sigue con 11 órdenes y el contador de ids en 11. El rol de la URL (`neondb_owner`) es miembro de `neon_superuser`,
   el grupo con el que Neon da permisos a los usuarios del proyecto. Su documentación dice que sus roles solo pueden
-  instalar las extensiones que Neon soporta, y `unaccent` es una; no dice explícitamente qué rol puede. Se confirma
-  en la fase 8, al migrar: si no pudiera, la migración falla y se deshace entera (ver "Todo o nada").
-- **Una base vacía, sin `database.sql`, no se puede migrar:** la versión 2 falla porque las tablas no existen, y se
-  deshace (probado en la copia local). Copiar `database.sql` como versión 1 lo resolvería, pero la copia local seguiría otro camino que
+  instalar las extensiones que Neon soporta, y `unaccent` es una; no dice explícitamente qué rol puede. Si no
+  pudiera, la migración fallaría y se desharía entera (ver "Todo o nada"). **Confirmado en la fase 8:** `unaccent` es una
+  extensión de confianza, así que la puede instalar quien tenga permiso de crear en la base, y ese rol la instaló.
+- **Una base vacía, sin `database.sql`, no se puede migrar:** la primera migración que toca una tabla falla porque no existen, y se
+  deshace todo (probado en la copia local, con el borrador como una sola versión). Copiar `database.sql` como versión 1 lo resolvería, pero la copia local seguiría otro camino que
   Neon.
 
 **Todo o nada.** Postgres deshace entera una migración que falla. Se probó con una regla que los datos rompen: no
@@ -468,8 +515,8 @@ en la copia local. Se activa.
 
 **La API migra sola solo cuando se le pide.** Spring Boot prende Flyway por defecto; acá se apaga
 (`spring.flyway.enabled: false`), y lo prenden el `docker compose` de la copia local y los tests. Si alguien apunta la API a Neon, no lo migra por
-accidente: a Neon se le aplican las migraciones a propósito, una vez, en la fase 8, como un pase a producción, con el
-mismo Flyway y las mismas migraciones. Antes se verifica en solo lectura que Neon sigue igual a `database.sql`, como
+accidente: las migraciones se le aplicaron a propósito, una vez, en la fase 8, como un pase a producción, con el
+mismo Flyway y las mismas migraciones. Antes se verificó en solo lectura que Neon seguía igual a `database.sql`, como
 en el análisis. La alternativa, migrar siempre al arrancar, es lo más común y lo más simple, pero convierte "probar la
 API contra Neon" en "migrar Neon".
 
@@ -482,6 +529,13 @@ spring:
     baseline-description: database.sql de Cocos
     group: true                   # todas las migraciones pendientes en una sola transacción
 ```
+
+**El pase a Neon (fase 8, 2026-11-09).** El enunciado da libertad para "modificar, agregar o ajustar tablas" si se
+justifica, y la base que se entrega a cada candidato es propia. Se aplicó con `scripts/run-on-neon.sh --migrate`, probado
+antes sobre un Postgres local cargado solo con `database.sql`, incluida una segunda corrida, que no hace nada. Las
+migraciones van por la conexión directa, porque Neon pide no hacer cambios de estructura por su pooler; la API, por la URL
+tal como viene. Sin `--migrate`, el script solo apunta la API a Neon. El detalle y la salida están en
+[`mediciones/08-migracion-neon.md`](mediciones/08-migracion-neon.md).
 
 **Consecuencias**
 
@@ -522,6 +576,11 @@ contra una base. El ADR 0001 ya puso los cálculos en Java puro.
 el extremo, que es el límite ya documentado en A-4 ([ADR 0003](adr/0003-posiciones-calculadas.md)). El tiempo de punta a punta se mide en la fase 6, contra el
 objetivo de la sección 8.
 
+**Necesita todo el historial.** El cálculo parte de la primera orden del usuario: si se borraran o archivaran órdenes
+viejas, los pesos y las posiciones darían mal, sin ningún error. Hoy la API no borra órdenes. Antes de hacerlo habría
+que guardar una foto a una fecha. También se volvió a evaluar una tabla de posiciones, y el
+[ADR 0003](adr/0003-posiciones-calculadas.md) explica por qué se descartó.
+
 ### 4.2 El último precio, acción por acción
 
 ```sql
@@ -556,6 +615,8 @@ Una consulta, con las reglas de A-5:
 
 - **El texto y los datos se normalizan igual, en la base:** `lower(unaccent(...))` de los dos lados.
 - **Cada palabra tiene que aparecer** en el ticker o en el nombre, en cualquier orden.
+- **Un texto que queda vacío al normalizarlo,** por ejemplo uno hecho solo de marcas de acento, pasa la validación y no
+  encuentra nada: la lista viene vacía (encontrado en la revisión final, fase 8).
 - **Sin comodines:** se busca con `strpos` y `starts_with` en lugar de `LIKE`, así `%` y `_` son texto común sin
   tener que escaparlos (A-5, decisión 10).
 - **El orden:** ticker igual, ticker que empieza así, ticker que lo contiene, nombre que empieza así y el resto. Los
@@ -633,7 +694,7 @@ Solo una orden `NEW` cambia de estado; las otras tres son finales (D-7). Nuestro
 
 ### 5.2 El turno del usuario
 
-La transacción del envío empieza tomando el turno del usuario, con un lock sobre su fila de `users`
+La transacción del envío empieza tomando el turno del usuario, con un lock sobre su fila de `users` (un bloqueo pesimista)
 ([ADR 0004](adr/0004-turno-del-usuario.md)):
 
 ```sql
@@ -649,6 +710,7 @@ BMA a la vez, teniendo 20 (el caso 1 de GEN):
 | A. Sin turno | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10**: el mismo resultado que la orden 11 |
 | B. Con turno | `FILLED` (vio 20) | `REJECTED` (vio 5) | **5**, lo correcto |
 | C. Con turno, en `REPEATABLE READ` | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10** |
+| G. Sin turno, en un solo comando (`insert ... select`) | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10** |
 
 <!-- --8<-- [start:turno] -->
 ```mermaid
@@ -688,9 +750,10 @@ la API responde 503 con "intentá de nuevo" (sección 7). Reintentar con el mism
 | Opción | Por qué no |
 |---|---|
 | Un lock de Postgres sin fila (`pg_advisory_xact_lock`) | hace lo mismo, pero no verifica que el usuario exista, y sus números se comparten con cualquier otro uso de esos locks en la base |
-| Nivel `SERIALIZABLE` | Postgres detecta el choque y aborta una de las dos transacciones: la API tendría que reintentar la orden entera, con más código y una orden evaluada dos veces |
+| Un bloqueo optimista: nivel `SERIALIZABLE`, o una columna `version` en `users` que se revisa al grabar | si otra orden se adelantó, la transacción se deshace: la API tendría que reintentar la orden entera, con más código y una orden evaluada dos veces. La columna, además, cambia una tabla de Cocos |
 | Un lock en Java | solo funciona con una instancia de la API |
-| Una tabla de posiciones con "cantidad ≥ 0" | descartada en A-4 y D-1: BMA ya está en −10 |
+| Un `UPDATE` condicionado sobre una tabla de saldos y posiciones, o la regla "cantidad ≥ 0" | es lo más simple cuando la regla mira una sola fila, y así se cancela (5.4). Acá no hay una fila con el número: la tenencia y los pesos son la suma de las órdenes. La tabla se descartó en A-4 y D-1: BMA ya está en −10 |
+| Un solo comando que lee la cuenta y graba (`insert ... select`), sin turno | graba todo o nada, pero no pone los pedidos en fila: dos a la vez ven la misma cuenta, y la posición queda en −10 (prueba G) |
 
 ### 5.3 Reintentos
 
@@ -813,6 +876,65 @@ GET /users/1/portfolio
 }
 ```
 
+**De dónde sale cada número.** Ninguno está guardado: en cada pedido se calculan desde `orders` y `marketdata`
+(sección 4.1). Un campo "se copia" cuando es el valor de una columna tal cual, y "se calcula" cuando sale de una
+cuenta.
+
+La plata:
+
+| Campo | Valor | Cómo se calcula |
+|---|---|---|
+| `cash.balance` | 753.000 | órdenes `FILLED`: depósitos 1.000.000 − retiros 100.000 − compras 202.300 + ventas 55.300 |
+| `cash.reserved` | 125.500 | compras `NEW`: LOMA 50 × 710 = 35.500, más BMA 60 × 1.500 = 90.000 |
+| `cash.available` | 627.500 | `balance` − `reserved` = 753.000 − 125.500 |
+| `totalValue` | 889.756 | `balance` + el `marketValue` de cada posición = 753.000 + 37.034 + 114.750 − 15.028 |
+
+- **El total usa `balance`, no `available`:** lo reservado sigue siendo del usuario (A-1).
+- **Las compras pendientes no se suman aparte:** su plata ya está dentro del `balance`. LOMA no aparece como posición
+  porque todavía no tiene acciones.
+
+Las tres posiciones:
+
+| Posición | `quantity` | `lastPrice` | `marketValue` | `averagePrice` | `totalReturnPercent` |
+|---|---|---|---|---|---|
+| BMA | 20 − 30 = −10 | 1.502,80 | −15.028 | `null` | `null` |
+| METR | 500 | 229,50 | 114.750 | 125.000 ÷ 500 = 250 | −8,20 |
+| PAMP | 50 − 10 = 40 | 925,85 | 37.034 | 46.500 ÷ 50 = 930 | −0,45 |
+
+BMA vendió más de lo que tenía (D-1): sin acciones, no hay contra qué medir el rendimiento, y el PPC queda vacío.
+
+Cada campo, con PAMP:
+
+| Campo | PAMP | Se copia o se calcula | Columnas que usa |
+|---|---|---|---|
+| `ticker`, `name` | PAMP, Pampa Holding S.A. | se copia | `instruments.ticker`, `instruments.name` |
+| `quantity` | 40 | se calcula: compras − ventas `FILLED` = 50 − 10 | `orders.size` |
+| `reservedQuantity` | 0 | se calcula: suma de las ventas `NEW`, que no hay | `orders.size` |
+| `lastPrice` | 925,85 | se copia: es el `close` del último día | `marketdata.close` |
+| `marketValue` | 37.034 | se calcula: `quantity` × `lastPrice` = 40 × 925,85 | `orders.size`, `marketdata.close` |
+| `averagePrice` (PPC) | 930 | se calcula: monto de las compras ÷ acciones compradas = 46.500 ÷ 50 | `orders.size`, `orders.price` |
+| `totalReturnPercent` | −0,45 | se calcula: (`lastPrice` − PPC) ÷ PPC × 100 = (925,85 − 930) ÷ 930 × 100 = −0,4462… | `marketdata.close`, y por el PPC `orders.size` y `orders.price` |
+| `dailyChangePercent` | 0,44 | se calcula: (`lastPrice` − `previousClose`) ÷ `previousClose` × 100 = (925,85 − 921,80) ÷ 921,80 × 100 = 0,4393… | `marketdata.close`, `marketdata.previousClose` |
+
+**Nota sobre `reservedQuantity`.** Solo se carga cuando el usuario tiene una venta pendiente (`SELL` en `NEW`) de un
+activo que tiene: son las acciones que esa venta aparta. Las compras pendientes apartan pesos y van a `cash.reserved`.
+Por eso da 0 en las tres posiciones: el usuario 1 solo tiene compras pendientes, y BMA, con una de 60 acciones, también
+da 0. Con una venta LIMIT de 15 PAMP, PAMP daría `quantity` 40 y `reservedQuantity` 15.
+
+Los porcentajes se redondean a 2 decimales una sola vez, al final: −0,4462… da −0,45 (sección 4.5).
+
+Las órdenes de PAMP, de donde salen `quantity` y el PPC:
+
+| Orden | Lado | Estado | `size` | `price` | Monto (`size × price`) | Qué hace |
+|---|---|---|---|---|---|---|
+| 2 | `BUY` | `FILLED` | 50 | 930 | 46.500 | suma 50 acciones y entra en el PPC |
+| 3 | `BUY` | `CANCELLED` | 50 | 920 | 46.000 | no cuenta |
+| 4 | `SELL` | `FILLED` | 10 | 940 | 9.400 | resta 10 acciones y suma $9.400 a los pesos; el PPC no cambia |
+| 6 | `SELL` | `REJECTED` | 100 | 950 | 95.000 | no cuenta |
+
+Queda `quantity` = 50 − 10 = 40 y PPC = 46.500 ÷ 50 = 930. Si hubiera una venta antes de otra compra, el PPC se
+calcula orden por orden (sección 4.1).
+
 **Búsqueda** (caso 8 de BUS). Una acción que no cotiza, como PGR, viene con `lastPrice` y `dailyChangePercent` en
 `null`.
 
@@ -913,7 +1035,7 @@ con `"quantity": null`, `"price": null` y `"amount": 1000000.00`.
 | `instrumentId` | obligatorio. El activo tiene que existir y no ser ARS |
 | `side` | `BUY` o `SELL`. `CASH_IN` y `CASH_OUT` dan 400 |
 | `type` | `MARKET` o `LIMIT` |
-| `quantity` o `amount` | exactamente uno de los dos. `quantity`, un entero de 1 a 2.147.483.647; `amount`, mayor a 0 y con hasta 2 decimales |
+| `quantity` o `amount` | exactamente uno de los dos. `quantity`, un entero de 1 a 2.147.483.647; `amount`, mayor a 0, con hasta 2 decimales y hasta 18 dígitos enteros |
 | `price` | obligatorio en `LIMIT` y prohibido en `MARKET`. Mayor a 0, con hasta 2 decimales y hasta 99.999.999,99 |
 | por monto | la cantidad calculada tiene que dar de 1 a 2.147.483.647, y una a mercado necesita que el activo cotice |
 | cualquier otro campo | 400: un campo mal escrito, como `prise`, no se ignora en silencio |
@@ -953,6 +1075,9 @@ Va en el cuerpo, como `clientOrderId`, y es un UUID (sección 3.3). No va en un 
 borrador del IETF), porque es un dato de la orden: se graba, vuelve en la respuesta y en el listado, y el cliente lo
 usa para encontrar su orden si perdió la respuesta (R-2, decisión 4). Es el mismo lugar que le dan el `ClOrdID` de FIX
 y el `client_order_id` de Coinbase.
+
+Jackson también lee un UUID escrito en Base64, con 24 caracteres. Es el mismo identificador en otra forma: no cambia nada
+y se deja así (encontrado en la revisión final, fase 8). Cualquier otro texto da 400.
 
 ### 6.6 Los números configurables
 
@@ -1139,7 +1264,7 @@ usuario extremo tarda entre 0,66 y 0,94 segundos por portfolio. Los números, la
   agregaría:** con Spring Security como servidor de recursos OAuth2, el usuario sale del token y no de la dirección
   (`/users/{userId}` pasa a `/me`). Las consultas ya filtran siempre por usuario, así que no habría que cambiarlas.
 - **Validación en el borde:** el pedido se valida antes de llegar a la lógica (secciones 6.2 y 7.2), con topes para
-  cada número (el monto, por la cantidad que da). Jackson 3, el que trae Spring Boot 4, acepta por defecto campos
+  cada número (el monto, con el suyo y por la cantidad que da). Jackson 3, el que trae Spring Boot 4, acepta por defecto campos
   desconocidos y convierte un `2.5` en `2` sin avisar si el campo es entero. Se apagan las dos cosas:
   `spring.jackson.deserialization.fail-on-unknown-properties: true` y `accept-float-as-int: false`. Así, 2,5 acciones
   dan 400 (caso 14 del envío), en lugar de comprar 2 (principio 2). Con el mismo principio, al implementar (fase 5) se
@@ -1248,11 +1373,16 @@ En cada push y en cada PR:
    usa el Docker de la máquina de GitHub) y el piso de cobertura.
 2. La imagen de Docker de la API se construye.
 3. **Prueba de humo:** `docker compose up`, esperar a que la API esté lista, verificar que Prometheus la lea y que
-   Grafana tenga el tablero y su fuente de datos, y pedir el portfolio del usuario 1, que tiene que dar los números
-   de POR (caso 3 de GEN). Después corre la colección de Postman con Newman, la herramienta
+   Grafana tenga el tablero y su fuente de datos, y pedir el portfolio del usuario 1, que tiene que dar sus pesos
+   disponibles y su valor total (caso 3 de GEN). Después corre la colección de Postman con Newman, la herramienta
    de línea de comandos de Postman (11.5), y al final `docker compose down`.
 
 Un PR se mergea solo con todo en verde.
+
+**Desvío (fases 5 a 8).** El workflow está escrito (`.github/workflows/ci.yml`), pero GitHub Actions está bloqueado en
+esta cuenta y sus jobs no llegaron a arrancar. Los PR de las tareas se mergearon sin esa marca verde, con los mismos pasos
+corridos en local: `./mvnw verify`, `docker compose up`, la prueba de humo y la colección de Postman. El resultado, sobre
+un clon limpio, está en [`mediciones/08-verificacion-final.md`](mediciones/08-verificacion-final.md).
 
 ### 11.3 Docker y `docker compose up`
 
@@ -1292,13 +1422,15 @@ flowchart LR
   `127.0.0.1`, porque ni la API ni Grafana piden autenticación (sección 9), y sus puertos se cambian con `API_PORT`,
   `POSTGRES_PORT`, `PROMETHEUS_PORT` y `GRAFANA_PORT` si ya están ocupados (precisado al implementar, fases 5 y 6).
 - **Solo la API y la base:** `docker compose up api` levanta la API con lo que necesita.
+- **Contra Neon:** `scripts/run-on-neon.sh` levanta los mismos servicios sin la base local, con la dirección de `.env`
+  (sección 3.6).
 
 ### 11.4 La configuración
 
 `application.yml` trae los valores para correr en local, y todo lo que cambia según dónde corre llega por variables de
 entorno: la base (sección 9), si migra al arrancar (sección 3.6) y los números de la sección 6.6. No hay perfiles de
-Spring: una sola configuración, y las variables la pisan. Para apuntar a Neon en la fase 8, las variables de la base
-se llenan desde `.env`, que nunca se sube al repo.
+Spring: una sola configuración, y las variables la pisan. Para apuntar a Neon, `scripts/run-on-neon.sh` llena las variables de
+la base desde `.env`, que nunca se sube al repo.
 
 ### 11.5 La colección de Postman
 
@@ -1308,11 +1440,16 @@ En `postman/`, con la colección y un entorno local (la dirección de la API). R
 2. la búsqueda de "pamp";
 3. una compra a mercado, que queda `FILLED`;
 4. una compra límite, que queda `NEW`;
-5. el listado de las pendientes;
-6. la cancelación de esa compra;
-7. un reintento de la compra del paso 3, con el mismo identificador, que devuelve la misma orden (200);
-8. el identificador del paso 3 con otro contenido (422);
-9. una compra de $700.000, que queda `REJECTED`.
+5. una venta límite de 5 PAMP, que también queda `NEW`;
+6. el portfolio con las dos reservadas: la compra suma $100.000 a `cash.reserved` y la venta suma 5 a
+   `reservedQuantity` de PAMP;
+7. el listado de las pendientes;
+8. la cancelación de la compra;
+9. la cancelación de la venta;
+10. el portfolio otra vez, con lo reservado como al principio;
+11. un reintento de la compra del paso 3, con el mismo identificador, que devuelve la misma orden (200);
+12. el identificador del paso 3 con otro contenido (422);
+13. una compra de $700.000, que queda `REJECTED`.
 
 Cada paso que necesita un identificador nuevo lo genera con `{{$guid}}`, y cada paso verifica su respuesta con tests
 de la colección: por eso CI la puede correr con Newman (11.2).
@@ -1331,8 +1468,8 @@ for MkDocs, del mismo equipo y con licencia MIT. Dibuja los diagramas de Mermaid
 - Se publica en GitHub Pages, construido por CI desde `main` (`.github/workflows/portal.yml`; el repo es público desde el
   2026-11-08).
 
-**Dónde quedó (fase 7):** <https://xeduardomx.github.io/cocos-challenge-backend/>. La cuenta de GitHub tiene Actions
-bloqueado por un tema de facturación, así que ese workflow todavía no corrió. Mientras tanto, el sitio generado se sube
+**Dónde quedó (fase 7):** <https://xeduardomx.github.io/cocos-challenge-backend/>. GitHub Actions está bloqueado en
+esta cuenta (sección 11.2), así que ese workflow todavía no corrió. Mientras tanto, el sitio generado se sube
 a mano a la rama `gh-pages`, y GitHub Pages lo publica desde ahí. Cuando Actions vuelva a correr, Pages se cambia para
 publicar desde el workflow.
 
@@ -1355,9 +1492,6 @@ siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celu
   no se genera.
 - **El CSS propio es una sola regla** (`docs/portal/portal.css`): más ancho para las tablas y los diagramas del RFC.
 
-Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Grafana) y su orden quedan para el plan
-(fase 4).
-
 ## 12. Decisiones de esta fase y ADR
 
 **Decisiones de esta fase**
@@ -1374,7 +1508,7 @@ Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Gra
 | No se guarda cuándo cambió el estado de una orden | el PRD no lo muestra, y auditar pediría un historial | sección 3.3 |
 | La hora de una orden la pone la base al grabarla, con `clock_timestamp()` | un solo reloj, tomado dentro del turno del usuario. `now()` es la hora en que empezó la transacción | sección 3.4 |
 | Un solo índice nuevo para las consultas, por (usuario, fecha, id), además de los que crean las reglas de unicidad. Cambia la decisión 7 de A-7 | medido con 2 millones de órdenes: el filtro por estado nunca cuesta más que el portfolio del mismo usuario, y el índice de A-7 suma 95 MB y encarece las altas un 30 % | sección 3.5 |
-| Migraciones con Flyway; `database.sql` es la versión 1, y la copia local se arma igual que Neon: con los datos y sin historial | el camino que va a recorrer Neon es el que se prueba todos los días (probado con Flyway 12.4.0) | sección 3.6, ADR 0006 |
+| Migraciones con Flyway; `database.sql` es la versión 1, y la copia local se arma igual que Neon: con los datos y sin historial | el camino que recorrió Neon es el que se prueba todos los días (probado con Flyway 12.4.0) | sección 3.6, ADR 0006 |
 | Todas las migraciones pendientes en una sola transacción (`group`) | Neon recibiría todos los cambios o ninguno (probado en la copia local: sin `group`, una falla deja aplicadas las anteriores) | sección 3.6 |
 | La API migra sola solo cuando se le pide: en la copia local y en los tests; a Neon, a propósito, en la fase 8 | apuntar la API a Neon no lo migra por accidente | sección 3.6 |
 | La base trae las órdenes del usuario y `account` calcula todo en Java | el PPC depende del orden de las órdenes; partir el cálculo lo pondría en dos lugares | sección 4.1, ADR 0003 |
@@ -1402,7 +1536,7 @@ Los archivos concretos (`Dockerfile`, compose, workflows y configuración de Gra
 | Los casos simultáneos inyectan una pausa desde el test, sin tocar el código de la API | el test falla siempre sin el turno, no solo por casualidad | sección 10.3 |
 | Piso de cobertura: 85 % de líneas y 80 % de ramas | que no baje sin que nadie lo note | sección 10.4 |
 | Spotless con google-java-format, Error Prone y NullAway con JSpecify, y JaCoCo, todos frenando el build | probados juntos con Java 25; Checkstyle, SpotBugs, PMD y SonarCloud repiten o necesitan cuentas externas | sección 11.1 |
-| CI con build, tests, imagen y una prueba de humo con el compose y la colección de Postman | el caso 3 de GEN se prueba solo en cada push | sección 11.2 |
+| CI con build, tests, imagen y una prueba de humo con el compose y la colección de Postman | el caso 3 de GEN se prueba solo en cada push | sección 11.2, con su desvío |
 | Compose con Postgres (datos en memoria), API, Prometheus y Grafana; el chequeo de salud de Postgres pregunta por red | cada `up` arranca de los datos originales, y la API no arranca antes de tiempo | sección 11.3 |
 | El portal se arma con Zensical, con Docusaurus como alternativa si la prueba de la fase 7 fallaba. La prueba pasó | Material for MkDocs dejó de recibir correcciones el 2026-11-05 | sección 11.6 |
 

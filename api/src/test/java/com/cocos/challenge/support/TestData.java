@@ -1,6 +1,6 @@
 package com.cocos.challenge.support;
 
-import com.cocos.challenge.orders.OrderType;
+import com.cocos.challenge.orders.domain.OrderType;
 import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.shared.domain.OrderStatus;
 import java.math.BigDecimal;
@@ -71,6 +71,18 @@ public class TestData {
 
   public void pending(long userId, long instrumentId, OrderSide side, int size, BigDecimal price) {
     insertOrder(userId, instrumentId, side, OrderStatus.NEW, OrderType.LIMIT, size, price, null);
+  }
+
+  /** A filled order with the given time, instead of the time of the insert. */
+  public void fillAt(
+      long userId,
+      long instrumentId,
+      OrderSide side,
+      int size,
+      BigDecimal price,
+      OffsetDateTime datetime) {
+    insertOrder(
+        userId, instrumentId, side, OrderStatus.FILLED, OrderType.MARKET, size, price, datetime);
   }
 
   /** A pending LIMIT order with the given time, instead of the time of the insert. */
