@@ -39,14 +39,16 @@ public class OrderRepository {
           from orders o join instruments i on i.id = o.instrumentid
           where o.userid = :userId and o.id = :orderId
           """;
-  // The index by (userid, datetime, id) reads only the orders of the user inside the window. The
-  // order with the same client order id is left out: that one is a retry, and the lookup by
+  // The index by (userid, datetime, id) reads only the orders of the user inside the window. For
+  // that, "now" is statement_timestamp(): Postgres cannot use a volatile function, such as
+  // clock_timestamp(), as a bound of the index scan, and would read every order of the user.
+  // The order with the same client order id is left out: that one is a retry, and the lookup by
   // identifier or the uniqueness rule answers it (RFC 5.3).
   private static final String FIND_RECENT_EQUAL_ORDER_ID =
       """
       select id from orders
       where userid = :userId
-        and datetime > clock_timestamp() - :windowMillis * interval '1 millisecond'
+        and datetime > statement_timestamp() - :windowMillis * interval '1 millisecond'
         and requestfingerprint = :requestFingerprint
         and clientorderid <> :clientOrderId
         and status in (:acceptedStatuses)
