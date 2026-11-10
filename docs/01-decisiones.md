@@ -825,7 +825,10 @@ no pide** (cancelar y listar órdenes) y deja afuera las transferencias. Cada co
 
 #### Transferencias (`CASH_IN` y `CASH_OUT`) por API: fuera de alcance
 
-- **Lo que dice el enunciado:** *"se pueden modelar como ordenes"*. Describe cómo están guardadas; no pide crearlas.
+- **Lo que dice el enunciado:** *"Las transferencias entrantes y salientes se pueden modelar como ordenes"*. Describe
+  cómo están guardadas; no pide crearlas. Y define el envío como compra o venta: *"se podrá enviar una orden de compra o
+  venta del activo"*, y *"Las ordenes tienen un atributo llamado `side` que describe si la orden es de compra (`BUY`) o
+  venta (`SELL`)"*.
 - **Por qué quedan afuera:**
   1. No se piden.
   2. **En la vida real, la plata no entra porque el usuario lo dice:** un `CASH_IN` llega del banco cuando se acredita
