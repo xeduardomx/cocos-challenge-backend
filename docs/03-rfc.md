@@ -828,6 +828,65 @@ GET /users/1/portfolio
 }
 ```
 
+**De dónde sale cada número.** Ninguno está guardado: en cada pedido se calculan desde `orders` y `marketdata`
+(sección 4.1). Un campo "se copia" cuando es el valor de una columna tal cual, y "se calcula" cuando sale de una
+cuenta.
+
+La plata:
+
+| Campo | Valor | Cómo se calcula |
+|---|---|---|
+| `cash.balance` | 753.000 | órdenes `FILLED`: depósitos 1.000.000 − retiros 100.000 − compras 202.300 + ventas 55.300 |
+| `cash.reserved` | 125.500 | compras `NEW`: LOMA 50 × 710 = 35.500, más BMA 60 × 1.500 = 90.000 |
+| `cash.available` | 627.500 | `balance` − `reserved` = 753.000 − 125.500 |
+| `totalValue` | 889.756 | `balance` + el `marketValue` de cada posición = 753.000 + 37.034 + 114.750 − 15.028 |
+
+- **El total usa `balance`, no `available`:** lo reservado sigue siendo del usuario (A-1).
+- **Las compras pendientes no se suman aparte:** su plata ya está dentro del `balance`. LOMA no aparece como posición
+  porque todavía no tiene acciones.
+
+Las tres posiciones:
+
+| Posición | `quantity` | `lastPrice` | `marketValue` | `averagePrice` | `totalReturnPercent` |
+|---|---|---|---|---|---|
+| BMA | 20 − 30 = −10 | 1.502,80 | −15.028 | `null` | `null` |
+| METR | 500 | 229,50 | 114.750 | 125.000 ÷ 500 = 250 | −8,20 |
+| PAMP | 50 − 10 = 40 | 925,85 | 37.034 | 46.500 ÷ 50 = 930 | −0,45 |
+
+BMA vendió más de lo que tenía (D-1): sin acciones, no hay contra qué medir el rendimiento, y el PPC queda vacío.
+
+Cada campo, con PAMP:
+
+| Campo | PAMP | Se copia o se calcula | Columnas que usa |
+|---|---|---|---|
+| `ticker`, `name` | PAMP, Pampa Holding S.A. | se copia | `instruments.ticker`, `instruments.name` |
+| `quantity` | 40 | se calcula: compras − ventas `FILLED` = 50 − 10 | `orders.size` |
+| `reservedQuantity` | 0 | se calcula: suma de las ventas `NEW`, que no hay | `orders.size` |
+| `lastPrice` | 925,85 | se copia, del último día | `marketdata.close` |
+| `marketValue` | 37.034 | se calcula: `quantity` × `lastPrice` = 40 × 925,85 | `orders.size`, `marketdata.close` |
+| `averagePrice` (PPC) | 930 | se calcula: monto de las compras ÷ acciones compradas = 46.500 ÷ 50 | `orders.size`, `orders.price` |
+| `totalReturnPercent` | −0,45 | se calcula: (`lastPrice` − PPC) ÷ PPC × 100 = (925,85 − 930) ÷ 930 × 100 = −0,4462… | `marketdata.close`, y por el PPC `orders.size` y `orders.price` |
+| `dailyChangePercent` | 0,44 | se calcula: (`close` − `previousClose`) ÷ `previousClose` × 100 = (925,85 − 921,80) ÷ 921,80 × 100 = 0,4393… | `marketdata.close`, `marketdata.previousClose` |
+
+**Nota sobre `reservedQuantity`.** Solo se carga cuando el usuario tiene una venta pendiente (`SELL` en `NEW`) de un
+activo que tiene: son las acciones que esa venta aparta. Las compras pendientes apartan pesos y van a `cash.reserved`.
+Por eso da 0 en las tres posiciones: el usuario 1 solo tiene compras pendientes, y BMA, con una de 60 acciones, también
+da 0. Con una venta LIMIT de 15 PAMP, PAMP daría `quantity` 40 y `reservedQuantity` 15.
+
+Los porcentajes se redondean a 2 decimales una sola vez, al final: −0,4462… da −0,45 (sección 4.5).
+
+Las órdenes de PAMP, de donde salen `quantity` y el PPC:
+
+| Orden | Lado | Estado | `size` | `price` | Monto (`size × price`) | Qué hace |
+|---|---|---|---|---|---|---|
+| 2 | `BUY` | `FILLED` | 50 | 930 | 46.500 | suma 50 acciones y entra en el PPC |
+| 3 | `BUY` | `CANCELLED` | 50 | 920 | 46.000 | no cuenta |
+| 4 | `SELL` | `FILLED` | 10 | 940 | 9.400 | resta 10 acciones y suma $9.400 a los pesos; el PPC no cambia |
+| 6 | `SELL` | `REJECTED` | 100 | 950 | 95.000 | no cuenta |
+
+Queda `quantity` = 50 − 10 = 40 y PPC = 46.500 ÷ 50 = 930. Si hubiera una venta antes de otra compra, el PPC se
+calcula orden por orden (sección 4.1).
+
 **Búsqueda** (caso 8 de BUS). Una acción que no cotiza, como PGR, viene con `lastPrice` y `dailyChangePercent` en
 `null`.
 
