@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# A push to a PR branch starts a `push` run and a `pull_request` run. Both join the group of the
+# branch name (head_ref in a PR, ref_name in a push), so the newer run cancels the older one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Verify (format, static analysis, tests, coverage)
+        run: ./mvnw -B verify
+        working-directory: api
+
+      - name: Upload the test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: surefire-reports
+          path: api/target/surefire-reports
+          retention-days: 7
+
+  smoke:
+    name: Smoke test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Start the API and its database
+        run: docker compose up -d --build --wait
+
+      - name: Run the smoke test
+        run: ./scripts/smoke-test.sh
+
+      - name: Run the Postman collection
+        run: ./scripts/run-postman.sh
+
+      - name: Show the compose logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop the compose services
+        if: always()
+        run: docker compose down

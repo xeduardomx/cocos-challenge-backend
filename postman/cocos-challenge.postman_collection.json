@@ -1,0 +1,388 @@
+{
+  "info": {
+    "name": "Cocos Challenge API",
+    "description": "Full tour of the API over the original data. Run it on a fresh database: step 1 expects 627500 available cash.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Portfolio of user 1",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/portfolio",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "portfolio"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"available cash is 627500\", function () {",
+              "  pm.expect(pm.response.json().cash.available).to.eql(627500);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Search for pamp",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/instruments?query=pamp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "instruments"
+          ],
+          "query": [
+            {
+              "key": "query",
+              "value": "pamp"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"PAMP comes first\", function () {",
+              "  const found = pm.response.json().instruments;",
+              "  pm.expect(found[0].ticker).to.eql('PAMP');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Buy 10 PAMP at market",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOrderId\": \"{{filledClientOrderId}}\",\n  \"instrumentId\": 47,\n  \"side\": \"BUY\",\n  \"type\": \"MARKET\",\n  \"quantity\": 10\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('filledClientOrderId', pm.variables.replaceIn('{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 201\", function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"order is FILLED\", function () {",
+              "  pm.expect(pm.response.json().status).to.eql('FILLED');",
+              "});",
+              "pm.test(\"order id and client order id are kept\", function () {",
+              "  const order = pm.response.json();",
+              "  pm.expect(order.clientOrderId).to.eql(pm.collectionVariables.get('filledClientOrderId'));",
+              "  pm.collectionVariables.set('filledOrderId', order.id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Buy 10 METR with limit 10000",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOrderId\": \"{{$guid}}\",\n  \"instrumentId\": 54,\n  \"side\": \"BUY\",\n  \"type\": \"LIMIT\",\n  \"quantity\": 10,\n  \"price\": 10000\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 201\", function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"order is NEW\", function () {",
+              "  pm.expect(pm.response.json().status).to.eql('NEW');",
+              "});",
+              "pm.test(\"keeps the order id\", function () {",
+              "  pm.collectionVariables.set('pendingOrderId', pm.response.json().id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. List the NEW orders",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/orders?status=NEW",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "orders"
+          ],
+          "query": [
+            {
+              "key": "status",
+              "value": "NEW"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"the order of step 4 is listed\", function () {",
+              "  const ids = pm.response.json().orders.map(o => o.id);",
+              "  pm.expect(ids).to.include(Number(pm.collectionVariables.get('pendingOrderId')));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Cancel the order of step 4",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/orders/{{pendingOrderId}}/cancel",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "orders",
+            "{{pendingOrderId}}",
+            "cancel"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"order is CANCELLED\", function () {",
+              "  pm.expect(pm.response.json().status).to.eql('CANCELLED');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Retry the order of step 3",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOrderId\": \"{{filledClientOrderId}}\",\n  \"instrumentId\": 47,\n  \"side\": \"BUY\",\n  \"type\": \"MARKET\",\n  \"quantity\": 10\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"returns the same order\", function () {",
+              "  pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('filledOrderId')));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Reuse the client order id with other content",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOrderId\": \"{{filledClientOrderId}}\",\n  \"instrumentId\": 47,\n  \"side\": \"BUY\",\n  \"type\": \"MARKET\",\n  \"quantity\": 11\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 422\", function () {",
+              "  pm.response.to.have.status(422);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Buy 700000 of PAMP",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/1/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "1",
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOrderId\": \"{{$guid}}\",\n  \"instrumentId\": 47,\n  \"side\": \"BUY\",\n  \"type\": \"MARKET\",\n  \"amount\": 700000\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 201\", function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"order is REJECTED\", function () {",
+              "  pm.expect(pm.response.json().status).to.eql('REJECTED');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
