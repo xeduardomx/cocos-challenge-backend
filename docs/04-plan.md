@@ -1499,6 +1499,8 @@ Al terminar la tarea 19: PR de `feat/phase-6-observability` a `develop`, con mer
 - **El portal HTML de la fase 7,** con Zensical (RFC 11.6).
 - **El README completo, la revisión final y el mail de la fase 8.**
 - **Si a Neon se le aplican las migraciones,** que se decide en la fase 8 (ADR 0006).
+- **El control de posibles duplicados** (RFC 5.5, ENV-10 y los casos 21 a 27 del envío). Se agregó en la fase 8, después
+  de este plan, con el mismo método de cada tarea: primero el test que falla (ADR 0009).
 
 ## Cobertura del RFC y del PRD
 
@@ -1513,6 +1515,7 @@ Al terminar la tarea 19: PR de `feat/phase-6-observability` a `develop`, con mer
 | RFC 5.2: el turno | 6 y 10 |
 | RFC 5.3: los reintentos | 9 y 10 |
 | RFC 5.4: la cancelación | 11 |
+| RFC 5.5: la misma orden con otro identificador | fuera de este plan: fase 8 |
 | RFC 6: los contratos | 5, 7, 9, 11, 12 y 13 |
 | RFC 7: errores y validación | 3, y los casos de error de cada función |
 | RFC 8: logs, métricas, tablero y tiempo de respuesta | 3 (id de pedido), 17, 18 y 19 |
@@ -1522,6 +1525,7 @@ Al terminar la tarea 19: PR de `feat/phase-6-observability` a `develop`, con mer
 | POR, casos 1 a 11 | 6, 7, 9 y 11 |
 | BUS, casos 1 a 9 | 5 |
 | ENV, casos 1 a 20 | 8, 9, 10 y 11 |
+| ENV, casos 21 a 27 | fuera de este plan: fase 8 |
 | CAN, casos 1 a 6 | 11 |
 | LIS, casos 1 a 5 | 12 |
 | GEN, casos 1 a 5 | 10 (1 y 2), 14 (3), 17 (4 y 5) |
