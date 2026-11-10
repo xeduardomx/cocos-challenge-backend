@@ -114,6 +114,9 @@ Lo único de afuera es la base, y lo más delicado se prueba contra Postgres rea
 arquitectura hexagonal no aportaban. Las consultas importantes son SQL propio de Postgres (`FOR UPDATE`, `LATERAL`,
 `unaccent`), y JPA agrega comportamiento escondido justo en el camino más delicado.
 
+En el código, cada función es un paquete (`account`, `instruments`, `portfolio` y `orders`), y adentro hay un paquete
+por capa: `web`, `service`, `domain` y `repository`, entre otros.
+
 [ADR 0001](adr/0001-capas-por-funcion.md) · [ADR 0002](adr/0002-sql-directo-con-jdbcclient.md)
 
 ### 11. ¿Se tocó la base de Cocos?

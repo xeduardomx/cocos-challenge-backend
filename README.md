@@ -176,3 +176,7 @@ perf/           la prueba de carga con k6 y sus datos de volumen
 postman/        la colección de Postman
 scripts/        prueba de humo, Postman, prueba de carga y portal
 ```
+
+El código de `api/` tiene un paquete por función (`account`, `instruments`, `portfolio` y `orders`) y, adentro de cada
+uno, un paquete por capa: `web`, `service`, `domain`, `repository`, `config`, `error` y `observability`
+([RFC, sección 2](docs/03-rfc.md#2-arquitectura)).

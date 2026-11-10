@@ -151,6 +151,23 @@ flowchart LR
 
 `shared` no aparece en el diagrama porque lo usan todos.
 
+**Adentro de cada función, un paquete por capa.** Los nombres son los mismos en todas, así se sabe dónde buscar:
+
+| Paquete | Qué tiene | Ejemplo en `orders` |
+|---|---|---|
+| `web` | el controller, con el pedido y la respuesta en JSON y su validación | `OrderController`, `SubmitOrderRequest`, `OrderResponse` |
+| `service` | los services: los pasos de cada función y su transacción | `OrderSubmissionService`, `OrderCancellationService`, `OrderQueryService` |
+| `domain` | los records, los enums y los cálculos en Java puro | `StoredOrder`, `OrderType`, `OrderEvaluator` y sus reglas |
+| `repository` | el SQL | `OrderRepository` |
+| `config` | los beans y los números configurables | `OrdersConfiguration`, `OrderPageProperties` |
+| `error` | los errores de la función | `OrderNotFoundException` |
+| `observability` | las métricas y los logs de negocio | `OrderMetrics`, `OrderEventLogger` |
+
+- **Cada función tiene solo los paquetes que usa.** `portfolio` no tiene `repository`: lee de la base a través de
+  `account` e `instruments`. `account` no tiene `web`: no tiene una dirección propia.
+- **En `orders`, `domain` se divide además por tema:** `submission`, `evaluation` y `listing`.
+- **`shared` se ordena por tema** (`domain`, `error`, `web`, `validation` y `display`), porque no es una función.
+
 **Por qué no hexagonal** (ni Clean Architecture, que sigue la misma idea). Sus interfaces ("puertos") sirven para
 cambiar lo de afuera sin tocar el núcleo, y acá lo único de afuera es la base. Lo más delicado, la transacción del envío, se prueba contra Postgres real de todas formas.
 Cambiaría si la API mandara órdenes a un mercado real: ahí se agrega un puerto para el mercado, no toda la

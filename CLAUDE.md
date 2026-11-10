@@ -101,7 +101,9 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
 ## Decisiones de diseño: dónde quedó cada una
 
 - Arquitectura: **decidida en el RFC** (2026-11-07). Capas agrupadas por función, no hexagonal, con los cálculos en
-  Java puro y la cuenta del usuario calculada en un solo lugar (`docs/adr/0001-capas-por-funcion.md`).
+  Java puro y la cuenta del usuario calculada en un solo lugar (`docs/adr/0001-capas-por-funcion.md`). Adentro de cada
+  función, un paquete por capa (`web`, `service`, `domain`, `repository`, `config`, `error`, `observability`), desde la
+  revisión del 2026-11-10.
 - Versiones y acceso a datos: **decididos en el RFC** (2026-11-07). Java 25 y Spring Boot 4.1; SQL directo con
   `JdbcClient`, no JPA ni jOOQ (`docs/adr/0002-sql-directo-con-jdbcclient.md`).
 - Cambios a la base: **decididos en el RFC** (2026-11-07, sección 3). Reglas que miran una sola fila, tres columnas
