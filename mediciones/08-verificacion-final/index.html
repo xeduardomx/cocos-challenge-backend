@@ -1474,6 +1474,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#la-colección-de-postman-con-lo-reservado-2026-11-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        La colección de Postman, con lo reservado (2026-11-10)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1599,6 +1610,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Después de reordenar los paquetes (2026-11-10)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#la-colección-de-postman-con-lo-reservado-2026-11-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        La colección de Postman, con lo reservado (2026-11-10)
       </span>
     </span>
   </a>
@@ -1962,6 +1984,15 @@ exit: 0
 </table>
 <p>El log de cada orden sale con el nombre nuevo de la clase, <code>com.cocos.challenge.orders.observability.OrderEventLogger</code>,
 y los contadores <code>orders_recorded_total</code>, <code>orders_replayed_total</code> y <code>orders_cancelled_total</code> contaron cada una.</p>
+<h2 id="la-colección-de-postman-con-lo-reservado-2026-11-10">La colección de Postman, con lo reservado (2026-11-10)<a class="headerlink" href="#la-colección-de-postman-con-lo-reservado-2026-11-10" title="Permanent link">&para;</a></h2>
+<p>La colección sumó cuatro pasos: una venta límite que queda <code>NEW</code>, su cancelación y dos portfolios, uno con las dos
+órdenes pendientes y otro después de cancelarlas. Comparan contra lo reservado en el paso 1: la compra límite suma
+$100.000 a <code>cash.reserved</code> y no reserva acciones, y la venta suma 5 a <code>reservedQuantity</code> de PAMP
+(<a href="../../03-rfc/#115-la-colección-de-postman">RFC, sección 11.5</a>). Sobre un <code>up</code> nuevo:</p>
+<div class="language-text highlight"><pre><span></span><code>== ./scripts/run-postman.sh
+requests  13, failed 0
+assertions 32, failed 0
+</code></pre></div>
 
 
 

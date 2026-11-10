@@ -5057,8 +5057,13 @@ la base desde <code>.env</code>, que nunca se sube al repo.</p>
 <li>la búsqueda de "pamp";</li>
 <li>una compra a mercado, que queda <code>FILLED</code>;</li>
 <li>una compra límite, que queda <code>NEW</code>;</li>
+<li>una venta límite de 5 PAMP, que también queda <code>NEW</code>;</li>
+<li>el portfolio con las dos reservadas: la compra suma $100.000 a <code>cash.reserved</code> y la venta suma 5 a
+   <code>reservedQuantity</code> de PAMP;</li>
 <li>el listado de las pendientes;</li>
-<li>la cancelación de esa compra;</li>
+<li>la cancelación de la compra;</li>
+<li>la cancelación de la venta;</li>
+<li>el portfolio otra vez, con lo reservado como al principio;</li>
 <li>un reintento de la compra del paso 3, con el mismo identificador, que devuelve la misma orden (200);</li>
 <li>el identificador del paso 3 con otro contenido (422);</li>
 <li>una compra de $700.000, que queda <code>REJECTED</code>.</li>
