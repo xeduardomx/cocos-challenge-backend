@@ -1660,9 +1660,12 @@
 
 <h1 id="resultados-de-las-pruebas-de-la-sección-5-del-rfc">Resultados de las pruebas de la sección 5 del RFC<a class="headerlink" href="#resultados-de-las-pruebas-de-la-sección-5-del-rfc" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p>Corrida del 2026-11-07 en una PC, con Postgres 18.6 en Docker. Salida de <a href="../05-turno.sh"><code>05-turno.sh</code></a>, que
+<p>Corrida del 2026-11-10 en una PC, con Postgres 18.6 en Docker. Salida de <a href="../05-turno.sh"><code>05-turno.sh</code></a>, que
 simula en SQL lo que hace la API: dos pedidos casi a la vez, que leen la cuenta, esperan 1 segundo y graban.
-Corre en una copia nueva, con <code>database.sql</code> y <code>03-esquema.sql</code>, sin los datos de <code>03-indices.sql</code> (RFC, sección 3.5).</p>
+Corre en una copia nueva, con <code>database.sql</code> y <code>03-esquema.sql</code>, sin los datos de <code>03-indices.sql</code> (RFC, sección 3.5).
+Las pruebas A a F dieron lo mismo que en la corrida del 2026-11-07. La G se agregó al revisar el
+<a href="../../adr/0004-turno-del-usuario/#revisión-fase-8-2026-11-10">ADR 0004</a>: hace la venta en un solo comando, sin
+transacción ni turno.</p>
 </blockquote>
 <div class="language-text highlight"><pre><span></span><code>== Dos ventas de 15 BMA a la vez, teniendo 20
 A. sin turno, READ COMMITTED | venta 1: FILLED (vio 20) | venta 2: FILLED (vio 20) | posición final: -10
@@ -1673,6 +1676,8 @@ D. sin turno | pedido 1: crea la orden | pedido 2: ERROR:  duplicate key value v
 E. con turno | pedido 1: crea la orden | pedido 2: devuelve la orden original | órdenes con ese identificador: 1
 == Dos cancelaciones a la vez de la orden 7
 F. un solo UPDATE condicionado | pedido 1: cancela la orden 7 | pedido 2: no cambia ninguna fila | estado final: CANCELLED
+== Dos ventas de 15 BMA a la vez, teniendo 20, cada una en un solo comando
+G. un solo INSERT ... SELECT, sin turno | venta 1: FILLED (vio 20) | venta 2: FILLED (vio 20) | posición final: -10
 </code></pre></div>
 
 

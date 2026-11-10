@@ -999,6 +999,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#revisión-fase-8-2026-11-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Revisión (fase 8, 2026-11-10)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1671,6 +1682,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#revisión-fase-8-2026-11-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Revisión (fase 8, 2026-11-10)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1796,7 +1818,7 @@
 
 <h1 id="adr-0004--el-turno-del-usuario-un-lock-sobre-su-fila-de-users-en-read-committed">ADR 0004 — El turno del usuario: un lock sobre su fila de <code>users</code>, en <code>READ COMMITTED</code><a class="headerlink" href="#adr-0004--el-turno-del-usuario-un-lock-sobre-su-fila-de-users-en-read-committed" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p>Estado: <strong>aceptada</strong> · 2026-11-07 · Se aplica en el <a href="../../03-rfc/#52-el-turno-del-usuario">RFC, sección 5.2</a></p>
+<p>Estado: <strong>aceptada</strong> · 2026-11-07, revisada el 2026-11-10 · Se aplica en el <a href="../../03-rfc/#52-el-turno-del-usuario">RFC, sección 5.2</a></p>
 </blockquote>
 <h2 id="contexto">Contexto<a class="headerlink" href="#contexto" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1825,7 +1847,18 @@ y sus números se comparten con cualquier otro uso de esos locks en la base.</p>
 <p><strong>C. Nivel <code>SERIALIZABLE</code>.</strong> Postgres detecta el choque y aborta una de las dos transacciones. La API tendría que
 reintentar la orden entera, con más código y una orden que se evalúa dos veces.</p>
 <p><strong>D. Un lock en Java.</strong> Solo funciona con una instancia de la API.</p>
-<p><strong>E. Una tabla de posiciones con la regla "cantidad ≥ 0".</strong> Descartada en el ADR 0003: BMA ya está en −10.</p>
+<p><strong>E. Un <code>UPDATE</code> condicionado sobre una tabla de saldos y posiciones</strong>
+(<code>set cantidad = cantidad - 15 where cantidad &gt;= 15</code>), o la regla "cantidad ≥ 0" en esa tabla.</p>
+<ul>
+<li>A favor: es lo más simple cuando hay una fila con el número. El <code>UPDATE</code> bloquea esa fila: el segundo espera y
+  vuelve a evaluar la condición. Es lo que hace la cancelación, donde la regla mira una sola fila (prueba F).</li>
+<li>En contra: acá esa fila no existe, porque la tenencia y los pesos son la suma de las órdenes. La tabla se descartó
+  en el ADR 0003: el mismo dato quedaría en dos lugares, y la regla no se podría crear, porque BMA ya está en −10.</li>
+</ul>
+<p><strong>F. Un solo comando que lee la cuenta y graba la orden</strong> (<code>insert ... select</code>), sin turno. Un comando graba todo o
+nada, pero no pone los pedidos en fila: dos a la vez calculan la suma con la misma foto, y ninguno espera al otro,
+porque cada uno inserta una fila distinta. Probado: las dos ventas quedan <code>FILLED</code> y la posición en −10, igual que
+sin turno (prueba G).</p>
 <h2 id="decisión">Decisión<a class="headerlink" href="#decisión" title="Permanent link">&para;</a></h2>
 <p><strong>A.</strong> El envío empieza su transacción tomando el turno del usuario, en <code>READ COMMITTED</code>. Si no lo consigue en 2
 segundos (<code>lock_timeout</code>, configurable), responde 503 con "intentá de nuevo": reintentar con el mismo identificador
@@ -1842,6 +1875,17 @@ es seguro (ADR 0005).</p>
 <li><strong>Cuándo revisarla:</strong> si un mismo usuario tuviera que mandar cientos de órdenes por segundo, por ejemplo una cuenta
   institucional. Ahí convendría un turno por usuario y activo, o una cola de órdenes por usuario.</li>
 </ul>
+<h2 id="revisión-fase-8-2026-11-10">Revisión (fase 8, 2026-11-10)<a class="headerlink" href="#revisión-fase-8-2026-11-10" title="Permanent link">&para;</a></h2>
+<p>Al repasar la decisión, el autor se preguntó si no alcanzaba con algo más simple: un SQL que lea y grabe en un solo
+paso, sin lock. <strong>Se mantiene A.</strong> Las dos formas de esa idea no estaban entre las opciones, y quedaron escritas:</p>
+<ul>
+<li><strong>La opción E se amplió</strong> con el <code>UPDATE</code> condicionado. Sirve cuando la regla mira una sola fila, y por eso la
+  cancelación ya lo usa. La plata disponible y la tenencia salen de la suma de muchas filas.</li>
+<li><strong>La opción F es nueva,</strong> con su prueba (la G de <a href="../../mediciones/05-resultados/"><code>mediciones/05-resultados.md</code></a>):
+  un solo <code>insert ... select</code>, sin turno, deja la posición en −10.</li>
+</ul>
+<p>El criterio que queda: si la regla mira una sola fila, alcanza con un <code>UPDATE</code> condicionado; si mira la suma de
+muchas, hace falta el turno.</p>
 
 
 
