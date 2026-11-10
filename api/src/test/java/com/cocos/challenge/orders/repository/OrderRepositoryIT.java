@@ -27,6 +27,7 @@ class OrderRepositoryIT {
   private static final long PAMP = 47;
   private static final long FIRST_NEW_ORDER_ID = 12;
   private static final String FINGERPRINT = "a".repeat(64);
+  private static final Duration WINDOW = Duration.ofSeconds(5);
 
   @Autowired private OrderRepository repository;
 
@@ -84,6 +85,34 @@ class OrderRepositoryIT {
 
     assertThat(stored.price()).isNull();
     assertThat(stored.rejectionReason()).isEqualTo(RejectionReason.NO_MARKET_PRICE);
+  }
+
+  @Test
+  void findsTheNewestOrderOfAnEqualRequestInsideTheWindow() {
+    repository.insert(buy(USER_ONE, UUID.randomUUID()));
+    StoredOrder newest = repository.insert(buy(USER_ONE, UUID.randomUUID()));
+
+    assertThat(repository.findRecentEqualOrderId(USER_ONE, UUID.randomUUID(), FINGERPRINT, WINDOW))
+        .contains(newest.id());
+  }
+
+  @Test
+  void findsNoEqualOrderWithAWindowOfZero() {
+    repository.insert(buy(USER_ONE, UUID.randomUUID()));
+
+    assertThat(
+            repository.findRecentEqualOrderId(
+                USER_ONE, UUID.randomUUID(), FINGERPRINT, Duration.ZERO))
+        .isEmpty();
+  }
+
+  @Test
+  void leavesOutTheOrderOfTheSameClientOrderId() {
+    UUID clientOrderId = UUID.randomUUID();
+    repository.insert(buy(USER_ONE, clientOrderId));
+
+    assertThat(repository.findRecentEqualOrderId(USER_ONE, clientOrderId, FINGERPRINT, WINDOW))
+        .isEmpty();
   }
 
   @Test

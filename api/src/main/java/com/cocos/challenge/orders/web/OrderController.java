@@ -49,7 +49,8 @@ public class OrderController {
           "Compra o vende un activo, a mercado o con precio límite, por cantidad o por monto. Una"
               + " orden que no se puede ejecutar queda grabada como REJECTED y responde 201. El"
               + " clientOrderId hace seguro el reintento: repetir el mismo pedido devuelve la orden"
-              + " original con 200.")
+              + " original con 200. La misma orden con otro clientOrderId, a los pocos segundos de"
+              + " una aceptada, se frena con 409 como posible duplicado.")
   @io.swagger.v3.oas.annotations.parameters.RequestBody(
       content =
           @Content(
@@ -84,6 +85,11 @@ public class OrderController {
       responseCode = "400",
       description = "El pedido no es válido, o el activo no existe o es la moneda")
   @ApiResponse(responseCode = "404", description = "El usuario no existe")
+  @ApiResponse(
+      responseCode = "409",
+      description =
+          "Posible duplicado: el usuario tiene una orden igual, aceptada hace instantes y con otro"
+              + " clientOrderId. Trae su número en existingOrderId")
   @ApiResponse(responseCode = "422", description = "El clientOrderId ya se usó con otro contenido")
   @ApiResponse(
       responseCode = "503",

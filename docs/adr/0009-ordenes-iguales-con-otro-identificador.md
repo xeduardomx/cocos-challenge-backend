@@ -106,6 +106,7 @@ select id from orders
 where userid = :userId
   and datetime > clock_timestamp() - :ventana
   and requestfingerprint = :huella
+  and clientorderid <> :clientOrderId
   and status in ('FILLED', 'NEW')
 order by datetime desc, id desc
 limit 1
@@ -136,6 +137,9 @@ limit 1
 - **Cuántas veces actúa** se ve sin una métrica nueva: son las respuestas 409 del envío, que `http_server_requests`
   ya cuenta por dirección, método y código (RFC, sección 8.2). Es el dato para ajustar la ventana.
 - **Las órdenes viejas no tienen huella,** así que nunca cuentan como la primera.
+- **Una orden con el mismo identificador no cuenta** (encontrado al implementar). Esa es un reintento, y lo contestan
+  la búsqueda por identificador o la regla de unicidad (ADR 0005). Sin esa condición, el test del camino sin turno
+  recibía un 409 en vez de reintentar y devolver la orden original (RFC, sección 5.3).
 - **La prueba de carga mandaba la misma compra 10 veces por segundo** para el mismo usuario. Ahora cada pedido rota los
   centavos del monto o del precio, y así la medición incluye el costo de la consulta nueva
   ([`mediciones/06-tiempo-de-respuesta.md`](../mediciones/06-tiempo-de-respuesta.md)).

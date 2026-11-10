@@ -5,4 +5,10 @@ import com.cocos.challenge.shared.domain.OrderStatus;
 import org.jspecify.annotations.Nullable;
 
 /** The status an order gets and, when it is rejected, why. */
-public record OrderDecision(OrderStatus status, @Nullable RejectionReason rejectionReason) {}
+public record OrderDecision(OrderStatus status, @Nullable RejectionReason rejectionReason) {
+
+  /** Whether the order takes effect: it is executed or it stays pending. */
+  public boolean accepted() {
+    return status != OrderStatus.REJECTED;
+  }
+}

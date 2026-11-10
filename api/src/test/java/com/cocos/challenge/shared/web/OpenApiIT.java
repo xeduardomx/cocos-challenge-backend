@@ -69,6 +69,19 @@ class OpenApiIT {
   }
 
   @Test
+  void documentsThePossibleDuplicateOfASubmissionAsAProblem() {
+    JsonNode responses =
+        api.get(API_DOCS)
+            .json()
+            .path("paths")
+            .path("/users/{userId}/orders")
+            .path("post")
+            .path("responses");
+
+    assertThat(responses.path("409").path("content").has("application/problem+json")).isTrue();
+  }
+
+  @Test
   void sendsThePageToTryTheApiToItsRealAddress() {
     ApiResponse response = api.get(SWAGGER_UI);
 

@@ -9,6 +9,7 @@ import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.shared.domain.OrderStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +39,22 @@ public class OrderRepository {
           from orders o join instruments i on i.id = o.instrumentid
           where o.userid = :userId and o.id = :orderId
           """;
+  // The index by (userid, datetime, id) reads only the orders of the user inside the window. The
+  // order with the same client order id is left out: that one is a retry, and the lookup by
+  // identifier or the uniqueness rule answers it (RFC 5.3).
+  private static final String FIND_RECENT_EQUAL_ORDER_ID =
+      """
+      select id from orders
+      where userid = :userId
+        and datetime > clock_timestamp() - :windowMillis * interval '1 millisecond'
+        and requestfingerprint = :requestFingerprint
+        and clientorderid <> :clientOrderId
+        and status in (:acceptedStatuses)
+      order by datetime desc, id desc
+      limit 1
+      """;
+  private static final List<String> ACCEPTED_STATUSES =
+      List.of(OrderStatus.FILLED.name(), OrderStatus.NEW.name());
   // The page query is built from these fixed clauses; the values always go as named parameters.
   // No "(:cursor is null or ...)": Postgres could fall to a generic plan that does not use the
   // cursor on the index.
@@ -95,6 +112,23 @@ public class OrderRepository {
         .param("userId", userId)
         .param("orderId", orderId)
         .query(ORDER_MAPPER)
+        .optional();
+  }
+
+  /**
+   * The newest FILLED or NEW order of the user that came from an equal request with another client
+   * order id and was recorded within the window, if there is one. Both times are of the clock of
+   * the database.
+   */
+  public Optional<Long> findRecentEqualOrderId(
+      long userId, UUID clientOrderId, String requestFingerprint, Duration window) {
+    return jdbc.sql(FIND_RECENT_EQUAL_ORDER_ID)
+        .param("userId", userId)
+        .param("windowMillis", window.toMillis())
+        .param("requestFingerprint", requestFingerprint)
+        .param("clientOrderId", clientOrderId)
+        .param("acceptedStatuses", ACCEPTED_STATUSES)
+        .query(Long.class)
         .optional();
   }
 

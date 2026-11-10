@@ -199,6 +199,27 @@ class OrderConcurrencyIT {
     assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS + 1);
   }
 
+  /**
+   * Case 27 of the submission: the same content with another identifier, and cash for both. The
+   * second one waits for the turn and then finds the order of the first (RFC 5.5).
+   */
+  @Test
+  void twoSimultaneousEqualOrdersWithOtherIdentifiersCreateOneOrder() throws Exception {
+    String sizing = "\"quantity\": 10";
+
+    List<ApiResponse> responses =
+        submitTogether(
+            USER_ONE,
+            marketOrder(OrderSide.BUY, PAMP, sizing),
+            marketOrder(OrderSide.BUY, PAMP, sizing),
+            this::awaitTheTurn);
+
+    assertThat(responses).extracting(ApiResponse::status).containsExactly(201, 409);
+    long orderId = responses.getFirst().json().get("id").asLong();
+    assertThat(responses.getLast().json().get("existingOrderId").asLong()).isEqualTo(orderId);
+    assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS + 1);
+  }
+
   @Test
   void retriesOnceWhenAnotherOrderTookTheIdentifierMeanwhile() throws Exception {
     // the first attempt skips the turn: the path the uniqueness rule guards (RFC 5.3)

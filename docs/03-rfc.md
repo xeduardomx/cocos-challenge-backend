@@ -845,6 +845,7 @@ select id from orders
 where userid = :userId
   and datetime > clock_timestamp() - :ventana
   and requestfingerprint = :huella
+  and clientorderid <> :clientOrderId
   and status in ('FILLED', 'NEW')
 order by datetime desc, id desc
 limit 1
@@ -890,6 +891,10 @@ sequenceDiagram
 - **Qué es "igual".** La misma huella (5.3): el activo, el lado, el tipo, la cantidad o el monto y el precio límite, tal
   como se mandaron. "10 PAMP" y "$9.258,50 de PAMP" son dos pedidos distintos. Las órdenes viejas no tienen huella, así
   que nunca cuentan como la primera.
+- **Por qué `clientorderid <> :clientOrderId`** (encontrado al implementar, fase 8). Una orden con el mismo
+  identificador no es otra orden: es un reintento, y lo contestan la búsqueda por identificador o la regla de unicidad
+  (5.3). Dentro del turno nunca aparece, porque la búsqueda por identificador va antes. En el camino sin turno que
+  cubre la regla de unicidad sí: sin esa condición, el test de ese camino recibía un 409 en vez de reintentar.
 - **Cuánto cuesta.** Una consulta más por orden aceptada, que usa el índice por (usuario, fecha, id) de la sección 3.5
   y lee solo las órdenes de ese usuario de los últimos 5 segundos.
 - **Lo que no frena.** Un reintento con otro identificador que llega pasados los 5 segundos: la API no lo puede
