@@ -15,8 +15,8 @@
 - La base de Neon y `database.sql` son **idénticas fila por fila**. Todo se desarrolla y se prueba contra una copia
   local; Neon se trata como producción: solo lectura.
 - Los datos tienen **una trampa grande**: la orden 11 vende 30 acciones de BMA cuando el usuario tenía 20, y la
-  posición queda en **−10**. Se muestra tal cual y no se corrige. Es el síntoma exacto de dos ventas simultáneas sin
-  bloqueo: por eso las órdenes de un mismo usuario se procesan de a una (D-1).
+  posición queda en **−10**. Se muestra tal cual y no se corrige. Nada frenó esa venta, y dos ventas simultáneas sin
+  bloqueo dejarían el mismo −10: por eso las órdenes de un mismo usuario se procesan de a una (D-1).
 - Las dos ambigüedades que cambian los números del portfolio quedaron decididas:
   - Los pesos disponibles **descuentan las compras pendientes**: para el usuario 1 dan **$627.500**, no $753.000
     (A-1).
@@ -51,7 +51,7 @@
   | Última página del listado de un usuario con 1.000.000 de órdenes | por número de página, 69 ms; por cursor, **0,017 ms** | A-7 |
   | Órdenes pendientes de ese mismo usuario | índice por (usuario, fecha, id), 28 ms; por (usuario, estado, fecha, id), **0,01 ms** | A-7 |
 
-  Son números de una laptop, con datos ya en memoria: sirven como orden de magnitud. El RFC repite la medición formal,
+  Son números de una PC, con datos ya en memoria: sirven como orden de magnitud. El RFC repite la medición formal,
   antes y después de cada índice.
 - **Investigación externa** cuando los datos la pedían: por qué PGR e IRCP no cotizan (D-2), el dividendo detrás del
   `previousClose` de BBAR (D-4), las bandas de precio de BYMA (A-6) y cómo identifican las órdenes los mercados
@@ -279,8 +279,8 @@ El S-3 del borrador ("las recomendaciones de A-1 a A-7") se sacó: ya no son sup
 **Reglas:** las que agregamos o precisamos son las de las secciones 4 y 6. La lista completa, con el código de cada
 una, está en el inventario de `01-decisiones.md`.
 
-**Cambios al modelo de datos:** ninguno aplicado todavía. Se deciden y justifican en el RFC (sección 5) y se aplican
-con migraciones, solo en la copia local.
+**Cambios al modelo de datos:** ninguno en esta fase. Se decidieron y justificaron en el RFC (sección 3), y se
+aplicaron con migraciones en la fase 5, solo en la copia local.
 
 **Lo que evaluamos y dejamos afuera, a propósito**
 

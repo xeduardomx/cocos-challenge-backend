@@ -2,11 +2,16 @@ package com.cocos.challenge.orders.submission;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.cocos.challenge.orders.OrderEventLogger;
+import com.cocos.challenge.orders.OrderMetrics;
 import com.cocos.challenge.orders.OrderType;
 import com.cocos.challenge.orders.StoredOrder;
 import com.cocos.challenge.shared.domain.OrderSide;
@@ -42,7 +47,10 @@ class OrderSubmissionServiceTest {
           true);
 
   private final OrderSubmissionTransaction transaction = mock(OrderSubmissionTransaction.class);
-  private final OrderSubmissionService service = new OrderSubmissionService(transaction);
+  private final OrderMetrics metrics = mock(OrderMetrics.class);
+  private final OrderEventLogger eventLogger = mock(OrderEventLogger.class);
+  private final OrderSubmissionService service =
+      new OrderSubmissionService(transaction, metrics, eventLogger);
 
   @Test
   void returnsTheResultOfTheTransaction() {
@@ -69,5 +77,49 @@ class OrderSubmissionServiceTest {
 
     assertThatThrownBy(() -> service.submit(COMMAND)).isSameAs(duplicate);
     verify(transaction, times(2)).submit(COMMAND);
+  }
+
+  @Test
+  void countsAndLogsANewOrder() {
+    SubmissionResult created = new SubmissionResult(RESULT.order(), false);
+    when(transaction.submit(COMMAND)).thenReturn(created);
+
+    service.submit(COMMAND);
+
+    verify(metrics).recordCreated(created.order());
+    verify(metrics, never()).recordReplayed();
+    verify(eventLogger).logProcessed(created.order(), false);
+  }
+
+  @Test
+  void countsAndLogsARetryAsAReplay() {
+    when(transaction.submit(COMMAND)).thenReturn(RESULT);
+
+    service.submit(COMMAND);
+
+    verify(metrics).recordReplayed();
+    verify(metrics, never()).recordCreated(any());
+    verify(eventLogger).logProcessed(RESULT.order(), true);
+  }
+
+  @Test
+  void countsOnceAnOrderThatNeededASecondTry() {
+    when(transaction.submit(COMMAND))
+        .thenThrow(new DuplicateKeyException("orders_user_clientorderid_key"))
+        .thenReturn(RESULT);
+
+    service.submit(COMMAND);
+
+    verify(metrics, times(1)).recordReplayed();
+    verify(eventLogger, times(1)).logProcessed(RESULT.order(), true);
+  }
+
+  @Test
+  void countsAndLogsNothingWhenTheOrderWasNotConfirmed() {
+    when(transaction.submit(COMMAND)).thenThrow(new IllegalStateException("not confirmed"));
+
+    assertThatThrownBy(() -> service.submit(COMMAND)).isInstanceOf(IllegalStateException.class);
+
+    verifyNoInteractions(metrics, eventLogger);
   }
 }

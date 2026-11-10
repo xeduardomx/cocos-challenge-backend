@@ -19,6 +19,16 @@ spring:
     datatype.enum.fail-on-numbers-for-enums: true
   mvc.problemdetails.enabled: true
   messages.fallback-to-system-locale: false
+logging:
+  structured.format.console: ecs
+  # ApiExceptionHandler writes the line of every error: this logger would repeat the one of a 405
+  level.org.springframework.web.servlet.PageNotFound: ERROR
+management:
+  endpoints.web.exposure.include: health, prometheus
+  metrics.distribution.percentiles-histogram:
+    http.server.requests: true
+    # The dashboard shows the p95 of the wait for the turn
+    orders.turn.wait: true
 cocos:
   display:
     time-zone: America/Argentina/Buenos_Aires

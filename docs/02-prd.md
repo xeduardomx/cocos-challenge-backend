@@ -319,7 +319,7 @@ enseguida qué pasó con su orden. Estos casos son la base del test funcional qu
 **Casos.**
 
 1. **Dado** un usuario con 20 BMA, **cuando** llegan al mismo tiempo dos ventas de 15, **entonces** una queda `FILLED`, la
-   otra `REJECTED`, y la posición termina en 5. Es el caso de la orden 11, evitado (D-1).
+   otra `REJECTED`, y la posición termina en 5. Sin esto quedaría en −10, como la orden 11 (D-1).
 2. **Dado** el usuario 1, con $627.500 disponibles, **cuando** llegan al mismo tiempo dos compras de $600.000 de PAMP a
    mercado, **entonces** una queda `FILLED` (648 acciones, $599.950,80) y la otra `REJECTED`.
 3. **Dada** una máquina con Docker, **cuando** se levanta el proyecto con un comando, **entonces** el portfolio del usuario

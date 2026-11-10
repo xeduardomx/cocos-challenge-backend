@@ -1,6 +1,6 @@
 # Resultados de las pruebas de la sección 5 del RFC
 
-> Corrida del 2026-11-07 en una laptop, con Postgres 18.6 en Docker. Salida de [`05-turno.sh`](05-turno.sh), que
+> Corrida del 2026-11-07 en una PC, con Postgres 18.6 en Docker. Salida de [`05-turno.sh`](05-turno.sh), que
 > simula en SQL lo que hace la API: dos pedidos casi a la vez, que leen la cuenta, esperan 1 segundo y graban.
 > Corre en una copia nueva, con `database.sql` y `03-esquema.sql`, sin los datos de `03-indices.sql` (RFC, sección 3.5).
 

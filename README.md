@@ -18,20 +18,28 @@ docker compose up --build
 - API: http://localhost:8080
 - Especificación OpenAPI: http://localhost:8080/v3/api-docs
 - Página de la API: http://localhost:8080/swagger-ui.html
+- Prometheus: http://localhost:9090
+- Grafana, con el tablero "Cocos challenge API" como página de inicio y sin usuario ni clave: http://localhost:3000
 
-Los dos puertos se abren solo en tu máquina (`127.0.0.1`), no en la red. Si alguno está ocupado, se mueve con una
-variable: `POSTGRES_PORT` para el Postgres (5433 si no se dice) y `API_PORT` para la API (8080 si no se dice), por
-ejemplo `POSTGRES_PORT=5434 API_PORT=8081 docker compose up --build`. Con otro puerto para la API, los scripts lo
-reciben en `API_URL`: `API_URL=http://localhost:8081 ./scripts/smoke-test.sh`.
+Los puertos se abren solo en tu máquina (`127.0.0.1`), no en la red. Si alguno está ocupado, se mueve con una
+variable: `POSTGRES_PORT` para el Postgres (5433 si no se dice), `API_PORT` para la API (8080), `PROMETHEUS_PORT`
+(9090) y `GRAFANA_PORT` (3000), por ejemplo `POSTGRES_PORT=5434 API_PORT=8081 docker compose up --build`. Con otro
+puerto, los scripts lo reciben en `API_URL`, `PROMETHEUS_URL` y `GRAFANA_URL`:
+`API_URL=http://localhost:8081 ./scripts/smoke-test.sh`.
 
 La base se arma con `docs/00-fuentes/database.sql` y las migraciones de la API, y vive en memoria (`tmpfs`): cada
-`docker compose up` arranca con los datos originales.
+`docker compose up` arranca con los datos originales. Prometheus y Grafana también arrancan de cero: no dejan
+volúmenes.
+
+En Grafana, las órdenes y la espera del turno se ven desde el primer pedido. La latencia y los errores de cada función
+y código aparecen desde el segundo, con al menos 15 segundos entre los dos: Prometheus necesita dos lecturas para
+calcularlos.
 
 Para bajar todo: `docker compose down`.
 
 ## Prueba de humo
 
-Con la API levantada, pide el portfolio del usuario 1 y verifica sus números:
+Con todo levantado, verifica que Prometheus lea la API, que Grafana tenga el tablero y su fuente de datos, y pide el portfolio del usuario 1 con sus números:
 
 ```bash
 ./scripts/smoke-test.sh
@@ -47,6 +55,16 @@ Recorre la API completa en nueve pasos, con sus tests, y se corre con Newman en 
 
 Va sobre los datos originales (el paso 1 espera $627.500 disponibles), así que corre sobre un `docker compose up` nuevo:
 una segunda corrida sin bajar y volver a levantar falla. Para usarla desde Postman, importá los dos archivos de `postman/`.
+
+## Tiempo de respuesta con volumen
+
+Levanta todo de cero, carga 2 millones de órdenes, mide las cinco funciones con k6 y baja todo al terminar. Tarda unos
+minutos y necesita unos 2 GB libres de memoria para Docker, porque la base vive en memoria. El resultado está en
+`docs/mediciones/06-tiempo-de-respuesta.md`:
+
+```bash
+./scripts/run-load-test.sh
+```
 
 ## Tests
 
