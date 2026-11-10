@@ -31,6 +31,8 @@ services:
       # Same local-only password as above.
       SPRING_DATASOURCE_PASSWORD: ${API_DATASOURCE_PASSWORD:-postgres}
       SPRING_FLYWAY_ENABLED: ${API_FLYWAY_ENABLED:-true}
+      # How recent an equal accepted order makes a new one a possible duplicate (RFC 5.5). 0s turns the check off.
+      COCOS_ORDERS_DUPLICATES_WINDOW: ${DUPLICATE_ORDER_WINDOW:-5s}
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
 
