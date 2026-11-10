@@ -1,6 +1,6 @@
 package com.cocos.challenge.support;
 
-import com.cocos.challenge.orders.OrderType;
+import com.cocos.challenge.orders.domain.OrderType;
 import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.shared.domain.OrderStatus;
 import java.math.BigDecimal;

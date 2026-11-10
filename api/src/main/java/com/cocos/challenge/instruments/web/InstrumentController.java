@@ -1,6 +1,6 @@
 package com.cocos.challenge.instruments.web;
 
-import com.cocos.challenge.instruments.search.InstrumentSearchService;
+import com.cocos.challenge.instruments.service.InstrumentSearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;

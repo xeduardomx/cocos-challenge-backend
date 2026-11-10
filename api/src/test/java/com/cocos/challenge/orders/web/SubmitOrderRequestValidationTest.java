@@ -3,7 +3,7 @@ package com.cocos.challenge.orders.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
-import com.cocos.challenge.orders.OrderType;
+import com.cocos.challenge.orders.domain.OrderType;
 import com.cocos.challenge.shared.domain.OrderSide;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;

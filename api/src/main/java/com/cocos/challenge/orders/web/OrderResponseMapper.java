@@ -1,7 +1,7 @@
 package com.cocos.challenge.orders.web;
 
-import com.cocos.challenge.orders.RejectionReason;
-import com.cocos.challenge.orders.StoredOrder;
+import com.cocos.challenge.orders.domain.RejectionReason;
+import com.cocos.challenge.orders.domain.StoredOrder;
 import com.cocos.challenge.shared.display.DisplayFormatter;
 import com.cocos.challenge.shared.display.DisplayProperties;
 import com.cocos.challenge.shared.domain.Decimals;

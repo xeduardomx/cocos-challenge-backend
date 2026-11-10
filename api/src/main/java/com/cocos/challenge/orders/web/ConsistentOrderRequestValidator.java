@@ -1,6 +1,6 @@
 package com.cocos.challenge.orders.web;
 
-import com.cocos.challenge.orders.OrderType;
+import com.cocos.challenge.orders.domain.OrderType;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import org.jspecify.annotations.Nullable;

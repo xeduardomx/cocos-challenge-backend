@@ -9,7 +9,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.cocos.challenge.account.AccountRepository;
+import com.cocos.challenge.account.repository.AccountRepository;
 import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.support.ApiClient;
 import com.cocos.challenge.support.ApiClient.ApiResponse;

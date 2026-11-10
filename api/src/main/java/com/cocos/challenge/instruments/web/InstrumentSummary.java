@@ -1,8 +1,8 @@
 package com.cocos.challenge.instruments.web;
 
-import com.cocos.challenge.instruments.Instrument;
-import com.cocos.challenge.instruments.MarketPrice;
-import com.cocos.challenge.instruments.search.SearchResult;
+import com.cocos.challenge.instruments.domain.Instrument;
+import com.cocos.challenge.instruments.domain.MarketPrice;
+import com.cocos.challenge.instruments.domain.SearchResult;
 import java.math.BigDecimal;
 import org.jspecify.annotations.Nullable;
 

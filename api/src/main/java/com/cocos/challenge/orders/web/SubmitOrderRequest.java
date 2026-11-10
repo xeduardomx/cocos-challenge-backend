@@ -1,8 +1,8 @@
 package com.cocos.challenge.orders.web;
 
-import com.cocos.challenge.orders.OrderLimits;
-import com.cocos.challenge.orders.OrderType;
-import com.cocos.challenge.orders.submission.SubmitOrderCommand;
+import com.cocos.challenge.orders.domain.OrderLimits;
+import com.cocos.challenge.orders.domain.OrderType;
+import com.cocos.challenge.orders.domain.submission.SubmitOrderCommand;
 import com.cocos.challenge.shared.domain.Decimals;
 import com.cocos.challenge.shared.validation.MaxScale;
 import jakarta.validation.constraints.DecimalMax;

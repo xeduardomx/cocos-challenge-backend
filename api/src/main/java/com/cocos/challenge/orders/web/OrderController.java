@@ -1,10 +1,10 @@
 package com.cocos.challenge.orders.web;
 
-import com.cocos.challenge.orders.cancellation.OrderCancellationService;
-import com.cocos.challenge.orders.listing.OrderPage;
-import com.cocos.challenge.orders.listing.OrderQueryService;
-import com.cocos.challenge.orders.submission.OrderSubmissionService;
-import com.cocos.challenge.orders.submission.SubmissionResult;
+import com.cocos.challenge.orders.domain.listing.OrderPage;
+import com.cocos.challenge.orders.domain.submission.SubmissionResult;
+import com.cocos.challenge.orders.service.OrderCancellationService;
+import com.cocos.challenge.orders.service.OrderQueryService;
+import com.cocos.challenge.orders.service.OrderSubmissionService;
 import com.cocos.challenge.shared.domain.OrderStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
