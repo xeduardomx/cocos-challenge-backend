@@ -681,6 +681,7 @@ BMA a la vez, teniendo 20 (el caso 1 de GEN):
 | A. Sin turno | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10**: el mismo resultado que la orden 11 |
 | B. Con turno | `FILLED` (vio 20) | `REJECTED` (vio 5) | **5**, lo correcto |
 | C. Con turno, en `REPEATABLE READ` | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10** |
+| G. Sin turno, en un solo comando (`insert ... select`) | `FILLED` (vio 20) | `FILLED` (vio 20) | **−10** |
 
 <!-- --8<-- [start:turno] -->
 ```mermaid
@@ -722,7 +723,8 @@ la API responde 503 con "intentá de nuevo" (sección 7). Reintentar con el mism
 | Un lock de Postgres sin fila (`pg_advisory_xact_lock`) | hace lo mismo, pero no verifica que el usuario exista, y sus números se comparten con cualquier otro uso de esos locks en la base |
 | Nivel `SERIALIZABLE` | Postgres detecta el choque y aborta una de las dos transacciones: la API tendría que reintentar la orden entera, con más código y una orden evaluada dos veces |
 | Un lock en Java | solo funciona con una instancia de la API |
-| Una tabla de posiciones con "cantidad ≥ 0" | descartada en A-4 y D-1: BMA ya está en −10 |
+| Un `UPDATE` condicionado sobre una tabla de saldos y posiciones, o la regla "cantidad ≥ 0" | es lo más simple cuando la regla mira una sola fila, y así se cancela (5.4). Acá no hay una fila con el número: la tenencia y los pesos son la suma de las órdenes. La tabla se descartó en A-4 y D-1: BMA ya está en −10 |
+| Un solo comando que lee la cuenta y graba (`insert ... select`), sin turno | graba todo o nada, pero no pone los pedidos en fila: dos a la vez ven la misma cuenta, y la posición queda en −10 (prueba G) |
 
 ### 5.3 Reintentos
 
