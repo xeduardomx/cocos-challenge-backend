@@ -35,9 +35,18 @@ const ORDER_STATUS_NEW = 'NEW';
 const ORDER_STATUS_FILLED = 'FILLED';
 // METR: cheap enough for the money of user 1 to last the whole baseline on the original data.
 const PURCHASE_INSTRUMENT_ID = 54;
-const PURCHASE_QUANTITY = 1;
-// Any limit order with enough cash stays NEW. This one is below the last price of METR (229.50).
-const LIMIT_ORDER_PRICE = 100;
+// METR closed at 229.50: every amount from 230.00 to 429.99 buys exactly one share.
+const PURCHASE_AMOUNT_CENTS = 23000;
+const LIMIT_ORDER_QUANTITY = 1;
+// Any limit order with enough cash stays NEW. These go from 10.00 to 209.99, below the last price.
+const LIMIT_ORDER_PRICE_CENTS = 1000;
+const CENTS_PER_PESO = 100;
+// The API refuses an order equal to another one that its user got accepted in the last seconds
+// (RFC 5.5), so every order differs in the cents of its amount or of its limit price. A scenario
+// repeats an order only after this many: 100 seconds at 10 iterations per second.
+const ORDERS_PER_SCENARIO = 2000;
+// The warm-up sends two orders of each kind in an iteration, one per kind of user.
+const ORDERS_PER_ITERATION = 2;
 const SEARCH_TERMS = ['pamp', 'banco', 'gas', 'ypf', 'holding'];
 
 const PLACE_STEP = 'place';
@@ -96,6 +105,16 @@ export const options = {
   summaryTrendStats: ['count', 'med', 'p(95)', 'p(99)', 'max'],
 };
 
+const SCENARIO_NAMES = Object.keys(scenarios);
+
+// A number no other order of the run has while it matters. Each scenario has a range of its own:
+// in the baseline one user gets the orders of all of them at the same time.
+function orderNumber(positionInIteration) {
+  const numberInScenario =
+    (exec.scenario.iterationInTest * ORDERS_PER_ITERATION + positionInIteration) % ORDERS_PER_SCENARIO;
+  return SCENARIO_NAMES.indexOf(exec.scenario.name) * ORDERS_PER_SCENARIO + numberInScenario;
+}
+
 function typicalUserId() {
   const usersCount = TYPICAL_USER_MAX_ID - TYPICAL_USER_MIN_ID + 1;
   return TYPICAL_USER_MIN_ID + Math.floor(Math.random() * usersCount);
@@ -124,20 +143,23 @@ function submitOrder(userId, order, tags) {
   const body = JSON.stringify({
     clientOrderId: crypto.randomUUID(),
     instrumentId: PURCHASE_INSTRUMENT_ID,
-    quantity: PURCHASE_QUANTITY,
     side: ORDER_SIDE_BUY,
     ...order,
   });
   return http.post(http.url`${API_URL}/users/${userId}/orders`, body, { headers: JSON_HEADERS, tags });
 }
 
-function submitPurchase(userId) {
-  const purchase = submitOrder(userId, { type: ORDER_TYPE_MARKET }, {});
+// Buys one share of METR by amount: the cents change from one purchase to the next.
+function submitPurchase(userId, positionInIteration = 0) {
+  const amount = (PURCHASE_AMOUNT_CENTS + orderNumber(positionInIteration)) / CENTS_PER_PESO;
+  const purchase = submitOrder(userId, { type: ORDER_TYPE_MARKET, amount }, {});
   check(purchase, { 'the purchase is FILLED': orderEndedAs(ORDER_STATUS_FILLED) });
 }
 
-function placeAndCancelOrder(userId) {
-  const placed = submitOrder(userId, { type: ORDER_TYPE_LIMIT, price: LIMIT_ORDER_PRICE }, { step: PLACE_STEP });
+function placeAndCancelOrder(userId, positionInIteration = 0) {
+  const price = (LIMIT_ORDER_PRICE_CENTS + orderNumber(positionInIteration)) / CENTS_PER_PESO;
+  const order = { type: ORDER_TYPE_LIMIT, quantity: LIMIT_ORDER_QUANTITY, price };
+  const placed = submitOrder(userId, order, { step: PLACE_STEP });
   const isPending = check(placed, { 'the limit order stays NEW': orderEndedAs(ORDER_STATUS_NEW) });
   if (!isPending) {
     return;
@@ -187,10 +209,10 @@ export function placeAndCancelOrderOfHeavyUser() {
 
 export function warmUp() {
   searchInstruments();
-  for (const userId of [typicalUserId(), HEAVY_USER_ID]) {
+  [typicalUserId(), HEAVY_USER_ID].forEach((userId, position) => {
     showPortfolio(userId);
-    submitPurchase(userId);
+    submitPurchase(userId, position);
     listOrders(userId);
-    placeAndCancelOrder(userId);
-  }
+    placeAndCancelOrder(userId, position);
+  });
 }
