@@ -3231,6 +3231,63 @@ test de cada una primero.</p>
 <li><strong>un índice nuevo para las consultas,</strong> con su medición antes y después (principio 5). Las reglas de unicidad crean
   los suyos.</li>
 </ul>
+<p><strong>Los cambios, migración por migración.</strong> Cada uno es un archivo de <code>api/src/main/resources/db/migration/</code> (sección
+3.6), y ninguno borra datos de Cocos.</p>
+<table>
+<thead>
+<tr>
+<th>Migración</th>
+<th>Qué cambia</th>
+<th>Tipo</th>
+<th>Para qué</th>
+<th>Detalle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>V1</td>
+<td><code>database.sql</code> de Cocos</td>
+<td>se anota, no se ejecuta</td>
+<td>marca el punto de partida, que Neon ya tenía</td>
+<td>3.6</td>
+</tr>
+<tr>
+<td>V2</td>
+<td><code>unaccent</code></td>
+<td>extensión</td>
+<td>buscar sin acentos: "compania" encuentra "Compañía" (A-5)</td>
+<td>3.5</td>
+</tr>
+<tr>
+<td>V3</td>
+<td>datos obligatorios, valores permitidos y unicidad en <code>orders</code>, <code>instruments</code> y <code>marketdata</code></td>
+<td>reglas: <code>not null</code>, <code>check</code> y <code>unique</code></td>
+<td>que la base no acepte datos imposibles</td>
+<td>3.2</td>
+</tr>
+<tr>
+<td>V4</td>
+<td><code>clientOrderId</code>, <code>requestFingerprint</code> y <code>rejectionReason</code>, con sus reglas</td>
+<td>columnas nuevas, <code>unique</code> y <code>check</code></td>
+<td>que un reintento no cree otra orden, y que una <code>REJECTED</code> diga por qué</td>
+<td>3.3 y 3.2</td>
+</tr>
+<tr>
+<td>V5</td>
+<td><code>datetime</code></td>
+<td>cambio de tipo, valor por defecto y <code>not null</code></td>
+<td>hora con zona, puesta por la base al grabar</td>
+<td>3.4</td>
+</tr>
+<tr>
+<td>V6</td>
+<td><code>orders_user_datetime_idx</code></td>
+<td>índice</td>
+<td>portfolio, listado y paginación rápidos para cualquier usuario</td>
+<td>3.5</td>
+</tr>
+</tbody>
+</table>
 <p>Todo se probó en la copia local (Postgres 18.6, con <code>database.sql</code>). La forma exacta está en
 <a href="../mediciones/03-esquema.sql"><code>mediciones/03-esquema.sql</code></a>, el borrador verificado del que salieron las migraciones de la
 fase 5. Cómo se aplican las migraciones, y qué pasa con Neon, está en la sección 3.6. Lo que esta sección marca como
@@ -3284,6 +3341,7 @@ probado tiene su script y su salida en <a href="../mediciones/"><code>mediciones
 <tr>
 <th>Tabla</th>
 <th>Regla</th>
+<th>Cómo queda en la base</th>
 <th>Por qué</th>
 </tr>
 </thead>
@@ -3291,51 +3349,61 @@ probado tiene su script y su salida en <a href="../mediciones/"><code>mediciones
 <tr>
 <td><code>orders</code></td>
 <td>Obligatorios: activo, usuario, cantidad, tipo, lado, estado y fecha</td>
+<td><code>not null</code> en las siete columnas (la fecha, en V5)</td>
 <td>una orden sin usuario o sin cantidad no se puede calcular (E-1)</td>
 </tr>
 <tr>
 <td><code>orders</code></td>
 <td>El lado, el tipo y el estado, solo con los valores del enunciado</td>
+<td>un <code>check</code> por columna, con la lista de valores: los mismos enums que usa Java</td>
 <td><code>side = 'COMPRA'</code> es un dato imposible (E-2)</td>
 </tr>
 <tr>
 <td><code>orders</code></td>
 <td>Cantidad de 1 o más</td>
+<td><code>check (size &gt;= 1)</code></td>
 <td>una orden de 0 acciones nunca se graba (A-6)</td>
 </tr>
 <tr>
 <td><code>orders</code></td>
 <td>Precio mayor a 0, y vacío solo en una <code>REJECTED</code> a mercado</td>
+<td>dos <code>check</code>: <code>price &gt; 0</code>, y <code>price is not null or (status = 'REJECTED' and type = 'MARKET')</code></td>
 <td>una orden a mercado sobre un activo sin cotización queda sin precio (A-6). Con precio mayor a 0, el costo nunca es cero (A-2, R-4)</td>
 </tr>
 <tr>
 <td><code>orders</code></td>
 <td>En depósitos y retiros (<code>CASH_IN</code>, <code>CASH_OUT</code>), precio 1</td>
+<td><code>check</code>: si el lado es <code>CASH_IN</code> o <code>CASH_OUT</code>, <code>price = 1</code></td>
 <td><code>size × price</code> es el monto en pesos: con precio 2, un depósito de $1.000 valdría $2.000 (D-9)</td>
 </tr>
 <tr>
 <td><code>orders</code></td>
 <td>El identificador es único por usuario, y viaja con su huella: están las dos o ninguna</td>
-<td>un reintento no crea otra orden, y dos usuarios pueden usar el mismo identificador (R-2)</td>
+<td><code>unique (userid, clientOrderId)</code>, y un <code>check</code>: las dos vacías o las dos con valor (V4)</td>
+<td>un reintento no crea otra orden, ni aunque lleguen dos a la vez, y dos usuarios pueden usar el mismo identificador (R-2)</td>
 </tr>
 <tr>
 <td><code>orders</code></td>
 <td>El motivo del rechazo: uno de los tres códigos, y solo en una <code>REJECTED</code></td>
+<td>dos <code>check</code>: la lista de códigos, y vacío salvo en una <code>REJECTED</code> (V4)</td>
 <td>un motivo de rechazo en una orden ejecutada no tiene sentido (A-6)</td>
 </tr>
 <tr>
 <td><code>instruments</code></td>
 <td>Ticker, nombre y tipo obligatorios; el ticker, único</td>
+<td><code>not null</code> en las tres, y <code>unique (ticker)</code>, que crea su índice</td>
 <td>la búsqueda y el portfolio muestran el ticker, y dos activos con el mismo serían ambiguos (E-1, E-3)</td>
 </tr>
 <tr>
 <td><code>marketdata</code></td>
 <td>Activo, fecha y cierre obligatorios; una fila por acción y fecha</td>
+<td><code>not null</code> en las tres, y <code>unique (instrumentid, date)</code>, que crea el índice que usa el último precio (3.5)</td>
 <td>el último precio es el cierre de la fecha más reciente, y tiene que haber uno solo (D-3)</td>
 </tr>
 <tr>
 <td><code>marketdata</code></td>
 <td>Precios mayores a 0; mínimo menor o igual al máximo; apertura y cierre entre los dos</td>
+<td>dos <code>check</code>: los cinco precios mayores a 0, y el rango</td>
 <td>un precio de $0, o un mínimo mayor al máximo, son imposibles (D-5)</td>
 </tr>
 </tbody>
@@ -3389,6 +3457,7 @@ se acerca a esos números, y los precios se quedan en 2 decimales (D-4).</p>
 <th>Columna</th>
 <th>Tipo</th>
 <th>Qué guarda</th>
+<th>Para qué</th>
 <th>En las 11 órdenes viejas</th>
 </tr>
 </thead>
@@ -3397,18 +3466,21 @@ se acerca a esos números, y los precios se quedan en 2 decimales (D-4).</p>
 <td><code>clientOrderId</code></td>
 <td><code>uuid</code></td>
 <td>el identificador que pone la app en cada orden (R-2)</td>
+<td>si la app reintenta el mismo pedido, la API devuelve la orden ya grabada (200) en lugar de crear otra</td>
 <td>vacía</td>
 </tr>
 <tr>
 <td><code>requestFingerprint</code></td>
 <td><code>varchar(64)</code></td>
 <td>la huella del pedido: un resumen de sus datos (SHA-256, en hexadecimal)</td>
+<td>si llega el mismo identificador con otro contenido, la API responde 422 en lugar de devolver una orden que no es la pedida</td>
 <td>vacía</td>
 </tr>
 <tr>
 <td><code>rejectionReason</code></td>
 <td><code>varchar(30)</code></td>
 <td>el motivo del rechazo: <code>INSUFFICIENT_CASH</code>, <code>INSUFFICIENT_SHARES</code> o <code>NO_MARKET_PRICE</code></td>
+<td>el usuario sabe por qué se rechazó, y la métrica de rechazos cuenta por motivo (GEN-4)</td>
 <td>vacía, también en la orden 6 (LIS-4)</td>
 </tr>
 </tbody>
@@ -3432,6 +3504,36 @@ se acerca a esos números, y los precios se quedan en 2 decimales (D-4).</p>
   historial de cambios, que queda como mejora posible.</li>
 </ul>
 <h3 id="34-la-fecha-y-hora-de-las-órdenes">3.4 La fecha y hora de las órdenes<a class="headerlink" href="#34-la-fecha-y-hora-de-las-órdenes" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Cambio a <code>datetime</code></th>
+<th>Tipo</th>
+<th>Qué hace</th>
+<th>Por qué</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>timestamp</code> a <code>timestamptz</code></td>
+<td>cambio de tipo</td>
+<td>guarda la hora con zona, y las horas existentes se leen como hora argentina</td>
+<td>sin zona, la hora es ambigua, y la sesión de Neon está en GMT</td>
+</tr>
+<tr>
+<td><code>default clock_timestamp()</code></td>
+<td>valor por defecto</td>
+<td>la base pone la hora en el momento en que graba la orden</td>
+<td><code>now()</code> daría la hora en que empezó la transacción, antes de esperar el turno</td>
+</tr>
+<tr>
+<td>obligatoria</td>
+<td><code>not null</code></td>
+<td>ninguna orden queda sin hora</td>
+<td>el portfolio, el listado y el cursor ordenan por hora</td>
+</tr>
+</tbody>
+</table>
 <ul>
 <li><strong>Pasa a fecha y hora con zona</strong> (<code>timestamptz</code>), leyendo las fechas existentes como hora argentina (D-10). La
   conversión nombra la zona (<code>AT TIME ZONE 'America/Argentina/Buenos_Aires'</code>), y la orden 2 sigue a las 12:31 de
@@ -3446,6 +3548,50 @@ se acerca a esos números, y los precios se quedan en 2 decimales (D-4).</p>
   (sección 6), así no se pierde precisión al pasar de página (A-7).</li>
 </ul>
 <h3 id="35-índices">3.5 Índices<a class="headerlink" href="#35-índices" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Qué</th>
+<th>Tipo</th>
+<th>Qué hace</th>
+<th>Por qué</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>orders_user_datetime_idx</code>, sobre <code>(userid, datetime, id)</code></td>
+<td>índice nuevo (V6)</td>
+<td>encuentra las órdenes de un usuario ya ordenadas por hora</td>
+<td>lo usan el portfolio, la cuenta del envío, el listado y su cursor; las mediciones están abajo</td>
+</tr>
+<tr>
+<td><code>unique (ticker)</code> en <code>instruments</code></td>
+<td>índice que crea la regla (V3)</td>
+<td>impide dos activos con el mismo ticker</td>
+<td>viene con la regla de unicidad; la búsqueda no lo usa, porque recorre los 65 activos (4.3)</td>
+</tr>
+<tr>
+<td><code>unique (instrumentid, date)</code> en <code>marketdata</code></td>
+<td>índice que crea la regla (V3)</td>
+<td>encuentra el precio más reciente de cada acción</td>
+<td>viene con la regla; lo usa la búsqueda del último precio (4.2)</td>
+</tr>
+<tr>
+<td><code>unique (userid, clientOrderId)</code> en <code>orders</code></td>
+<td>índice que crea la regla (V4)</td>
+<td>encuentra una orden por su identificador</td>
+<td>viene con la regla; lo usa cada envío para detectar un reintento</td>
+</tr>
+<tr>
+<td><code>unaccent</code></td>
+<td>extensión (V2)</td>
+<td>saca los acentos</td>
+<td>la búsqueda sin acentos (A-5); <code>pg_trgm</code> no hace falta</td>
+</tr>
+</tbody>
+</table>
+<p>Por eso se dice "un solo índice nuevo": es el único que se creó a propósito con <code>create index</code>. Los otros tres
+vienen con su regla de unicidad, porque así la asegura Postgres.</p>
 <p><strong>Cómo se midió.</strong> En la copia local, con este esquema y 2.010.011 órdenes: las 11 de Cocos y 2.010.000 inventadas,
 repartidas así:</p>
 <ul>
@@ -3785,7 +3931,7 @@ salida está en <a href="../mediciones/05-resultados/"><code>mediciones/05-resul
 <p>Solo una orden <code>NEW</code> cambia de estado; las otras tres son finales (D-7). Nuestro sistema nunca pasa una <code>NEW</code> a
 <code>FILLED</code>: si un proceso externo lo hiciera, el portfolio la contaría bien, porque cuenta por estado.</p>
 <h3 id="52-el-turno-del-usuario">5.2 El turno del usuario<a class="headerlink" href="#52-el-turno-del-usuario" title="Permanent link">&para;</a></h3>
-<p>La transacción del envío empieza tomando el turno del usuario, con un lock sobre su fila de <code>users</code>
+<p>La transacción del envío empieza tomando el turno del usuario, con un lock sobre su fila de <code>users</code> (un bloqueo pesimista)
 (<a href="../adr/0004-turno-del-usuario/">ADR 0004</a>):</p>
 <div class="language-sql highlight"><pre><span></span><code><span class="k">select</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="k">from</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">:</span><span class="n">userId</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">update</span>
 </code></pre></div>
@@ -3868,8 +4014,8 @@ la API responde 503 con "intentá de nuevo" (sección 7). Reintentar con el mism
 <td>hace lo mismo, pero no verifica que el usuario exista, y sus números se comparten con cualquier otro uso de esos locks en la base</td>
 </tr>
 <tr>
-<td>Nivel <code>SERIALIZABLE</code></td>
-<td>Postgres detecta el choque y aborta una de las dos transacciones: la API tendría que reintentar la orden entera, con más código y una orden evaluada dos veces</td>
+<td>Un bloqueo optimista: nivel <code>SERIALIZABLE</code>, o una columna <code>version</code> en <code>users</code> que se revisa al grabar</td>
+<td>si otra orden se adelantó, la transacción se deshace: la API tendría que reintentar la orden entera, con más código y una orden evaluada dos veces. La columna, además, cambia una tabla de Cocos</td>
 </tr>
 <tr>
 <td>Un lock en Java</td>

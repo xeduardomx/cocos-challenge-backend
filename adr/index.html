@@ -1676,7 +1676,7 @@ una en la construcción está en el <a href="../03-rfc/">RFC</a>.</p>
 <tr>
 <td><a href="0004-turno-del-usuario/">0004</a></td>
 <td>El turno del usuario: un lock sobre su fila de <code>users</code>, en <code>READ COMMITTED</code></td>
-<td>un lock sin fila, <code>SERIALIZABLE</code>, un lock en Java, un <code>UPDATE</code> condicionado sobre una tabla de posiciones y un solo <code>insert ... select</code></td>
+<td>un lock sin fila, un bloqueo optimista (<code>SERIALIZABLE</code> o una columna <code>version</code>), un lock en Java, un <code>UPDATE</code> condicionado sobre una tabla de posiciones y un solo <code>insert ... select</code></td>
 </tr>
 <tr>
 <td><a href="0005-reintentos-con-identificador-y-huella/">0005</a></td>
