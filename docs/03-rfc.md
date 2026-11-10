@@ -879,11 +879,11 @@ Cada campo, con PAMP:
 | `ticker`, `name` | PAMP, Pampa Holding S.A. | se copia | `instruments.ticker`, `instruments.name` |
 | `quantity` | 40 | se calcula: compras − ventas `FILLED` = 50 − 10 | `orders.size` |
 | `reservedQuantity` | 0 | se calcula: suma de las ventas `NEW`, que no hay | `orders.size` |
-| `lastPrice` | 925,85 | se copia, del último día | `marketdata.close` |
+| `lastPrice` | 925,85 | se copia: es el `close` del último día | `marketdata.close` |
 | `marketValue` | 37.034 | se calcula: `quantity` × `lastPrice` = 40 × 925,85 | `orders.size`, `marketdata.close` |
 | `averagePrice` (PPC) | 930 | se calcula: monto de las compras ÷ acciones compradas = 46.500 ÷ 50 | `orders.size`, `orders.price` |
 | `totalReturnPercent` | −0,45 | se calcula: (`lastPrice` − PPC) ÷ PPC × 100 = (925,85 − 930) ÷ 930 × 100 = −0,4462… | `marketdata.close`, y por el PPC `orders.size` y `orders.price` |
-| `dailyChangePercent` | 0,44 | se calcula: (`close` − `previousClose`) ÷ `previousClose` × 100 = (925,85 − 921,80) ÷ 921,80 × 100 = 0,4393… | `marketdata.close`, `marketdata.previousClose` |
+| `dailyChangePercent` | 0,44 | se calcula: (`lastPrice` − `previousClose`) ÷ `previousClose` × 100 = (925,85 − 921,80) ÷ 921,80 × 100 = 0,4393… | `marketdata.close`, `marketdata.previousClose` |
 
 **Nota sobre `reservedQuantity`.** Solo se carga cuando el usuario tiene una venta pendiente (`SELL` en `NEW`) de un
 activo que tiene: son las acciones que esa venta aparta. Las compras pendientes apartan pesos y van a `cash.reserved`.
