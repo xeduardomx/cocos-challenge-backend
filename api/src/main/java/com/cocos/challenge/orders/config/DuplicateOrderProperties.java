@@ -8,8 +8,14 @@ import org.springframework.validation.annotation.Validated;
 
 /**
  * For how long an accepted order makes an equal one, sent with another client order id, a possible
- * duplicate (RFC 5.5). Zero turns the check off: no order is that recent.
+ * duplicate (RFC 5.5). Zero turns the check off. The lookup counts whole milliseconds.
  */
 @Validated
 @ConfigurationProperties("cocos.orders.duplicates")
-public record DuplicateOrderProperties(@NotNull @DurationMin(millis = 0) Duration window) {}
+public record DuplicateOrderProperties(@NotNull @DurationMin(millis = 0) Duration window) {
+
+  /** Whether the check is on. */
+  public boolean enabled() {
+    return window.isPositive();
+  }
+}

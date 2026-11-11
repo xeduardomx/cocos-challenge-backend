@@ -36,7 +36,7 @@ class OrderRepositoryIT {
   private static final String INDEX_USE_OVER_ORDERS =
       """
       select coalesce(sum(idx_scan), 0) as scans, coalesce(sum(idx_tup_fetch), 0) as rows_fetched
-      from pg_stat_xact_user_tables where relname = 'orders'
+      from pg_stat_xact_user_tables where relid = 'public.orders'::regclass
       """;
 
   @Autowired private OrderRepository repository;
@@ -120,8 +120,9 @@ class OrderRepositoryIT {
 
   /**
    * The window has to bound the index scan, not filter every order of the user afterwards: with a
-   * volatile clock, such as clock_timestamp(), Postgres reads them all. The test table is tiny, so
-   * the plans that would hide the difference are turned off for this transaction.
+   * volatile clock, such as clock_timestamp(), Postgres reads them all. Here that would be the 11
+   * original orders of user 1, all from 2023. The test table is tiny, so the plans that would hide
+   * the difference are turned off for this transaction.
    */
   @Test
   void readsNoOrderOfTheUserFromOutsideTheWindow() {

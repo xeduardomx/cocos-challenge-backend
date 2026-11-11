@@ -2,6 +2,7 @@ package com.cocos.challenge.orders.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.cocos.challenge.orders.config.DuplicateOrderProperties;
 import com.cocos.challenge.support.ApiClient;
 import com.cocos.challenge.support.ApiClient.ApiResponse;
 import com.cocos.challenge.support.IntegrationTest;
@@ -10,6 +11,8 @@ import java.time.Duration;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -37,12 +40,12 @@ class PossibleDuplicateOrderIT {
   private static final String LIMIT_PRICE = "900";
   private static final int DEPOSIT = 1_000_000;
   private static final int CASH_FOR_ONE_PURCHASE = 10_000;
-  private static final Duration WINDOW = Duration.ofSeconds(5);
   private static final Duration ONE_SECOND = Duration.ofSeconds(1);
 
   @LocalServerPort private int port;
   @Autowired private TestData data;
   @Autowired private JdbcClient jdbc;
+  @Autowired private DuplicateOrderProperties duplicates;
 
   private ApiClient api;
 
@@ -65,6 +68,14 @@ class PossibleDuplicateOrderIT {
     { "clientOrderId": "%s", "instrumentId": %d, "side": "BUY", "type": "LIMIT", %s, "price": %s }\
     """
         .formatted(UUID.randomUUID(), instrumentId, sizing, price);
+  }
+
+  /** An order for PAMP with a client order id of its own. */
+  private static String pampOrder(String rest) {
+    return """
+    { "clientOrderId": "%s", "instrumentId": %d, %s }\
+    """
+        .formatted(UUID.randomUUID(), PAMP, rest);
   }
 
   private ApiResponse submit(long userId, String json) {
@@ -105,8 +116,9 @@ class PossibleDuplicateOrderIT {
     assertThat(problem.get("existingOrderId").asLong()).isEqualTo(first);
     assertThat(problem.get("detail").asString())
         .isEqualTo(
-            "Acaba de entrar una orden igual, la 12. Si querés otra igual, esperá unos segundos y"
-                + " volvé a enviarla.");
+            "Acaba de entrar una orden igual, la "
+                + first
+                + ". Si querés otra igual, esperá unos segundos y volvé a enviarla.");
     assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS + 1);
     assertThat(positionOf(USER_ONE, PAMP_TICKER)).isEqualTo(PAMP_HELD + 10);
   }
@@ -114,7 +126,7 @@ class PossibleDuplicateOrderIT {
   @Test
   void acceptsTheSameOrderOnceTheFirstOneIsOlderThanTheWindow() {
     long first = submit(USER_ONE, buy(PAMP, TEN)).json().get("id").asLong();
-    data.makeOlder(first, WINDOW.plus(ONE_SECOND));
+    data.makeOlder(first, duplicates.window().plus(ONE_SECOND));
 
     ApiResponse second = submit(USER_ONE, buy(PAMP, TEN));
 
@@ -124,9 +136,9 @@ class PossibleDuplicateOrderIT {
   }
 
   @Test
-  void stillRefusesTheSameOrderJustBeforeTheWindowEnds() {
+  void stillRefusesTheSameOrderHalfwayThroughTheWindow() {
     long first = submit(USER_ONE, buy(PAMP, TEN)).json().get("id").asLong();
-    data.makeOlder(first, WINDOW.minus(ONE_SECOND));
+    data.makeOlder(first, duplicates.window().dividedBy(2));
 
     ApiResponse second = submit(USER_ONE, buy(PAMP, TEN));
 
@@ -142,6 +154,26 @@ class PossibleDuplicateOrderIT {
 
     assertThat(second.status()).isEqualTo(409);
     assertThat(second.json().get("existingOrderId").asLong()).isEqualTo(first);
+    assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS + 1);
+  }
+
+  /** Whatever the order is: by amount, a sale, or a LIMIT sale. User 1 holds 40 PAMP. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "\"side\": \"BUY\", \"type\": \"MARKET\", \"amount\": 10000",
+        "\"side\": \"SELL\", \"type\": \"MARKET\", \"quantity\": 5",
+        "\"side\": \"SELL\", \"type\": \"LIMIT\", \"quantity\": 5, \"price\": 1000"
+      })
+  void refusesAnyKindOfAcceptedOrderSentTwice(String order) {
+    ApiResponse first = submit(USER_ONE, pampOrder(order));
+    assertThat(first.status()).isEqualTo(201);
+
+    ApiResponse second = submit(USER_ONE, pampOrder(order));
+
+    assertThat(second.status()).isEqualTo(409);
+    assertThat(second.json().get("existingOrderId").asLong())
+        .isEqualTo(first.json().get("id").asLong());
     assertThat(orderCount()).isEqualTo(ORIGINAL_ORDERS + 1);
   }
 

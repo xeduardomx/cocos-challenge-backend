@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -56,7 +57,7 @@ public class OrderRepository {
       limit 1
       """;
   private static final List<String> ACCEPTED_STATUSES =
-      List.of(OrderStatus.FILLED.name(), OrderStatus.NEW.name());
+      Arrays.stream(OrderStatus.values()).filter(OrderStatus::accepted).map(Enum::name).toList();
   // The page query is built from these fixed clauses; the values always go as named parameters.
   // No "(:cursor is null or ...)": Postgres could fall to a generic plan that does not use the
   // cursor on the index.

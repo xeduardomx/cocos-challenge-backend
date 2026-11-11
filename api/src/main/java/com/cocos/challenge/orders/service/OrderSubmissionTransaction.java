@@ -95,8 +95,8 @@ public class OrderSubmissionTransaction {
             resolved.price(),
             marketPrice != null);
     OrderDecision decision = evaluator.evaluate(candidate, account);
-    if (decision.accepted()) {
-      refusePossibleDuplicate(command, fingerprint);
+    if (duplicates.enabled() && decision.status().accepted()) {
+      refuseIfPossibleDuplicate(command, fingerprint);
     }
     return orders.insert(
         new NewOrder(
@@ -117,12 +117,13 @@ public class OrderSubmissionTransaction {
    * moments ago and sent with another identifier. Inside the turn, that order is already confirmed.
    * An order that would be rejected anyway never gets here: it does no harm, and it is recorded.
    */
-  private void refusePossibleDuplicate(SubmitOrderCommand command, RequestFingerprint fingerprint) {
-    orders
-        .findRecentEqualOrderId(
-            command.userId(), command.clientOrderId(), fingerprint.value(), duplicates.window())
-        .ifPresent(existingOrderId -> {
-          throw new PossibleDuplicateOrderException(existingOrderId);
-        });
+  private void refuseIfPossibleDuplicate(
+      SubmitOrderCommand command, RequestFingerprint fingerprint) {
+    Optional<Long> existingOrderId =
+        orders.findRecentEqualOrderId(
+            command.userId(), command.clientOrderId(), fingerprint.value(), duplicates.window());
+    if (existingOrderId.isPresent()) {
+      throw new PossibleDuplicateOrderException(existingOrderId.get());
+    }
   }
 }

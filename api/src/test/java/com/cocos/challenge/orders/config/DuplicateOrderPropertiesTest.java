@@ -18,6 +18,12 @@ class DuplicateOrderPropertiesTest {
   }
 
   @Test
+  void isOffWithAWindowOfZeroAndOnWithAnyOther() {
+    assertThat(new DuplicateOrderProperties(Duration.ZERO).enabled()).isFalse();
+    assertThat(new DuplicateOrderProperties(Duration.ofMillis(1)).enabled()).isTrue();
+  }
+
+  @Test
   void rejectsANegativeWindow() {
     assertThat(validator.validate(new DuplicateOrderProperties(Duration.ofMillis(-1)))).hasSize(1);
   }
