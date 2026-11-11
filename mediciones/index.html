@@ -746,6 +746,8 @@
       
         
       
+        
+      
     
     
     
@@ -1015,6 +1017,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0009-ordenes-iguales-con-otro-identificador/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1207,6 +1236,8 @@
       
         
       
+        
+      
     
     
     
@@ -1359,6 +1390,33 @@
     
   
   Resultados de las pruebas de la sección 5 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./05-duplicado-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la consulta del posible duplicado (RFC, sección 5.5)
 
     
   </span>
@@ -1617,6 +1675,8 @@
       
         
       
+        
+      
     
     
     
@@ -1679,6 +1739,11 @@ la base de Cocos, y con los datos en memoria: los tiempos sirven como orden de m
 <td><a href="05-resultados/">El turno del usuario</a></td>
 <td>dos ventas a la vez (sin turno, con turno, en <code>REPEATABLE READ</code> y en un solo comando), dos pedidos con el mismo identificador y dos cancelaciones (RFC 5)</td>
 <td><a href="05-turno.sh"><code>05-turno.sh</code></a></td>
+</tr>
+<tr>
+<td><a href="05-duplicado-resultados/">La consulta del posible duplicado</a></td>
+<td>cuánto lee la consulta que busca una orden igual en los últimos 5 segundos, con un reloj volátil y con uno estable, para un usuario de 10.000 órdenes (RFC 5.5)</td>
+<td><a href="05-duplicado.sql"><code>05-duplicado.sql</code></a>, sobre los datos de <code>perf/seed-volume.sql</code></td>
 </tr>
 <tr>
 <td><a href="06-tiempo-de-respuesta/">Tiempo de respuesta con volumen</a></td>

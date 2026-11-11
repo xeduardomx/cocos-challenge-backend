@@ -568,6 +568,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#la-misma-orden-con-otro-identificador" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        La misma orden con otro identificador
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#qué-levanta-docker-compose-up" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -870,6 +881,8 @@
       
         
       
+        
+      
     
     
     
@@ -1139,6 +1152,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-ordenes-iguales-con-otro-identificador/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1324,6 +1364,8 @@
       
         
       
+        
+      
     
     
     
@@ -1473,6 +1515,33 @@
     
   
   Resultados de las pruebas de la sección 5 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/05-duplicado-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la consulta del posible duplicado (RFC, sección 5.5)
 
     
   </span>
@@ -1717,6 +1786,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#la-misma-orden-con-otro-identificador" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        La misma orden con otro identificador
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#qué-levanta-docker-compose-up" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1756,7 +1836,7 @@
 
 
 <h1 id="diagramas">Diagramas<a class="headerlink" href="#diagramas" title="Permanent link">&para;</a></h1>
-<p>Los siete diagramas del RFC, juntos. Cada uno se toma de su sección al generar el portal, así nunca dicen algo distinto
+<p>Los ocho diagramas del RFC, juntos. Cada uno se toma de su sección al generar el portal, así nunca dicen algo distinto
 de lo que dice el RFC.</p>
 <h2 id="todo-el-sistema">Todo el sistema<a class="headerlink" href="#todo-el-sistema" title="Permanent link">&para;</a></h2>
 <p>Quién habla con quién cuando la API está corriendo. Detalle en el
@@ -1870,6 +1950,21 @@ cuenta, ya ve la primera. Detalle en el <a href="../../03-rfc/#52-el-turno-del-u
     App-&gt;&gt;API: reintenta: mismo identificador, mismo contenido
     API-&gt;&gt;DB: toma el turno y busca A: existe, con la misma huella
     API--&gt;&gt;App: 200, la orden 12 tal cual</code></pre>
+<h2 id="la-misma-orden-con-otro-identificador">La misma orden con otro identificador<a class="headerlink" href="#la-misma-orden-con-otro-identificador" title="Permanent link">&para;</a></h2>
+<p>Si la app manda la misma orden con un identificador nuevo, no es un reintento: una segunda red la frena si llega dentro
+de los 5 segundos. Detalle en el <a href="../../03-rfc/#55-la-misma-orden-con-otro-identificador">RFC, sección 5.5</a>.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant App
+    participant API
+    participant DB as Postgres
+    App-&gt;&gt;API: compra 10 PAMP, con el identificador A
+    API-&gt;&gt;DB: toma el turno, evalúa y graba la orden 12 (FILLED)
+    API--&gt;&gt;App: 201, la orden 12
+    App-&gt;&gt;API: a los 2 segundos, la misma compra con el identificador B
+    API-&gt;&gt;DB: toma el turno y busca B: no existe
+    API-&gt;&gt;DB: evalúa: quedaría FILLED
+    API-&gt;&gt;DB: busca la misma huella, aceptada hace menos de 5 segundos: la orden 12
+    API--&gt;&gt;App: 409, posible duplicado de la orden 12</code></pre>
 <h2 id="qué-levanta-docker-compose-up">Qué levanta <code>docker compose up</code><a class="headerlink" href="#qué-levanta-docker-compose-up" title="Permanent link">&para;</a></h2>
 <p>Con un solo comando quedan corriendo la API, su base, Prometheus y Grafana. Detalle en el
 <a href="../../03-rfc/#113-docker-y-docker-compose-up">RFC, sección 11.3</a>.</p>

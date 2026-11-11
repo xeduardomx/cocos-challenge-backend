@@ -931,6 +931,8 @@
       
         
       
+        
+      
     
     
     
@@ -1200,6 +1202,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0009-ordenes-iguales-con-otro-identificador/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1385,6 +1414,8 @@
       
         
       
+        
+      
     
     
     
@@ -1534,6 +1565,33 @@
     
   
   Resultados de las pruebas de la sección 5 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/05-duplicado-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la consulta del posible duplicado (RFC, sección 5.5)
 
     
   </span>
@@ -1879,7 +1937,8 @@
 
 <h1 id="02--prd-qué-tiene-que-hacer-la-api">02 — PRD: qué tiene que hacer la API<a class="headerlink" href="#02--prd-qué-tiene-que-hacer-la-api" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p>Fase 2 · 2026-11-07 · Estado: <strong>aprobado por el autor el 2026-11-07</strong></p>
+<p>Fase 2 · 2026-11-07 · Estado: <strong>aprobado por el autor el 2026-11-07</strong> · Revisado el 2026-11-10 (fase 8): se agregó
+ENV-10, con sus casos</p>
 <p>Este documento dice qué hace la API y para qué. El porqué de cada decisión está en
 <a href="../01-analisis/"><code>01-analisis.md</code></a> y <a href="../01-decisiones/"><code>01-decisiones.md</code></a>, bajo el código que aparece entre
 paréntesis (A-1, D-2…); las pocas que se tomaron al armar este PRD están en la sección 7. El cómo se construye va
@@ -1899,8 +1958,9 @@ en el RFC (fase 3).</p>
 <p><strong>Para quién.</strong></p>
 <ul>
 <li><strong>El inversor:</strong> usa la app y nunca ve la API. Cuando este documento dice "el usuario", es él.</li>
-<li><strong>La app:</strong> llama a la API en nombre del inversor. Tiene una responsabilidad propia: ponerle un identificador a cada
-  orden nueva y usar el mismo cuando reintenta (R-2).</li>
+<li><strong>La app:</strong> llama a la API en nombre del inversor. Tiene dos responsabilidades propias: ponerle un identificador a
+  cada orden nueva y usar el mismo cuando reintenta (R-2); y, si la API frena una orden como posible duplicado,
+  mostrarle el aviso al inversor en vez de reenviarla sola (R-6).</li>
 <li><strong>Soporte (secundario):</strong> tiene que poder contestar "¿por qué me rechazaron esta orden?" y ver cuántas órdenes se
   ejecutan o se rechazan.</li>
 </ul>
@@ -2296,6 +2356,11 @@ enseguida qué pasó con su orden. Estos casos son la base del test funcional qu
 <td><strong>Identificador obligatorio, único por usuario.</strong> Si llega repetido con el mismo contenido, es un reintento: se devuelve la orden original, sin crear otra ni volver a evaluarla, aunque haya quedado rechazada. Si llega repetido con otro contenido, es un error. Un pedido que dio error no gasta el identificador, y dos usuarios pueden usar el mismo</td>
 <td>R-2</td>
 </tr>
+<tr>
+<td>ENV-10</td>
+<td><strong>Una orden igual a otra recién aceptada, con otro identificador, se frena como posible duplicado.</strong> Vale cuando la orden iba a quedar <code>FILLED</code> o <code>NEW</code> y el mismo usuario tiene otra con el mismo contenido, en <code>FILLED</code> o <code>NEW</code>, de hace menos de 5 segundos. Es un error, no se graba nada y la respuesta dice cuál es la orden anterior. Pasados los 5 segundos se acepta. Una orden que igual iba a quedar <code>REJECTED</code> se graba como siempre (ENV-5). Agregado en la fase 8</td>
+<td>R-6</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Casos.</strong> Son del usuario 1 con sus datos originales, salvo que se aclare otra cosa.</p>
@@ -2356,6 +2421,22 @@ enseguida qué pasó con su orden. Estos casos son la base del test funcional qu
 <li><strong>Cuando</strong> dos usuarios usan el mismo identificador, <strong>entonces</strong> se crean las dos órdenes.</li>
 <li><strong>Cuando</strong> un pedido da error y lo corrige, <strong>entonces</strong> la orden se crea con el mismo identificador.</li>
 <li><strong>Cuando</strong> llegan al mismo tiempo dos pedidos con el mismo identificador, <strong>entonces</strong> se crea una sola orden.</li>
+</ol>
+<p><em>Posible duplicado (el mismo contenido, con otro identificador)</em></p>
+<ol>
+<li><strong>Dado</strong> que compró 10 PAMP a mercado, <strong>cuando</strong> enseguida manda la misma compra con otro identificador,
+    <strong>entonces</strong> recibe un error que nombra la orden anterior, y <code>orders</code> no suma filas.</li>
+<li><strong>Dado</strong> que esa primera compra ya tiene más de 5 segundos, <strong>cuando</strong> la manda de nuevo con otro identificador,
+    <strong>entonces</strong> queda <code>FILLED</code>.</li>
+<li><strong>Dado</strong> el usuario 2, sin pesos, cuya compra de 1 PAMP quedó <code>REJECTED</code>, <strong>cuando</strong> recibe un depósito y la manda de
+    nuevo enseguida con otro identificador, <strong>entonces</strong> queda <code>FILLED</code>: una orden rechazada no cuenta como la primera.</li>
+<li><strong>Dado</strong> que mandó una compra límite que quedó <code>NEW</code> y la canceló, <strong>cuando</strong> la manda de nuevo enseguida,
+    <strong>entonces</strong> queda <code>NEW</code>: una orden cancelada tampoco cuenta.</li>
+<li><strong>Dado</strong> un usuario con plata para una sola compra, <strong>cuando</strong> manda dos iguales seguidas con identificadores
+    distintos, <strong>entonces</strong> la segunda queda <code>REJECTED</code> por falta de pesos, no como posible duplicado.</li>
+<li><strong>Cuando</strong> otro usuario manda la misma orden, o el mismo usuario manda 11 PAMP en vez de 10, <strong>entonces</strong> se aceptan.</li>
+<li><strong>Cuando</strong> llegan al mismo tiempo dos compras iguales con identificadores distintos, y la plata alcanza para las
+    dos, <strong>entonces</strong> se crea una sola orden y la otra recibe el error.</li>
 </ol>
 <h3 id="34-cancelación-de-órdenes">3.4 Cancelación de órdenes<a class="headerlink" href="#34-cancelación-de-órdenes" title="Permanent link">&para;</a></h3>
 <p><em>Para qué:</em> que el inversor se arrepienta de una orden pendiente y vuelva a tener disponible lo que reservaba.</p>
@@ -2551,8 +2632,9 @@ enseguida qué pasó con su orden. Estos casos son la base del test funcional qu
   tipeo (A-5).</li>
 <li><strong>Las órdenes límite no vencen:</strong> quedan pendientes, reservando su plata o sus acciones, hasta que el usuario las
   cancela (D-7, A-7).</li>
-<li><strong>Reintentos:</strong> si la app genera un identificador nuevo en cada reintento, la protección no funciona. Ninguna API
-  puede arreglar ese error de la app (R-2).</li>
+<li><strong>Reintentos:</strong> si la app genera un identificador nuevo en cada reintento, la protección del identificador no
+  funciona (R-2). La segunda red de ENV-10 frena el duplicado que llega en los primeros 5 segundos; el que llega
+  después pasa, porque la API no lo puede distinguir de una orden nueva (R-6).</li>
 <li><strong>Precios con 2 decimales:</strong> si se incorporan acciones de menos de $1, o precios ajustados con más decimales, hay que
   ampliar las columnas de precios (D-4).</li>
 <li><strong>Transferencias sin centavos:</strong> la base guarda los montos de los depósitos y retiros como enteros. No afecta, porque
@@ -2621,6 +2703,9 @@ enseguida qué pasó con su orden. Estos casos son la base del test funcional qu
 </tr>
 </tbody>
 </table>
+<p><strong>Agregado en la fase 8 (2026-11-10):</strong> ENV-10 y sus casos 21 a 27. Al revisar la entrega se vio que el identificador no
+alcanza si la app genera uno nuevo en cada intento, y se decidió sumar una segunda red (R-6,
+<a href="../adr/0009-ordenes-iguales-con-otro-identificador/">ADR 0009</a>).</p>
 
 
 

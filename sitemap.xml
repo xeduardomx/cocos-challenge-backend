@@ -49,6 +49,9 @@
         <loc>https://xeduardomx.github.io/cocos-challenge-backend/adr/0008-openapi-con-springdoc/</loc>
       </url>
       <url>
+        <loc>https://xeduardomx.github.io/cocos-challenge-backend/adr/0009-ordenes-iguales-con-otro-identificador/</loc>
+      </url>
+      <url>
         <loc>https://xeduardomx.github.io/cocos-challenge-backend/mediciones/</loc>
       </url>
       <url>
@@ -59,6 +62,9 @@
       </url>
       <url>
         <loc>https://xeduardomx.github.io/cocos-challenge-backend/mediciones/04-resultados/</loc>
+      </url>
+      <url>
+        <loc>https://xeduardomx.github.io/cocos-challenge-backend/mediciones/05-duplicado-resultados/</loc>
       </url>
       <url>
         <loc>https://xeduardomx.github.io/cocos-challenge-backend/mediciones/05-resultados/</loc>

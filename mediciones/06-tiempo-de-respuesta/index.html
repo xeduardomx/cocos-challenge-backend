@@ -14,7 +14,7 @@
       
       
       
-        <link rel="prev" href="../05-resultados/">
+        <link rel="prev" href="../05-duplicado-resultados/">
       
       
         <link rel="next" href="../08-verificacion-final/">
@@ -746,6 +746,8 @@
       
         
       
+        
+      
     
     
     
@@ -1015,6 +1017,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-ordenes-iguales-con-otro-identificador/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1207,6 +1236,8 @@
       
         
       
+        
+      
     
     
     
@@ -1359,6 +1390,33 @@
     
   
   Resultados de las pruebas de la sección 5 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05-duplicado-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la consulta del posible duplicado (RFC, sección 5.5)
 
     
   </span>
@@ -1532,6 +1590,34 @@
       </span>
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#con-el-control-de-posibles-duplicados-2026-11-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Con el control de posibles duplicados (2026-11-10)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Con el control de posibles duplicados (2026-11-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#la-máquina-en-reposo-mide-de-más" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        La máquina en reposo mide de más
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1804,6 +1890,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#con-el-control-de-posibles-duplicados-2026-11-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Con el control de posibles duplicados (2026-11-10)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Con el control de posibles duplicados (2026-11-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#la-máquina-en-reposo-mide-de-más" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        La máquina en reposo mide de más
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#salida-de-la-corrida-con-volumen" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1919,6 +2033,8 @@
       
         
       
+        
+      
     
     
     
@@ -1956,6 +2072,8 @@
 Docker en la misma máquina, y los datos en memoria: sirven como orden de magnitud. Es la salida de
 <a href="https://github.com/xeduardomx/cocos-challenge-backend/blob/main/scripts/run-load-test.sh"><code>scripts/run-load-test.sh</code></a>, que carga
 <a href="https://github.com/xeduardomx/cocos-challenge-backend/blob/main/perf/seed-volume.sql"><code>perf/seed-volume.sql</code></a> y corre <a href="https://github.com/xeduardomx/cocos-challenge-backend/blob/main/perf/load-test.js"><code>perf/load-test.js</code></a> con k6.</p>
+<p><strong>Medida de nuevo el 2026-11-10,</strong> cuando la API sumó el control de posibles duplicados: el objetivo se sigue
+cumpliendo, y el resultado está en <a href="#con-el-control-de-posibles-duplicados-2026-11-10">"Con el control de posibles duplicados"</a>.</p>
 </blockquote>
 <h2 id="qué-se-midió-y-con-qué-objetivo">Qué se midió y con qué objetivo<a class="headerlink" href="#qué-se-midió-y-con-qué-objetivo" title="Permanent link">&para;</a></h2>
 <p>El objetivo es el de la sección 8.4 del RFC (GEN-8): <strong>percentil 95 por debajo de 100 ms en las cinco funciones,</strong> con la
@@ -1981,7 +2099,7 @@ de k6: desde que se manda el pedido hasta que llega la respuesta completa, sin c
 </tr>
 <tr>
 <td><code>submit_typical</code>, <code>submit_heavy</code></td>
-<td>Compra a mercado 1 acción de METR ($229,50), y la compra tiene que quedar <code>FILLED</code>. Cada envío lleva su propio <code>clientOrderId</code></td>
+<td>Compra a mercado 1 acción de METR ($229,50), y la compra tiene que quedar <code>FILLED</code>. Cada envío lleva su propio <code>clientOrderId</code>. Desde el 2026-11-10 la compra va por monto, con centavos que rotan: ver "Con el control de posibles duplicados"</td>
 </tr>
 <tr>
 <td><code>list_typical</code>, <code>list_heavy</code></td>
@@ -2315,8 +2433,326 @@ siguiente, su portfolio, 35,01 ms; el resto, 8,32 ms o menos.</p>
 <p>Los límites de esta medición: es una carga moderada de 110 pedidos por segundo durante un minuto, sobre una computadora de
 escritorio, con la base en memoria y k6 compartiendo la máquina con la API; y no dice cuántos pedidos aguanta la API, ni
 cómo se comporta por encima de esa carga. El usuario extremo no entra en el objetivo y queda documentado arriba.</p>
+<h2 id="con-el-control-de-posibles-duplicados-2026-11-10">Con el control de posibles duplicados (2026-11-10)<a class="headerlink" href="#con-el-control-de-posibles-duplicados-2026-11-10" title="Permanent link">&para;</a></h2>
+<p>En la fase 8 la API sumó el control de posibles duplicados: una orden igual a otra aceptada del mismo usuario hace
+menos de 5 segundos, con otro identificador, se frena con 409
+(<a href="../../03-rfc/#55-la-misma-orden-con-otro-identificador">RFC, sección 5.5</a>). Para la medición cambiaron dos cosas.</p>
+<p><strong>1. El script: ahora cada orden es distinta.</strong> Antes, cada escenario mandaba siempre la misma compra, 10 veces por
+segundo. Con el control casi todas se frenarían. Se comprobó con el script anterior, en una corrida corta de la línea de
+base: quedó <code>FILLED</code> el 1 % de las compras, y el resto recibió el 409.</p>
+<table>
+<thead>
+<tr>
+<th>Orden</th>
+<th>Antes</th>
+<th>Ahora</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Compra a mercado</td>
+<td>1 acción de METR, por cantidad</td>
+<td>por monto, de $230,00 a $429,99: siempre alcanza para 1 acción de METR ($229,50) y no para 2, así que gasta lo mismo que antes</td>
+</tr>
+<tr>
+<td>Orden <code>LIMIT</code> de la cancelación</td>
+<td>1 acción a $100</td>
+<td>1 acción, a un precio de $10,00 a $209,99</td>
+</tr>
+</tbody>
+</table>
+<p>Los centavos salen del escenario y del número de iteración. Cada escenario tiene un rango propio, porque en la línea de
+base un solo usuario recibe a la vez las órdenes de todos. Dentro de su rango, un escenario repite una orden recién a
+los 100 segundos: 1.000 iteraciones, a 10 por segundo.</p>
+<p><strong>2. La consulta nueva, corregida con esta medición.</strong> La primera versión del control comparaba la hora contra
+<code>clock_timestamp()</code>. La corrida terminó con código 0, pero el envío del usuario pesado subió a 72,9 ms de percentil 95.
+Esa función es volátil, y Postgres leía las 10.000 órdenes del usuario en vez de usar el índice para la ventana. Con
+<code>statement_timestamp()</code> lee solo los últimos 5 segundos. El detalle está en
+<a href="../05-duplicado-resultados/"><code>05-duplicado-resultados.md</code></a>.</p>
+<p><strong>Resultado con volumen,</strong> con la consulta corregida. k6 terminó con código 0, con los nueve umbrales de tiempo y los
+demás cumplidos:</p>
+<table>
+<thead>
+<tr>
+<th>Escenario</th>
+<th>Pedidos</th>
+<th>p50 (ms)</th>
+<th>p95 (ms)</th>
+<th>p99 (ms)</th>
+<th>Máximo (ms)</th>
+<th>p95 del 2026-11-08, sin el control (ms)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>search</code></td>
+<td>601</td>
+<td>3,03</td>
+<td><strong>4,79</strong></td>
+<td>8</td>
+<td>25,44</td>
+<td>4,53</td>
+</tr>
+<tr>
+<td><code>portfolio_typical</code></td>
+<td>600</td>
+<td>5,51</td>
+<td><strong>7,12</strong></td>
+<td>8,17</td>
+<td>24,3</td>
+<td>6,94</td>
+</tr>
+<tr>
+<td><code>portfolio_heavy</code></td>
+<td>600</td>
+<td>24,7</td>
+<td><strong>33,91</strong></td>
+<td>36,23</td>
+<td>42,36</td>
+<td>35,01</td>
+</tr>
+<tr>
+<td><code>submit_typical</code></td>
+<td>601</td>
+<td>6,61</td>
+<td><strong>8,94</strong></td>
+<td>11,68</td>
+<td>15</td>
+<td>8,32</td>
+</tr>
+<tr>
+<td><code>submit_heavy</code></td>
+<td>601</td>
+<td>29,18</td>
+<td><strong>59,58</strong></td>
+<td>68,88</td>
+<td>72,46</td>
+<td>61,15</td>
+</tr>
+<tr>
+<td><code>list_typical</code></td>
+<td>601</td>
+<td>2,89</td>
+<td><strong>4,65</strong></td>
+<td>5,25</td>
+<td>23,12</td>
+<td>4,52</td>
+</tr>
+<tr>
+<td><code>list_heavy</code></td>
+<td>600</td>
+<td>4,07</td>
+<td><strong>8,39</strong></td>
+<td>9,53</td>
+<td>10,59</td>
+<td>8,31</td>
+</tr>
+<tr>
+<td><code>cancel_typical</code> (solo el pedido de cancelar)</td>
+<td>601</td>
+<td>1,7</td>
+<td><strong>3,14</strong></td>
+<td>3,83</td>
+<td>4,44</td>
+<td>3,1</td>
+</tr>
+<tr>
+<td><code>cancel_heavy</code> (solo el pedido de cancelar)</td>
+<td>600</td>
+<td>1,18</td>
+<td><strong>2,96</strong></td>
+<td>3,67</td>
+<td>4,81</td>
+<td>3,09</td>
+</tr>
+</tbody>
+</table>
+<p>El envío del usuario pesado, por versión de la consulta:</p>
+<table>
+<thead>
+<tr>
+<th>Corrida</th>
+<th>p50 (ms)</th>
+<th>p95 (ms)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-11-08, sin el control</td>
+<td>32,14</td>
+<td>61,15</td>
+</tr>
+<tr>
+<td>2026-11-10, con el control y <code>clock_timestamp()</code></td>
+<td>37,24</td>
+<td>72,9</td>
+</tr>
+<tr>
+<td>2026-11-10, con el control y <code>statement_timestamp()</code></td>
+<td>29,18</td>
+<td><strong>59,58</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Línea de base,</strong> con el usuario 1 como único usuario. k6 terminó con código 0:</p>
+<table>
+<thead>
+<tr>
+<th>Escenario</th>
+<th>Pedidos</th>
+<th>p50 (ms)</th>
+<th>p95 (ms)</th>
+<th>p99 (ms)</th>
+<th>Máximo (ms)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>search</code></td>
+<td>601</td>
+<td>3,31</td>
+<td><strong>4,87</strong></td>
+<td>6,05</td>
+<td>12,17</td>
+</tr>
+<tr>
+<td><code>portfolio_typical</code></td>
+<td>601</td>
+<td>6,65</td>
+<td><strong>10</strong></td>
+<td>11,28</td>
+<td>35,14</td>
+</tr>
+<tr>
+<td><code>portfolio_heavy</code></td>
+<td>600</td>
+<td>6,64</td>
+<td><strong>9,91</strong></td>
+<td>11,22</td>
+<td>37</td>
+</tr>
+<tr>
+<td><code>submit_typical</code></td>
+<td>601</td>
+<td>16,8</td>
+<td><strong>35,15</strong></td>
+<td>41,05</td>
+<td>43,47</td>
+</tr>
+<tr>
+<td><code>submit_heavy</code></td>
+<td>601</td>
+<td>14,33</td>
+<td><strong>35,04</strong></td>
+<td>40,52</td>
+<td>49,52</td>
+</tr>
+<tr>
+<td><code>list_typical</code></td>
+<td>600</td>
+<td>3,63</td>
+<td><strong>6,51</strong></td>
+<td>7,39</td>
+<td>37,69</td>
+</tr>
+<tr>
+<td><code>list_heavy</code></td>
+<td>601</td>
+<td>3,63</td>
+<td><strong>6,31</strong></td>
+<td>7,33</td>
+<td>9,27</td>
+</tr>
+<tr>
+<td><code>cancel_typical</code> (solo el pedido de cancelar)</td>
+<td>600</td>
+<td>2,01</td>
+<td><strong>3,49</strong></td>
+<td>3,95</td>
+<td>8,47</td>
+</tr>
+<tr>
+<td><code>cancel_heavy</code> (solo el pedido de cancelar)</td>
+<td>601</td>
+<td>2,1</td>
+<td><strong>3,46</strong></td>
+<td>4,11</td>
+<td>8,45</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Cómo terminaron las órdenes.</strong> Ninguna se frenó como posible duplicado ni quedó rechazada: todas las compras se
+ejecutaron y todas las órdenes <code>LIMIT</code> se cancelaron. En la línea de base, 1.504 compras <code>FILLED</code> y 1.503 órdenes <code>LIMIT</code>
+canceladas, sin ninguna respuesta 409.</p>
+<div class="language-text highlight"><pre><span></span><code>== Orders created by this run, by kind of user, type and final status (warm-up included)
+ user_kind |  type  |  status   | orders 
+-----------+--------+-----------+--------
+ heavy     | LIMIT  | CANCELLED |    750
+ heavy     | MARKET | FILLED    |    751
+ typical   | LIMIT  | CANCELLED |    751
+ typical   | MARKET | FILLED    |    751
+(4 rows)
+</code></pre></div>
+<p><strong>El usuario extremo,</strong> en esta corrida: 0,790, 0,813, 0,773, 0,718 y 0,706 segundos.</p>
+<p><strong>El objetivo se sigue cumpliendo.</strong> Con el control, el peor percentil 95 sigue siendo el envío del usuario pesado:
+59,58 ms, dentro de lo que ya variaba de una corrida a otra (61,15, 57,13 y 56,12 ms en las tres anteriores).</p>
+<h3 id="la-máquina-en-reposo-mide-de-más">La máquina en reposo mide de más<a class="headerlink" href="#la-máquina-en-reposo-mide-de-más" title="Permanent link">&para;</a></h3>
+<p>Al repetir esta medición para la verificación final, una corrida sobre el mismo código dio tiempos unas tres veces más
+bajos en <strong>todos</strong> los escenarios, también en los que el cambio no toca: el envío del usuario pesado, 18,99 ms de
+percentil 95, y la búsqueda, 1,41 ms. Un pedido suelto del usuario extremo, en cambio, tardó lo mismo que siempre.</p>
+<p>La diferencia no estaba en la API. Durante esa corrida, un proceso del sistema operativo que no tiene que ver con el
+proyecto (el que reporta errores de Ubuntu) ocupó un núcleo entero, de las 20:53 a las 21:05 según su registro. Se
+comprobó con una prueba controlada: la línea de base, en corto (10 segundos de calentamiento y 20 de medición), tres
+veces seguidas sobre el mismo código. En la del medio, un bucle vacío mantuvo ocupado un núcleo:</p>
+<table>
+<thead>
+<tr>
+<th>Corrida</th>
+<th>Búsqueda, p50</th>
+<th>Portfolio, p50</th>
+<th>Envío, p50</th>
+<th>Envío, p95</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Máquina en reposo</td>
+<td>3,97 ms</td>
+<td>5,71 ms</td>
+<td>10,94 ms</td>
+<td>26,48 ms</td>
+</tr>
+<tr>
+<td>Con un núcleo ocupado por otro proceso</td>
+<td>1,29 ms</td>
+<td>1,7 ms</td>
+<td>4,3 ms</td>
+<td>6,99 ms</td>
+</tr>
+<tr>
+<td>Máquina en reposo, otra vez</td>
+<td>3,94 ms</td>
+<td>5,71 ms</td>
+<td>11,74 ms</td>
+<td>29,16 ms</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Por qué.</strong> La computadora usa el modo de ahorro de energía de Linux (<code>powersave</code>). Con casi nada que hacer, el
+procesador baja la frecuencia de sus núcleos: medidos en reposo, promediaban unos 1.200 MHz, con algunos en 800. Con un
+solo núcleo ocupado, todos subían a unos 4.300 MHz. La carga de esta medición es liviana, 110 pedidos por segundo, y no
+alcanza para despertarlo: cada pedido lo atiende un procesador a un tercio de su velocidad. El pedido del usuario
+extremo ocupa un núcleo durante 0,7 segundos, y por eso tarda lo mismo en los dos casos.</p>
+<p><strong>Qué cambia en cómo se leen estos números:</strong></p>
+<ul>
+<li><strong>Los tiempos de este documento son conservadores:</strong> todas las corridas registradas son con la máquina en reposo. Un
+  servidor con carga, o configurado para rendimiento, respondería más rápido.</li>
+<li><strong>Dos corridas se comparan solo si la máquina estaba igual.</strong> La forma de saberlo es mirar los escenarios que el cambio
+  no toca. Entre la corrida con <code>clock_timestamp()</code> y la corregida, la búsqueda dio 4,81 y 4,79 ms, y el portfolio del
+  pesado, 34,31 y 33,91 ms: son comparables. La de 18,99 ms no lo es con ninguna, y no se usa como resultado.</li>
+</ul>
 <h2 id="salida-de-la-corrida-con-volumen">Salida de la corrida con volumen<a class="headerlink" href="#salida-de-la-corrida-con-volumen" title="Permanent link">&para;</a></h2>
-<p>Lo que imprimió <code>scripts/run-load-test.sh</code>, sin las líneas de <code>docker compose</code>.</p>
+<p>Lo que imprimió <code>scripts/run-load-test.sh</code> en la corrida del 2026-11-08, sin las líneas de <code>docker compose</code>.</p>
 <div class="language-text highlight"><pre><span></span><code>== Volume data
  orders  | table_size 
 ---------+------------
@@ -2598,7 +3034,7 @@ k6 exit code: 0
       <nav class="md-footer__inner md-grid" aria-label="Pie" >
         
           
-          <a href="../05-resultados/" class="md-footer__link md-footer__link--prev" aria-label="Anterior: Resultados de las pruebas de la sección 5 del RFC">
+          <a href="../05-duplicado-resultados/" class="md-footer__link md-footer__link--prev" aria-label="Anterior: Resultados de la medición de la consulta del posible duplicado (RFC, sección 5.5)">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2608,7 +3044,7 @@ k6 exit code: 0
                 Anterior
               </span>
               <div class="md-ellipsis">
-                Resultados de las pruebas de la sección 5 del RFC
+                Resultados de la medición de la consulta del posible duplicado (RFC, sección 5.5)
               </div>
             </div>
           </a>

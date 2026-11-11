@@ -753,6 +753,8 @@
       
         
       
+        
+      
     
     
     
@@ -1116,6 +1118,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-ordenes-iguales-con-otro-identificador/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1301,6 +1330,8 @@
       
         
       
+        
+      
     
     
     
@@ -1450,6 +1481,33 @@
     
   
   Resultados de las pruebas de la sección 5 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/05-duplicado-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la consulta del posible duplicado (RFC, sección 5.5)
 
     
   </span>
@@ -1763,6 +1821,8 @@
       
         
       
+        
+      
     
     
     
@@ -1845,7 +1905,9 @@
   (<a href="../../mediciones/05-resultados/"><code>mediciones/05-resultados.md</code></a>).</li>
 <li>Un pedido que da error (400) no graba nada, así que no gasta el identificador.</li>
 <li>Si el cliente genera un identificador nuevo en cada reintento, la protección no funciona. Es un error del cliente
-  que ninguna API puede arreglar, y queda documentado (R-2).</li>
+  que la API no puede arreglar del todo, porque no distingue ese pedido de una orden nueva (R-2). Sí lo puede mitigar:
+  el <a href="../0009-ordenes-iguales-con-otro-identificador/">ADR 0009</a> agrega una segunda red, que frena la orden igual que
+  llega en los primeros 5 segundos (revisado en la fase 8, 2026-11-10).</li>
 <li>El <code>v1</code> de la huella permite cambiar la forma más adelante sin confundir huellas viejas con nuevas.</li>
 <li><strong>Cuándo revisarla:</strong> si los identificadores tuvieran que vencer, por ejemplo, para no guardarlos para siempre con
   mucho volumen. Ahí pasarían a una tabla propia con vencimiento, como hace Stripe con sus claves.</li>

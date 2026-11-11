@@ -746,6 +746,8 @@
       
         
       
+        
+      
     
     
     
@@ -1003,6 +1005,33 @@
     
   
   ADR 0008 — Especificación OpenAPI con springdoc-openapi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-ordenes-iguales-con-otro-identificador/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos
 
     
   </span>
@@ -1296,6 +1325,8 @@
       
         
       
+        
+      
     
     
     
@@ -1448,6 +1479,33 @@
     
   
   Resultados de las pruebas de la sección 5 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/05-duplicado-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la consulta del posible duplicado (RFC, sección 5.5)
 
     
   </span>
@@ -1841,90 +1899,90 @@ escenario manda 10 pedidos por segundo durante un minuto:</p>
 <th>p95 (ms)</th>
 <th>p99 (ms)</th>
 <th>Máximo (ms)</th>
-<th>p95 de la corrida anterior (ms)</th>
+<th>p95 del 2026-11-08, sin el control (ms)</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>search</code></td>
-<td>600</td>
-<td>3,06</td>
-<td><strong>4,53</strong></td>
-<td>5,45</td>
-<td>33,33</td>
-<td>4,59</td>
+<td>601</td>
+<td>3,03</td>
+<td><strong>4,79</strong></td>
+<td>8</td>
+<td>25,44</td>
+<td>4,53</td>
 </tr>
 <tr>
 <td><code>portfolio_typical</code></td>
-<td>601</td>
-<td>5,65</td>
-<td><strong>6,94</strong></td>
-<td>7,9</td>
-<td>9</td>
-<td>6,82</td>
+<td>600</td>
+<td>5,51</td>
+<td><strong>7,12</strong></td>
+<td>8,17</td>
+<td>24,3</td>
+<td>6,94</td>
 </tr>
 <tr>
 <td><code>portfolio_heavy</code></td>
 <td>600</td>
-<td>27,57</td>
-<td><strong>35,01</strong></td>
-<td>37,82</td>
-<td>40,88</td>
-<td>34,23</td>
+<td>24,7</td>
+<td><strong>33,91</strong></td>
+<td>36,23</td>
+<td>42,36</td>
+<td>35,01</td>
 </tr>
 <tr>
 <td><code>submit_typical</code></td>
 <td>601</td>
-<td>6,38</td>
-<td><strong>8,32</strong></td>
-<td>9,8</td>
-<td>12,46</td>
-<td>8,42</td>
+<td>6,61</td>
+<td><strong>8,94</strong></td>
+<td>11,68</td>
+<td>15</td>
+<td>8,32</td>
 </tr>
 <tr>
 <td><code>submit_heavy</code></td>
 <td>601</td>
-<td>32,14</td>
-<td><strong>61,15</strong></td>
-<td>70,28</td>
-<td>72,54</td>
-<td>59,91</td>
+<td>29,18</td>
+<td><strong>59,58</strong></td>
+<td>68,88</td>
+<td>72,46</td>
+<td>61,15</td>
 </tr>
 <tr>
 <td><code>list_typical</code></td>
 <td>601</td>
-<td>2,97</td>
-<td><strong>4,52</strong></td>
-<td>5,31</td>
-<td>31,04</td>
-<td>4,48</td>
+<td>2,89</td>
+<td><strong>4,65</strong></td>
+<td>5,25</td>
+<td>23,12</td>
+<td>4,52</td>
 </tr>
 <tr>
 <td><code>list_heavy</code></td>
-<td>601</td>
-<td>4,18</td>
-<td><strong>8,31</strong></td>
-<td>9,15</td>
-<td>11,12</td>
-<td>8,21</td>
+<td>600</td>
+<td>4,07</td>
+<td><strong>8,39</strong></td>
+<td>9,53</td>
+<td>10,59</td>
+<td>8,31</td>
 </tr>
 <tr>
 <td><code>cancel_typical</code> (solo el pedido de cancelar)</td>
 <td>601</td>
-<td>1,87</td>
-<td><strong>3,1</strong></td>
-<td>4,1</td>
-<td>5,24</td>
-<td>3,12</td>
+<td>1,7</td>
+<td><strong>3,14</strong></td>
+<td>3,83</td>
+<td>4,44</td>
+<td>3,1</td>
 </tr>
 <tr>
 <td><code>cancel_heavy</code> (solo el pedido de cancelar)</td>
-<td>601</td>
-<td>1,49</td>
-<td><strong>3,09</strong></td>
-<td>3,69</td>
-<td>4,47</td>
-<td>3,2</td>
+<td>600</td>
+<td>1,18</td>
+<td><strong>2,96</strong></td>
+<td>3,67</td>
+<td>4,81</td>
+<td>3,09</td>
 </tr>
 </tbody>
 </table>

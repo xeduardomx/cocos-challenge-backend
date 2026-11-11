@@ -1019,6 +1019,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#r-6--la-misma-orden-con-otro-identificador-una-segunda-red" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        R-6 · La misma orden con otro identificador: una segunda red
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#riesgos-y-supuestos-del-análisis-repaso" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1222,6 +1233,8 @@
       
         
           
+        
+      
         
       
         
@@ -1509,6 +1522,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0009-ordenes-iguales-con-otro-identificador/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1694,6 +1734,8 @@
       
         
       
+        
+      
     
     
     
@@ -1843,6 +1885,33 @@
     
   
   Resultados de las pruebas de la sección 5 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mediciones/05-duplicado-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la consulta del posible duplicado (RFC, sección 5.5)
 
     
   </span>
@@ -2397,6 +2466,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#r-6--la-misma-orden-con-otro-identificador-una-segunda-red" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        R-6 · La misma orden con otro identificador: una segunda red
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#riesgos-y-supuestos-del-análisis-repaso" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2584,6 +2664,8 @@ porqué.</p>
 <li><strong>Identificador de la orden:</strong> un código único que el cliente le pone a cada orden nueva. Si la misma orden llega
   dos veces (un reintento), no se crea otra (R-2). Es el <code>ClOrdID</code> de FIX. Lo genera la app: un reintento automático
   usa el mismo, y una orden nueva, uno nuevo.</li>
+<li><strong>Posible duplicado:</strong> una orden igual a otra que el mismo usuario mandó recién, pero con otro identificador. La API
+  no puede saber si es un error o una decisión: la frena unos segundos y avisa (R-6).</li>
 </ul>
 <h2 id="cerradas">Cerradas<a class="headerlink" href="#cerradas" title="Permanent link">&para;</a></h2>
 <h3 id="c-1--nodejs-vs-java-descartada">C-1 · Node.js vs Java: descartada<a class="headerlink" href="#c-1--nodejs-vs-java-descartada" title="Permanent link">&para;</a></h3>
@@ -3820,7 +3902,8 @@ no pide</strong> (cancelar y listar órdenes) y deja afuera las transferencias. 
   4. <strong>El identificador se graba en la orden y aparece en la respuesta y en el listado (A-7):</strong> si se perdió la
      respuesta, el cliente puede buscar su orden por su propio identificador.
   5. <strong>Límite documentado:</strong> si el cliente genera un identificador nuevo en cada reintento (un error del cliente), la
-     protección no funciona. Ninguna API puede arreglar eso.
+     protección no funciona. Ninguna API puede arreglar eso. <strong>Revisado en la fase 8 (2026-11-10):</strong> no se puede
+     arreglar del todo, pero sí mitigar. R-6 agrega una segunda red para el duplicado que llega enseguida.
   6. <strong>La cancelación no lo necesita:</strong> reintentarla es inofensivo (A-7). Portfolio, búsqueda y listado solo leen.
   7. <strong>Para el bloque del esquema:</strong> columna para el identificador (vacía en las 11 órdenes viejas, que no lo tienen),
      única por (usuario, identificador); huella del pedido o pedido tal cual, para comparar el contenido.
@@ -3848,6 +3931,120 @@ no pide</strong> (cancelar y listar órdenes) y deja afuera las transferencias. 
   <a href="https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/">IETF, borrador The Idempotency-Key HTTP Header Field</a>,
   <a href="https://docs.stripe.com/api/idempotent_requests">Stripe, Idempotent requests</a>,
   <a href="https://docs.stripe.com/api-v2-overview">Stripe, API v2 overview</a>.</p>
+<h3 id="r-6--la-misma-orden-con-otro-identificador-una-segunda-red">R-6 · La misma orden con otro identificador: una segunda red<a class="headerlink" href="#r-6--la-misma-orden-con-otro-identificador-una-segunda-red" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p>Agregada en la fase 8 (2026-11-10), al revisar la entrega. El diseño está en el
+<a href="../adr/0009-ordenes-iguales-con-otro-identificador/">ADR 0009</a>.</p>
+</blockquote>
+<ul>
+<li><strong>El problema:</strong> R-2 protege el reintento solo si la app repite el identificador. El usuario 1 manda "comprar 10 PAMP
+  a mercado" con el identificador "A". La respuesta tarda, y la app, por un error suyo, reintenta con un identificador
+  nuevo, "B". O el usuario toca "Comprar" dos veces y cada toque genera el suyo. Para la API son dos órdenes distintas
+  y las dos válidas: quedan 20 PAMP y $18.517 gastados.</li>
+<li><strong>Por qué no lo resuelven R-2 ni D-1:</strong> con otro identificador no es un reintento, y la plata alcanza para las dos.</li>
+<li><strong>Lo difícil:</strong> la API no puede saber si la segunda es un error o una decisión. Comprar 10 PAMP y enseguida 10 más es
+  legítimo. Y los dos errores no cuestan lo mismo: frenar una orden legítima cuesta esperar unos segundos; dejar pasar
+  un duplicado a mercado es una compra ejecutada dos veces.</li>
+<li><strong>Qué hacen otros</strong> (investigado el 2026-11-10; el detalle y las fuentes, en el ADR 0009):</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Quién</th>
+<th>Qué hace</th>
+<th>Ventana o umbral</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SEC, regla 15c3-5 (EE. UU.)</td>
+<td>exige a los brokers un control que rechace las órdenes que "indican órdenes duplicadas"</td>
+<td>no fija número</td>
+</tr>
+<tr>
+<td>Cboe, un mercado de EE. UU.</td>
+<td>cuenta las órdenes iguales seguidas de un participante</td>
+<td>el tope lo elige cada firma</td>
+</tr>
+<tr>
+<td>Braintree, pagos</td>
+<td>rechaza un cobro igual a otro exitoso</td>
+<td>30 segundos por defecto</td>
+</tr>
+<tr>
+<td>Authorize.Net, pagos</td>
+<td>rechaza una transacción igual a otra reciente</td>
+<td>120 segundos por defecto</td>
+</tr>
+</tbody>
+</table>
+<p>No hay un número estándar: todos lo dejan configurable. Donde opera una persona (pagos) se usa una ventana de tiempo;
+  donde operan algoritmos (mercados), se cuentan las iguales seguidas.
+- <strong>Opciones evaluadas:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Opción</th>
+<th>A favor</th>
+<th>En contra</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A. Dejarlo documentado, como estaba</td>
+<td>no se construye nada</td>
+<td>el duplicado pasa siempre</td>
+</tr>
+<tr>
+<td>B. Un cache en la memoria de la API</td>
+<td>no toca la base</td>
+<td>no funciona con dos instancias, y hay que cuidar a mano los pedidos simultáneos</td>
+</tr>
+<tr>
+<td>C. Un almacén compartido, como Redis</td>
+<td>funciona con varias instancias</td>
+<td>una pieza más para levantar y operar</td>
+</tr>
+<tr>
+<td><strong>D. Una consulta a <code>orders</code>, dentro del turno</strong></td>
+<td>la huella de R-2 ya está guardada y no incluye el identificador; el turno de D-1 ya ordena los pedidos; el índice por (usuario, fecha, id) ya existe</td>
+<td>una consulta más por orden aceptada</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Decisiones:</strong></li>
+<li><strong>Opción D.</strong> Dentro del turno, después de evaluar la orden y solo si iba a quedar <code>FILLED</code> o <code>NEW</code>, se busca otra
+     orden del mismo usuario con la misma huella, en <code>FILLED</code> o <code>NEW</code>, grabada hace menos de 5 segundos.</li>
+<li><strong>Si existe, la orden se frena:</strong> error 409, con el número de la orden anterior, y no se graba nada. El pedido no
+     gasta su identificador: pasados los 5 segundos se puede reenviar tal cual.</li>
+<li><strong>5 segundos, configurable; con 0 se apaga.</strong> Frena el doble clic y el reintento inmediato. Con 2 segundos se
+     escapan un reintento con esperas y la persona que toca de nuevo porque la app tarda. Con 30 o más se frenaría a
+     quien repite una compra a propósito.</li>
+<li><strong>Una orden que igual iba a quedar <code>REJECTED</code> se graba como siempre:</strong> no hace daño, y el enunciado pide grabar los
+     rechazos. Así el caso de las dos compras simultáneas de $600.000 no cambia: una <code>FILLED</code> y una <code>REJECTED</code>.</li>
+<li><strong>Solo cuentan las órdenes aceptadas.</strong> Si la primera quedó <code>REJECTED</code> o se canceló, mandarla de nuevo no se frena.
+     Es el criterio de Braintree: solo es un posible duplicado si la primera salió bien.</li>
+<li><strong>"Igual" es la misma huella:</strong> el mismo activo, lado, tipo, cantidad o monto y precio límite, tal como se
+     mandaron. "10 PAMP" y "$9.258,50 de PAMP" son dos pedidos distintos.</li>
+<li><strong>Es una segunda red, no la protección principal.</strong> Un reintento que llega a los 30 segundos con otro identificador
+     sigue pasando. Contra eso, la app tiene que repetir el identificador (R-2).</li>
+<li><strong>La app muestra el aviso y no reenvía sola:</strong> si ante el 409 espera y reenvía por su cuenta, el duplicado entra
+     igual.</li>
+<li><strong>Queda afuera:</strong> un límite de órdenes por usuario por segundo, que es el control para una integración que entra
+     en un bucle, y una confirmación explícita para repetir una orden sin esperar.</li>
+<li><strong>Tests:</strong><ul>
+<li>La misma orden con otro identificador, enseguida: 409, con el número de la primera, y <code>orders</code> no suma filas.</li>
+<li>La misma, cuando la primera tiene más de 5 segundos: se acepta.</li>
+<li>La primera quedó <code>REJECTED</code>, el usuario deposita y la manda de nuevo: <code>FILLED</code>.</li>
+<li>La primera era una límite y se canceló: la segunda queda <code>NEW</code>.</li>
+<li>La segunda no alcanza: queda <code>REJECTED</code>, no 409.</li>
+<li>Otro usuario, o el mismo con otra cantidad: se aceptan.</li>
+<li>Dos iguales al mismo tiempo, con identificadores distintos y plata para las dos: una orden y un 409.</li>
+<li>Con la ventana en 0, las dos se aceptan.</li>
+</ul>
+</li>
+</ul>
 <h3 id="riesgos-y-supuestos-del-análisis-repaso">Riesgos y supuestos del análisis: repaso<a class="headerlink" href="#riesgos-y-supuestos-del-análisis-repaso" title="Permanent link">&para;</a></h3>
 <p>Todos quedaron resueltos en otras decisiones o se confirman. Este es el mapa:</p>
 <table>
@@ -3883,6 +4080,11 @@ no pide</strong> (cancelar y listar órdenes) y deja afuera las transferencias. 
 <td>R-5</td>
 <td>Neon es modificable por cualquiera que tenga la URL</td>
 <td><strong>"Base de Neon":</strong> todo corre contra la copia local; Neon, solo lectura</td>
+</tr>
+<tr>
+<td>R-6</td>
+<td>La misma orden llega dos veces con identificadores distintos (agregado en la fase 8)</td>
+<td><strong>R-6:</strong> una orden igual a otra aceptada hace menos de 5 segundos se frena como posible duplicado</td>
 </tr>
 <tr>
 <td>S-1</td>
@@ -4065,9 +4267,15 @@ decisión y es la base del alcance del PRD.</p>
 </tr>
 <tr>
 <td>Errores</td>
-<td>el formato Problem Details, con <code>type</code>, la lista de campos con problemas y, en el 409, el estado actual</td>
+<td>el formato Problem Details, con <code>type</code>, la lista de campos con problemas y, en el 409 de la cancelación, el estado actual</td>
 <td>el formato estándar, con lo que el cliente necesita para decidir</td>
 <td>RFC, sección 7</td>
+</tr>
+<tr>
+<td>Envío</td>
+<td><code>existingOrderId</code>, en el 409 de posible duplicado: el número de la orden igual que ya entró</td>
+<td>la app le puede mostrar al usuario cuál es</td>
+<td>R-6; RFC, secciones 5.5 y 7.3</td>
 </tr>
 </tbody>
 </table>
@@ -4149,6 +4357,10 @@ decisión y es la base del alcance del PRD.</p>
 <td>RFC, sección 6.3</td>
 </tr>
 <tr>
+<td>Una orden que iba a quedar aceptada, igual a otra aceptada del mismo usuario hace menos de 5 segundos y con otro identificador, se frena como posible duplicado: 409, sin grabar nada. La ventana es configurable, y con 0 se apaga</td>
+<td>R-6; RFC, sección 5.5; ADR 0009</td>
+</tr>
+<tr>
 <td>Si el envío no consigue el turno del usuario en 2 segundos: 503, "intentá de nuevo"</td>
 <td>RFC, sección 5.2</td>
 </tr>
@@ -4219,6 +4431,10 @@ decisión y es la base del alcance del PRD.</p>
 <tr>
 <td>Medición con k6: nueve escenarios, 10 pedidos por segundo cada uno, con calentamiento. La semilla de volumen deposita 100.000.000 por usuario: con 1.000.000 se rechazaba el 37 % de las compras de los típicos y todas las del pesado</td>
 <td>Fase 6; <code>mediciones/06-tiempo-de-respuesta.md</code></td>
+</tr>
+<tr>
+<td>En la prueba de carga, cada orden es distinta de las que su usuario mandó recién: rotan los centavos del monto o del precio límite, con un rango por escenario. Si no, el control de posibles duplicados frenaría casi todas</td>
+<td>Fase 8; <code>mediciones/06-tiempo-de-respuesta.md</code></td>
 </tr>
 <tr>
 <td>El portal corre con la imagen de Docker de Zensical. La prueba con los documentos reales pasó, y Docusaurus no hizo falta</td>
@@ -4341,6 +4557,16 @@ copia local. A Neon se le aplicaron en la fase 8, una sola vez (ADR 0006).</p>
 <td>Identificador de orden opcional, o generado por el servidor</td>
 <td>sin identificador no hay protección, y uno generado por el servidor no protege el reintento</td>
 <td>R-2</td>
+</tr>
+<tr>
+<td>Un cache en memoria, o Redis, para el control de posibles duplicados</td>
+<td>el cache no funciona con dos instancias, y Redis es una pieza más: la base ya tiene la huella y el turno</td>
+<td>R-6; ADR 0009</td>
+</tr>
+<tr>
+<td>Una confirmación explícita para repetir una orden sin esperar, y un límite de órdenes por usuario por segundo</td>
+<td>la confirmación cambia el contrato del envío y necesita su pantalla en la app; el límite, en producción, lo pone la entrada a la API. Evoluciones posibles</td>
+<td>R-6; ADR 0009</td>
 </tr>
 <tr>
 <td>Autenticación de usuarios</td>

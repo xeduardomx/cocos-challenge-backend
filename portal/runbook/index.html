@@ -746,6 +746,8 @@
       
         
       
+        
+      
     
     
     
@@ -1015,6 +1017,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-ordenes-iguales-con-otro-identificador/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1244,6 +1273,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#una-orden-responde-409-problemspossible-duplicate-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Una orden responde 409 <code>/problems/possible-duplicate-order</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#una-orden-queda-rejected" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1383,6 +1423,8 @@
       
         
           
+        
+      
         
       
         
@@ -1553,6 +1595,33 @@
     
   
   Resultados de las pruebas de la sección 5 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/05-duplicado-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la consulta del posible duplicado (RFC, sección 5.5)
 
     
   </span>
@@ -1780,6 +1849,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Una orden responde 503 <code>/problems/user-busy</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#una-orden-responde-409-problemspossible-duplicate-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Una orden responde 409 <code>/problems/possible-duplicate-order</code>
       </span>
     </span>
   </a>
@@ -2040,6 +2120,20 @@ reintentar con el mismo <code>clientOrderId</code> es seguro: no compra dos vece
 qué transacciones están abiertas y desde cuándo:</p>
 <div class="language-bash highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>postgres<span class="w"> </span>psql<span class="w"> </span>-U<span class="w"> </span>postgres<span class="w"> </span>-X<span class="w"> </span>-c<span class="w"> </span><span class="s2">"select pid, state, now() - xact_start as en_curso, left(query, 50) as consulta from pg_stat_activity where datname = current_database() and xact_start is not null and pid &lt;&gt; pg_backend_pid();"</span>
 </code></pre></div>
+<h3 id="una-orden-responde-409-problemspossible-duplicate-order">Una orden responde 409 <code>/problems/possible-duplicate-order</code><a class="headerlink" href="#una-orden-responde-409-problemspossible-duplicate-order" title="Permanent link">&para;</a></h3>
+<div class="language-json highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"detail"</span><span class="p">:</span><span class="s2">"Acaba de entrar una orden igual, la 14. Si querés otra igual, esperá unos segundos y volvé a enviarla."</span><span class="p">,</span><span class="nt">"instance"</span><span class="p">:</span><span class="s2">"/users/1/orders"</span><span class="p">,</span><span class="nt">"status"</span><span class="p">:</span><span class="mi">409</span><span class="p">,</span><span class="nt">"title"</span><span class="p">:</span><span class="s2">"Posible orden duplicada"</span><span class="p">,</span><span class="nt">"type"</span><span class="p">:</span><span class="s2">"/problems/possible-duplicate-order"</span><span class="p">,</span><span class="nt">"existingOrderId"</span><span class="p">:</span><span class="mi">14</span><span class="p">,</span><span class="nt">"requestId"</span><span class="p">:</span><span class="s2">"mi-pedido-4"</span><span class="p">}</span>
+</code></pre></div>
+<p>No es una falla: el usuario tiene una orden igual, aceptada hace menos de 5 segundos y mandada con otro
+<code>clientOrderId</code>, y la API frena la segunda por si es una repetición que nadie pidió. No se grabó nada. <code>existingOrderId</code>
+es la orden que ya entró (<a href="../../03-rfc/#55-la-misma-orden-con-otro-identificador">RFC 5.5</a>).</p>
+<ul>
+<li><strong>Si la segunda orden era a propósito,</strong> se espera unos segundos y se manda de nuevo, tal cual.</li>
+<li><strong>Si se repite mucho,</strong> la app está generando un identificador nuevo en cada reintento: tiene que repetir el mismo
+  (<a href="../../03-rfc/#53-reintentos">RFC 5.3</a>). Cuántas veces pasa se ve en Prometheus:
+  <code>http_server_requests_seconds_count{uri="/users/{userId}/orders",method="POST",status="409"}</code>.</li>
+<li><strong>Para cambiar la ventana,</strong> o apagar el control con 0, está la variable <code>API_DUPLICATE_ORDER_WINDOW</code>:
+  <code>API_DUPLICATE_ORDER_WINDOW=0s docker compose up --build</code>.</li>
+</ul>
 <h3 id="una-orden-queda-rejected">Una orden queda <code>REJECTED</code><a class="headerlink" href="#una-orden-queda-rejected" title="Permanent link">&para;</a></h3>
 <p>No es un error: la orden se grabó, rechazada, y responde 201. El campo <code>rejectionReason</code> dice por qué:
 <code>INSUFFICIENT_CASH</code> (no alcanzan los pesos disponibles), <code>INSUFFICIENT_SHARES</code> (no alcanzan las acciones) o

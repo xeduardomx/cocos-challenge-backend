@@ -1,0 +1,2353 @@
+
+<!doctype html>
+<html lang="es" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Análisis, decisiones, diseño y mediciones de la API del challenge.">
+      
+      
+      
+        <link rel="canonical" href="https://xeduardomx.github.io/cocos-challenge-backend/adr/0009-ordenes-iguales-con-otro-identificador/">
+      
+      
+      
+        <link rel="prev" href="../0008-openapi-con-springdoc/">
+      
+      
+        <link rel="next" href="../../04-plan/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.1.0">
+    
+    
+      
+        <title>ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos - Cocos Capital: challenge backend</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.4ab2de0c.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../portal/portal.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Saltar a contenido
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabecera">
+    <a href="../.." title="Cocos Capital: challenge backend" class="md-header__button md-logo" aria-label="Cocos Capital: challenge backend" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navegación</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Cocos Capital: challenge backend
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Pasar al modo oscuro"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Pasar al modo oscuro" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Pasar al modo claro"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Pasar al modo claro" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Buscar</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Buscar">
+  <button type="button" class="md-search__button">
+    Buscar
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/xeduardomx/cocos-challenge-backend" title="Ir al repositorio" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    xeduardomx/cocos-challenge-backend
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Pestañas" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Inicio
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../portal/diagramas/" class="md-tabs__link">
+        
+  
+  Diagramas
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../00-fuentes/backend-challenge/" class="md-tabs__link">
+        
+  
+  Enunciado
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../01-analisis/" class="md-tabs__link">
+          
+  
+  Análisis
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../02-prd/" class="md-tabs__link">
+        
+  
+  PRD
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../03-rfc/" class="md-tabs__link">
+          
+  
+  RFC
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../04-plan/" class="md-tabs__link">
+        
+  
+  Plan
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../portal/runbook/" class="md-tabs__link">
+          
+  
+  Operación
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navegación" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Cocos Capital: challenge backend" class="md-nav__button md-logo" aria-label="Cocos Capital: challenge backend" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    Cocos Capital: challenge backend
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/xeduardomx/cocos-challenge-backend" title="Ir al repositorio" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    xeduardomx/cocos-challenge-backend
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Inicio
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../portal/diagramas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Diagramas
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../00-fuentes/backend-challenge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Enunciado
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Análisis
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Análisis
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-analisis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Análisis
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-decisiones/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Registro de decisiones
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-prd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  PRD
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RFC
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  RFC
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_2" id="__nav_6_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_6_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  ADR
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-capas-por-funcion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0001 — Capas agrupadas por función, no hexagonal
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-sql-directo-con-jdbcclient/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0002 — SQL directo con JdbcClient, no JPA
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-posiciones-calculadas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0003 — Las posiciones se calculan desde orders, sin tabla de posiciones
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-turno-del-usuario/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0004 — El turno del usuario: un lock sobre su fila de users, en READ COMMITTED
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-reintentos-con-identificador-y-huella/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0005 — Reintentos: identificador del cliente y huella del pedido
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-migraciones-con-flyway/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0006 — Migraciones con Flyway, sobre una base con datos y sin historial
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-metricas-con-prometheus-y-grafana/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0007 — Métricas con Micrometer, y Prometheus y Grafana en el docker compose
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-openapi-con-springdoc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0008 — Especificación OpenAPI con springdoc-openapi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="Tabla de contenidos">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#contexto" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Contexto
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#qué-hacen-otros" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Qué hacen otros
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opciones" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Opciones
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisión" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Decisión
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consecuencias" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Consecuencias
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fuentes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fuentes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Plan
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Operación
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Operación
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../portal/runbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Runbook
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../portal/metricas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Métricas
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../mediciones/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mediciones
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Mediciones
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/03-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la sección 3 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/03-pruebas-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de las pruebas de la sección 3 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/04-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la sección 4 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/05-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de las pruebas de la sección 5 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/05-duplicado-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la medición de la consulta del posible duplicado (RFC, sección 5.5)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/06-tiempo-de-respuesta/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tiempo de respuesta con volumen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/08-verificacion-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Verificación final
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/08-migracion-neon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  El pase a Neon
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mediciones/10-resultados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Resultados de la prueba de la sección 10 del RFC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="Tabla de contenidos">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#contexto" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Contexto
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#qué-hacen-otros" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Qué hacen otros
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opciones" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Opciones
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisión" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Decisión
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consecuencias" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Consecuencias
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fuentes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fuentes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navegación" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Inicio
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../../03-rfc/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    RFC
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    ADR
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+  
+
+
+<h1 id="adr-0009--órdenes-iguales-con-otro-identificador-una-segunda-red-con-la-huella-y-una-ventana-de-5-segundos">ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos<a class="headerlink" href="#adr-0009--órdenes-iguales-con-otro-identificador-una-segunda-red-con-la-huella-y-una-ventana-de-5-segundos" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Estado: <strong>aceptada</strong> · 2026-11-10 · Viene de R-6 (<code>01-decisiones.md</code>) y se aplica en el
+<a href="../../03-rfc/#55-la-misma-orden-con-otro-identificador">RFC, sección 5.5</a></p>
+</blockquote>
+<h2 id="contexto">Contexto<a class="headerlink" href="#contexto" title="Permanent link">&para;</a></h2>
+<ul>
+<li>El identificador de la orden protege un reintento solo si la app repite el mismo (R-2, ADR 0005). Si la app genera uno
+  nuevo en cada intento, o si cada toque del botón "Comprar" genera el suyo, a la API le llegan dos pedidos distintos,
+  los dos válidos: se compran 20 PAMP en vez de 10. Estaba documentado como un límite, con la frase "ninguna API puede
+  arreglar ese error". Al revisar la entrega (fase 8) se decidió mitigarlo.</li>
+<li><strong>La API no puede saber si la segunda orden es un error o una decisión.</strong> Comprar 10 PAMP y enseguida 10 más es
+  legítimo. Cualquier control frena de más o frena de menos.</li>
+<li><strong>Los dos errores no cuestan lo mismo.</strong> Frenar una orden legítima cuesta esperar unos segundos y volver a enviarla.
+  Dejar pasar un duplicado a mercado es una compra ejecutada dos veces, con plata real.</li>
+<li><strong>Casi todo lo necesario ya existe.</strong> La huella del pedido se guarda en cada orden y no incluye el identificador, así
+  que dos pedidos iguales tienen la misma (ADR 0005). El turno pone en fila las órdenes de un usuario (ADR 0004). Y el
+  índice por (usuario, fecha, id) encuentra las últimas órdenes de un usuario sin recorrer la tabla (RFC, sección 3.5).</li>
+</ul>
+<h2 id="qué-hacen-otros">Qué hacen otros<a class="headerlink" href="#qué-hacen-otros" title="Permanent link">&para;</a></h2>
+<p>Investigado el 2026-11-10, con las fuentes al final. Ninguna norma ni producto fija un número: todos dejan el valor
+configurable.</p>
+<table>
+<thead>
+<tr>
+<th>Quién</th>
+<th>Qué hace</th>
+<th>Ventana o umbral</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SEC,</strong> el regulador del mercado de valores de EE. UU. Regla 15c3-5 (2010)</td>
+<td>obliga a los brokers con acceso al mercado a tener controles que frenen las órdenes erróneas antes de que entren: entre ellas, las que "indican órdenes duplicadas" (<em>"that indicate duplicative orders"</em>)</td>
+<td>no fija número: lo decide cada broker</td>
+</tr>
+<tr>
+<td><strong>FIX,</strong> el protocolo con el que los brokers se conectan a los mercados</td>
+<td>además del identificador (<code>ClOrdID</code>), tiene el campo <code>PossResend</code> (97): marca un mensaje que <em>"may contain information that has been sent under another sequence number"</em></td>
+<td>no aplica</td>
+</tr>
+<tr>
+<td><strong>Cboe,</strong> un mercado de EE. UU. (<em>Duplicative Order Protection</em>)</td>
+<td>compara cada orden con la anterior del mismo participante: mismo símbolo, lado, precio y cantidad. Cuenta las iguales seguidas y, al llegar al tope, rechaza o deshabilita la conexión</td>
+<td>sin ventana de tiempo: el tope lo elige cada firma, y 0 lo apaga</td>
+</tr>
+<tr>
+<td><strong>Braintree,</strong> un procesador de pagos de PayPal</td>
+<td>rechaza un cobro con el mismo monto, la misma tarjeta y la misma orden de compra. Solo cuenta si el primer cobro fue exitoso</td>
+<td>30 segundos por defecto, configurable</td>
+</tr>
+<tr>
+<td><strong>Authorize.Net,</strong> un procesador de pagos</td>
+<td>rechaza una transacción con los mismos datos que otra reciente (error 11)</td>
+<td>120 segundos por defecto; de 0, que lo apaga, a 8 horas</td>
+</tr>
+</tbody>
+</table>
+<p>Lo que se toma de ahí:</p>
+<ul>
+<li><strong>El problema es reconocido:</strong> un regulador lo exige como control, y los procesadores de pagos lo traen prendido por
+  defecto.</li>
+<li><strong>Hay dos familias.</strong> Los pagos, donde opera una persona, usan una ventana de tiempo. Los mercados, donde operan
+  algoritmos que mandan órdenes iguales a propósito, cuentan cuántas llegan seguidas. Una app de inversión para personas
+  se parece a la primera.</li>
+<li><strong>El criterio de Braintree es el que se adopta:</strong> un pedido solo es un posible duplicado si el primero fue exitoso.
+  Si el primero falló, reintentar es legítimo.</li>
+<li><strong>La regla de la SEC no aplica a un broker argentino,</strong> y no se encontró una norma local (CNV, BYMA) que trate las
+  órdenes duplicadas en particular. Sirve como evidencia de que el riesgo es real, no como obligación.</li>
+</ul>
+<h2 id="opciones">Opciones<a class="headerlink" href="#opciones" title="Permanent link">&para;</a></h2>
+<p><strong>Dónde vive el control</strong></p>
+<table>
+<thead>
+<tr>
+<th>Opción</th>
+<th>A favor</th>
+<th>En contra</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A. No construir nada y dejarlo documentado</td>
+<td>cero código</td>
+<td>el duplicado pasa siempre</td>
+</tr>
+<tr>
+<td>B. Un cache en la memoria de la API: usuario y huella, con vencimiento</td>
+<td>no toca la base</td>
+<td>con dos instancias de la API no funciona, porque cada una tiene su memoria. Hay que cuidar a mano dos pedidos simultáneos y no anotar una orden cuya transacción se deshizo. Suma código: el vencimiento y la limpieza</td>
+</tr>
+<tr>
+<td>C. Un almacén compartido con vencimiento, como Redis</td>
+<td>funciona con varias instancias y antes de llegar a la base</td>
+<td>una pieza más para levantar, operar y probar. Sigue separado de la transacción: una orden anotada puede no haberse grabado</td>
+</tr>
+<tr>
+<td><strong>D. Una consulta a <code>orders</code>, dentro del turno</strong></td>
+<td>funciona con varias instancias, porque el dato está en la base. No hay carrera: el turno hace que la segunda siempre vea a la primera. Usa la huella y el índice que ya existen. Es una consulta y un <code>if</code></td>
+<td>una consulta más por orden aceptada: unos 0,01 ms en la base para un usuario de 10.000 órdenes (medido, en "Consecuencias")</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Qué se hace con la orden parecida</strong></p>
+<table>
+<thead>
+<tr>
+<th>Opción</th>
+<th>A favor</th>
+<th>En contra</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Rechazarla con un mensaje, sin grabarla; pasada la ventana, se acepta</strong></td>
+<td>no cambia el pedido: es un error más del catálogo. La persona decide: si la quería, espera y la reenvía</td>
+<td>una orden legítima espera unos segundos</td>
+</tr>
+<tr>
+<td>Aceptarla si llega con una confirmación explícita (un campo como <code>confirmDuplicate</code>)</td>
+<td>la persona decide sin esperar</td>
+<td>cambia el contrato del envío, y sirve solo si la app arma esa pantalla. Queda como evolución</td>
+</tr>
+<tr>
+<td>Grabarla como <code>REJECTED</code>, con un motivo nuevo</td>
+<td>queda registrada</td>
+<td>un <code>REJECTED</code> dice "tu cuenta o el mercado no lo dejaron" (A-6), y esto no es eso. Además gasta el identificador y suma un valor a una regla de la base</td>
+</tr>
+<tr>
+<td>Ejecutarla y avisar en la respuesta</td>
+<td>no frena a nadie</td>
+<td>no evita el daño</td>
+</tr>
+</tbody>
+</table>
+<p><strong>La ventana.</strong> Lo que frena cada valor, según cuándo llega la segunda orden:</p>
+<table>
+<thead>
+<tr>
+<th>Falla</th>
+<th>Cuándo llega la segunda</th>
+<th>2 segundos</th>
+<th>5 segundos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Doble clic, o un evento que se dispara dos veces</td>
+<td>en menos de 1 segundo</td>
+<td>la frena</td>
+<td>la frena</td>
+</tr>
+<tr>
+<td>Reintento automático con esperas de 1 y 2 segundos</td>
+<td>a los 3 segundos</td>
+<td>pasa</td>
+<td>la frena</td>
+</tr>
+<tr>
+<td>La app tarda y la persona toca de nuevo</td>
+<td>a los 3 o 4 segundos</td>
+<td>pasa</td>
+<td>la frena</td>
+</tr>
+<tr>
+<td>Reintento después de un tiempo de espera agotado</td>
+<td>a los 30 segundos</td>
+<td>pasa</td>
+<td>pasa</td>
+</tr>
+</tbody>
+</table>
+<p>Una ventana de 30 o 120 segundos, como en los pagos, frenaría más, pero también a quien compra dos veces a propósito:
+en un minuto una persona sí decide repetir una compra.</p>
+<p><strong>Cuándo se mira: antes o después de evaluar la orden</strong></p>
+<ul>
+<li><strong>Antes:</strong> toda orden igual a una reciente se frena. Dos compras iguales de $600.000 que llegan juntas, con $627.500
+  disponibles (el caso 2 de GEN), darían una <code>FILLED</code> y un "posible duplicado".</li>
+<li><strong>Después, y solo si iba a quedar aceptada:</strong> una orden que igual iba a quedar <code>REJECTED</code> se graba como siempre. No
+  hace daño, y el enunciado pide grabar los rechazos. El caso 2 de GEN no cambia: una <code>FILLED</code> y una <code>REJECTED</code>.</li>
+</ul>
+<p><strong>El código HTTP</strong></p>
+<table>
+<thead>
+<tr>
+<th>Código</th>
+<th>Por qué sí o por qué no</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>409</strong></td>
+<td>el pedido está bien armado, pero choca con el estado actual: hay una orden igual recién aceptada. Es el mismo código de "esa orden ya no se puede cancelar"</td>
+</tr>
+<tr>
+<td>429</td>
+<td>es el de los límites de frecuencia. Muchos clientes HTTP lo reintentan solos, y acá reintentar solo es justo lo que no se quiere</td>
+</tr>
+<tr>
+<td>422</td>
+<td>ya significa "ese identificador se usó con otro contenido"</td>
+</tr>
+</tbody>
+</table>
+<h2 id="decisión">Decisión<a class="headerlink" href="#decisión" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>D: una consulta a <code>orders</code>, dentro del turno,</strong> después de evaluar la orden y solo si iba a quedar <code>FILLED</code> o <code>NEW</code>.</li>
+<li><strong>Es un posible duplicado</strong> si el mismo usuario tiene otra orden con la misma huella, en estado <code>FILLED</code> o <code>NEW</code>,
+  grabada hace menos de 5 segundos. Las dos horas salen del reloj de la base: la de la orden anterior es la del momento
+  en que se grabó (RFC, sección 3.4), y "ahora" es <code>statement_timestamp()</code>, el momento en que arranca la consulta. Así
+  no importa si los relojes de dos instancias de la API difieren.</li>
+<li><strong>Responde 409,</strong> con el tipo <code>/problems/possible-duplicate-order</code> y el número de la orden anterior en
+  <code>existingOrderId</code>. No graba nada, así que no gasta el identificador: el mismo pedido se puede reenviar tal cual.</li>
+<li><strong>La ventana es configurable</strong> (<code>cocos.orders.duplicates.window</code>, 5 segundos por defecto). Con 0, el control queda
+  apagado, y un valor negativo no deja arrancar la API. En el <code>docker compose</code> se cambia con <code>API_DUPLICATE_ORDER_WINDOW</code>.</li>
+</ul>
+<div class="language-sql highlight"><pre><span></span><code><span class="k">select</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="k">from</span><span class="w"> </span><span class="n">orders</span>
+<span class="k">where</span><span class="w"> </span><span class="n">userid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">:</span><span class="n">userId</span>
+<span class="w">  </span><span class="k">and</span><span class="w"> </span><span class="n">datetime</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">statement_timestamp</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">:</span><span class="n">ventana</span>
+<span class="w">  </span><span class="k">and</span><span class="w"> </span><span class="n">requestfingerprint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">:</span><span class="n">huella</span>
+<span class="w">  </span><span class="k">and</span><span class="w"> </span><span class="n">clientorderid</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="p">:</span><span class="n">clientOrderId</span>
+<span class="w">  </span><span class="k">and</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="p">(</span><span class="s1">'FILLED'</span><span class="p">,</span><span class="w"> </span><span class="s1">'NEW'</span><span class="p">)</span>
+<span class="k">order</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="n">datetime</span><span class="w"> </span><span class="k">desc</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="k">desc</span>
+<span class="k">limit</span><span class="w"> </span><span class="mi">1</span>
+</code></pre></div>
+<h2 id="consecuencias">Consecuencias<a class="headerlink" href="#consecuencias" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Qué frena y qué no:</strong></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Caso</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>La misma orden, con otro identificador, dentro de los 5 segundos</td>
+<td>409, y no se graba</td>
+</tr>
+<tr>
+<td>La misma, pasados los 5 segundos</td>
+<td>se acepta: se toma como una decisión nueva</td>
+</tr>
+<tr>
+<td>La misma, con el mismo identificador</td>
+<td>200, con la orden original: es un reintento (ADR 0005)</td>
+</tr>
+<tr>
+<td>La primera quedó <code>REJECTED</code></td>
+<td>la segunda se evalúa normalmente</td>
+</tr>
+<tr>
+<td>La primera era una límite y se canceló</td>
+<td>la segunda se acepta: la primera ya no reserva nada</td>
+</tr>
+<tr>
+<td>La segunda igual iba a quedar <code>REJECTED</code></td>
+<td>se graba <code>REJECTED</code>, como siempre</td>
+</tr>
+<tr>
+<td>Otro usuario manda la misma orden</td>
+<td>se acepta: el control es por usuario</td>
+</tr>
+<tr>
+<td>El mismo pedido escrito de otra forma: 10 PAMP por cantidad, o $9.258,50 por monto</td>
+<td>se acepta: son dos huellas distintas</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Es una segunda red, no la protección principal.</strong> Frena el duplicado que llega enseguida. Un reintento que llega a
+  los 30 segundos con otro identificador sigue pasando: contra eso, la app tiene que repetir el identificador (ADR 0005).</li>
+<li><strong>La app tiene que mostrar el aviso y no reenviar sola.</strong> Si ante un 409 espera y reenvía por su cuenta, el duplicado
+  entra igual, 5 segundos más tarde.</li>
+<li><strong>Un 409 que se pierde tampoco queda guardado.</strong> Como el pedido frenado no se graba, su identificador sigue libre. Si
+  la respuesta 409 no le llega a la app y la app reintenta con ese mismo identificador pasados los 5 segundos, la orden
+  entra. Hacen falta dos fallas juntas, y es el costo de no gastar el identificador: guardarlo pediría una tabla de
+  pedidos frenados.</li>
+<li><strong>Una orden legítima igual a otra espera unos segundos.</strong> Para una persona es casi imposible repetir una orden en
+  menos de 5 segundos a propósito. Una cuenta que opere con algoritmos sí lo haría: ahí se cambia la ventana, o se la
+  apaga con 0.</li>
+<li><strong>Cuántas veces actúa</strong> se ve sin una métrica nueva: son las respuestas 409 del envío, que <code>http_server_requests</code>
+  ya cuenta por dirección, método y código (RFC, sección 8.2). Es el dato para ajustar la ventana.</li>
+<li><strong>"Ahora" es <code>statement_timestamp()</code>, no <code>clock_timestamp()</code></strong> (encontrado al medir). La primera versión usaba
+  <code>clock_timestamp()</code>, como la hora de las órdenes. Con 2 millones de órdenes, el percentil 95 del envío del usuario
+  pesado subió de unos 57 ms a 72,9 ms. <code>clock_timestamp()</code> es volátil, puede cambiar en cada fila, así que Postgres no
+  la usa como límite del recorrido del índice: buscaba por usuario y descartaba después, una por una, sus 10.000
+  órdenes. <code>statement_timestamp()</code> es estable durante la consulta, y con ella el índice recorre solo la ventana:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Reloj</th>
+<th>Filas leídas y descartadas</th>
+<th>Páginas leídas</th>
+<th>Tiempo en la base</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>clock_timestamp()</code></td>
+<td>10.000</td>
+<td>271</td>
+<td>1,2 a 1,9 ms</td>
+</tr>
+<tr>
+<td><code>statement_timestamp()</code></td>
+<td>0</td>
+<td>3</td>
+<td>0,01 a 0,02 ms</td>
+</tr>
+</tbody>
+</table>
+<p>El detalle está en <a href="../../mediciones/05-duplicado-resultados/"><code>mediciones/05-duplicado-resultados.md</code></a>. Un test lo
+  cuida: cuenta las filas que la consulta trae de la tabla, y tienen que ser 0.
+- <strong>Las órdenes viejas no tienen huella,</strong> así que nunca cuentan como la primera.
+- <strong>Una orden con el mismo identificador no cuenta</strong> (encontrado al implementar). Esa es un reintento, y lo contestan
+  la búsqueda por identificador o la regla de unicidad (ADR 0005). Sin esa condición, el test del camino sin turno
+  recibía un 409 en vez de reintentar y devolver la orden original (RFC, sección 5.3).
+- <strong>La prueba de carga mandaba la misma compra 10 veces por segundo</strong> para el mismo usuario. Ahora cada pedido rota los
+  centavos del monto o del precio, y así la medición incluye el costo de la consulta nueva
+  (<a href="../../mediciones/06-tiempo-de-respuesta/"><code>mediciones/06-tiempo-de-respuesta.md</code></a>).
+- <strong>Queda afuera, documentado:</strong>
+  - un límite de órdenes por usuario por segundo, que es el control para una integración que entra en un bucle. En
+    producción lo pone la entrada a la API (RFC, sección 9);
+  - la confirmación explícita, para repetir una orden sin esperar;
+  - lo que le toca a la app: deshabilitar el botón al tocarlo y generar el identificador una sola vez por decisión del
+    usuario.
+- <strong>Cuándo revisarla:</strong>
+  - con datos reales de cada cuánto llegan los duplicados, para ajustar la ventana;
+  - si la API la usaran algoritmos, para pasar a contar órdenes iguales seguidas, como Cboe, o a una ventana por cliente;
+  - si el control tuviera que actuar antes de llegar a la API, en la entrada: ahí hace falta un almacén compartido
+    (la opción C).</p>
+<h2 id="fuentes">Fuentes<a class="headerlink" href="#fuentes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://codes.findlaw.com/cfr/title-17-commodity-and-securities-exchanges/cfr-sect-17-240-15c3-5/">SEC, regla 15c3-5, texto</a>,
+  párrafo (c)(1)(ii), y <a href="https://www.sec.gov/rules/final/2010/34-63241.pdf">su adopción en 2010</a>.</li>
+<li><a href="https://www.onixs.biz/fix-dictionary/4.4/tagNum_97.html">FIX 4.4, campo 97, <code>PossResend</code></a>.</li>
+<li><a href="https://www.cboe.com/document/tech-spec/content/technical-specifications/cboe-titanium-u.s.-equitiesoptions-web-portal-port-controls-specification/port-controls/duplicative-order-protection">Cboe, Duplicative Order Protection</a>.</li>
+<li><a href="https://developer.paypal.com/braintree/articles/control-panel/transactions/duplicate-checking">Braintree, Duplicate Transaction Checking</a>.</li>
+<li><a href="https://support.authorize.net/s/article/Error-11-A-duplicate-transaction-has-been-submitted">Authorize.Net, Error 11: A duplicate transaction has been submitted</a>.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Volver al principio
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Pie" >
+        
+          
+          <a href="../0008-openapi-con-springdoc/" class="md-footer__link md-footer__link--prev" aria-label="Anterior: ADR 0008 — Especificación OpenAPI con springdoc-openapi">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Anterior
+              </span>
+              <div class="md-ellipsis">
+                ADR 0008 — Especificación OpenAPI con springdoc-openapi
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../04-plan/" class="md-footer__link md-footer__link--next" aria-label="Siguiente: Plan">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Siguiente
+              </span>
+              <div class="md-ellipsis">
+                Plan
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight","toc.follow"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copiado al portapapeles","clipboard.copy":"Copiar al portapapeles","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 más en esta página","search.result.more.other":"# más en esta página","search.result.none":"No se encontraron documentos","search.result.one":"1 documento encontrado","search.result.other":"# documentos encontrados","search.result.placeholder":"Teclee para comenzar búsqueda","search.result.term.missing":"Falta","select.version":"Seleccionar versión"},"version":null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d31f0ffa.min.js"></script>
+      
+    
+  </body>
+</html>
