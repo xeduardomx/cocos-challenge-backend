@@ -1423,6 +1423,47 @@ usuario extremo tarda entre 0,66 y 0,94 segundos por portfolio. Los números, la
 percentil 95 sigue siendo el envío del usuario pesado, 59,58 ms. Esa medición encontró que la primera versión de la
 consulta nueva leía todas las órdenes del usuario, y se corrigió (72,9 ms antes de corregirla).
 
+### 8.5 Qué se alertaría
+
+No se construyen alertas: en una corrida local no hay a quién avisarle. Queda escrito qué se alertaría con estas mismas
+métricas, porque es lo que separa una falla de lo que no lo es (agregado en la fase 8).
+
+<!-- --8<-- [start:alertas] -->
+
+| Señal | Se avisa cuando | Por qué |
+|---|---|---|
+| La API no responde | Prometheus no puede leerla durante 1 minuto (`up == 0`) | si la API se cae, las otras señales dejan de llegar |
+| Errores del servidor | las respuestas 5xx pasan el 1 % de los pedidos durante 5 minutos | son las fallas de la API: errores internos (500) o cuentas ocupadas (503) |
+| Latencia | el percentil 95 de una función pasa los 100 ms durante 10 minutos | es el objetivo de tiempo de respuesta |
+| Espera del turno | el percentil 95 pasa los 500 ms durante 5 minutos | avisa antes de que las esperas lleguen a los 2 segundos y empiecen los 503 |
+
+**Los errores del cliente (4xx) no se alertan.** Un 400, un 404, un 409 o un 422 son respuestas correctas a un pedido
+que no se podía cumplir. Se miran en el tablero. A lo sumo dan un aviso sin urgencia si su proporción cambia de golpe,
+porque suele ser una versión nueva de la app que manda algo mal.
+
+<!-- --8<-- [end:alertas] -->
+
+- **Dos errores del cliente se miran con más atención,** porque delatan un error de quien integra: el 409 del posible
+  duplicado, que crece si la app genera un identificador nuevo en cada reintento (sección 5.5), y el 422, que aparece si
+  reusa un identificador con otro contenido (sección 5.3).
+- **Se avisa por proporción y sostenida en el tiempo,** no por un caso suelto: un pedido lento o un error aislado no
+  tienen que despertar a nadie.
+- **Los 100 ms salen del objetivo de la sección 8.4. Los otros números son un punto de partida:** el 1 %, los 500 ms y
+  los minutos se ajustan con tráfico real, que acá no hay.
+- **Cómo se construirían:** con reglas de alerta en Prometheus y Alertmanager para avisar, o con las condiciones de
+  alerta de New Relic. Las métricas son las mismas.
+
+**De dónde sale el criterio.** El libro de SRE de Google propone mirar cuatro señales de un servicio: latencia, tráfico,
+errores y saturación. Y en el ejemplo de su guía para fijar objetivos cuentan como fallas solo las respuestas 5xx: "5XX
+responses count against SLO, while all other requests are considered successful".
+
+De las cuatro, el tablero muestra la latencia y los errores. La espera del turno hace de señal de saturación: es el
+único lugar donde el diseño hace esperar a propósito. El tráfico se ve como órdenes grabadas, no como pedidos por
+segundo.
+
+- [Google, *Site Reliability Engineering*, "Monitoring Distributed Systems"](https://sre.google/sre-book/monitoring-distributed-systems/).
+- [Google, *The Site Reliability Workbook*, "Implementing SLOs"](https://sre.google/workbook/implementing-slos/).
+
 ## 9. Seguridad
 
 - **Sin autenticación,** porque el enunciado dice que no hace falta (S-5). La consecuencia está documentada:
@@ -1704,6 +1745,7 @@ siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celu
 | Cinco métricas: órdenes creadas por lado, tipo, estado y motivo; cancelaciones; reintentos; espera del turno; y las de HTTP | responden GEN-4 sin etiquetas que multipliquen las series | sección 8.2 |
 | Prometheus y Grafana en el compose, con el tablero cargado desde el repo; New Relic, documentado como el cambio de registro | quien evalúa ve las métricas reales sin crear cuentas | sección 8.3, ADR 0007 |
 | Objetivo: percentil 95 por debajo de 100 ms, con 2 millones de órdenes y usuarios de hasta 10.000, medido con k6 en la fase 6 | la consulta más cara del usuario pesado tarda 1,2 ms en la base | sección 8.4 |
+| El tablero separa los errores del servidor (5xx) de los del cliente (4xx), y queda escrito qué se alertaría: la API caída, los 5xx, la latencia y la espera del turno (agregado en la fase 8) | un 409 esperado no es una falla y un 500 sí: en un mismo panel se leían igual | secciones 8.3 y 8.5 |
 | La base se configura en formato JDBC con usuario y clave aparte; Actuator expone solo `health` y `prometheus`; sin campos desconocidos ni cantidades decimales convertidas en enteras | la clave no viaja dentro de una URL, los endpoints con configuración no quedan abiertos, y 2,5 acciones no se compran como 2 | sección 9 |
 | Tres niveles de test: unitarios, de integración contra Postgres real y funcionales por HTTP con los casos del PRD | cada nivel prueba lo suyo: los cálculos solos, el SQL contra la base real, y el recorrido completo | sección 10.1 |
 | Antes de cada test, la base vuelve a los datos originales desde una foto (4 ms); los datos propios van encima | resuelve el choque con D-8.4: los casos del PRD corren tal cual y cada test controla sus datos | sección 10.2 |
