@@ -82,6 +82,22 @@ class OpenApiIT {
   }
 
   @Test
+  void documentsTheExtraMembersOfAProblem() {
+    JsonNode members =
+        api.get(API_DOCS)
+            .json()
+            .path("components")
+            .path("schemas")
+            .path("Problem")
+            .path("properties");
+
+    assertThat(members.has("requestId")).isTrue();
+    assertThat(members.has("errors")).isTrue();
+    assertThat(members.has("currentStatus")).isTrue();
+    assertThat(members.has("existingOrderId")).isTrue();
+  }
+
+  @Test
   void sendsThePageToTryTheApiToItsRealAddress() {
     ApiResponse response = api.get(SWAGGER_UI);
 
