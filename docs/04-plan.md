@@ -1501,6 +1501,10 @@ Al terminar la tarea 19: PR de `feat/phase-6-observability` a `develop`, con mer
 - **Si a Neon se le aplican las migraciones,** que se decide en la fase 8 (ADR 0006).
 - **El control de posibles duplicados** (RFC 5.5, ENV-10 y los casos 21 a 27 del envío). Se agregó en la fase 8, después
   de este plan, con el mismo método de cada tarea: primero el test que falla (ADR 0009).
+- **El ajuste del tablero** (RFC 8.3 y 8.5). En la fase 8 el panel de errores de la tarea 18 pasó a dos, los del
+  servidor y los del cliente; los paneles que cuentan pasaron a leer el contador desde que arrancó la API, en lugar de
+  `increase()` sobre el rango; cada panel sumó su explicación; y quedó escrito qué se alertaría. No cambió el código de
+  la API: es el archivo del tablero.
 
 ## Cobertura del RFC y del PRD
 
@@ -1519,6 +1523,7 @@ Al terminar la tarea 19: PR de `feat/phase-6-observability` a `develop`, con mer
 | RFC 6: los contratos | 5, 7, 9, 11, 12 y 13 |
 | RFC 7: errores y validación | 3, y los casos de error de cada función |
 | RFC 8: logs, métricas, tablero y tiempo de respuesta | 3 (id de pedido), 17, 18 y 19 |
+| RFC 8.3 y 8.5: los dos paneles de errores y qué se alertaría | fuera de este plan: fase 8 |
 | RFC 9: seguridad | 3, 14 y 17 |
 | RFC 10: tests | 1, 2 y 10 |
 | RFC 11: build, CI, Docker, Postman | 1, 14, 15 y 16 |
