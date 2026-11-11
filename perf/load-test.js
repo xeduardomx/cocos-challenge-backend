@@ -41,9 +41,10 @@ const LIMIT_ORDER_QUANTITY = 1;
 // Any limit order with enough cash stays NEW. These go from 10.00 to 209.99, below the last price.
 const LIMIT_ORDER_PRICE_CENTS = 1000;
 const CENTS_PER_PESO = 100;
-// The API refuses an order equal to another one that its user got accepted in the last seconds
-// (RFC 5.5), so every order differs in the cents of its amount or of its limit price. A scenario
-// repeats an order only after this many: 100 seconds at 10 iterations per second.
+// The API refuses an order equal to another one that its user got accepted in the last 5 seconds
+// (RFC 5.5), so every order differs in the cents of its amount or of its limit price. Each scenario
+// has this many numbers and uses two per iteration, so it repeats an order after 1,000 iterations:
+// 100 seconds at 10 per second. From 200 per second on, it would repeat one inside the 5 seconds.
 const ORDERS_PER_SCENARIO = 2000;
 // The warm-up sends two orders of each kind in an iteration, one per kind of user.
 const ORDERS_PER_ITERATION = 2;
