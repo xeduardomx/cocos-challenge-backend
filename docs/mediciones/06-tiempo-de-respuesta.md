@@ -270,6 +270,37 @@ canceladas, sin ninguna respuesta 409.
 **El objetivo se sigue cumpliendo.** Con el control, el peor percentil 95 sigue siendo el envío del usuario pesado:
 59,58 ms, dentro de lo que ya variaba de una corrida a otra (61,15, 57,13 y 56,12 ms en las tres anteriores).
 
+### La máquina en reposo mide de más
+
+Al repetir esta medición para la verificación final, una corrida sobre el mismo código dio tiempos unas tres veces más
+bajos en **todos** los escenarios, también en los que el cambio no toca: el envío del usuario pesado, 18,99 ms de
+percentil 95, y la búsqueda, 1,41 ms. Un pedido suelto del usuario extremo, en cambio, tardó lo mismo que siempre.
+
+La diferencia no estaba en la API. Durante esa corrida, un proceso del sistema operativo que no tiene que ver con el
+proyecto (el que reporta errores de Ubuntu) ocupó un núcleo entero, de las 20:53 a las 21:05 según su registro. Se
+comprobó con una prueba controlada: la línea de base, en corto (10 segundos de calentamiento y 20 de medición), tres
+veces seguidas sobre el mismo código. En la del medio, un bucle vacío mantuvo ocupado un núcleo:
+
+| Corrida | Búsqueda, p50 | Portfolio, p50 | Envío, p50 | Envío, p95 |
+|---|---|---|---|---|
+| Máquina en reposo | 3,97 ms | 5,71 ms | 10,94 ms | 26,48 ms |
+| Con un núcleo ocupado por otro proceso | 1,29 ms | 1,7 ms | 4,3 ms | 6,99 ms |
+| Máquina en reposo, otra vez | 3,94 ms | 5,71 ms | 11,74 ms | 29,16 ms |
+
+**Por qué.** La computadora usa el modo de ahorro de energía de Linux (`powersave`). Con casi nada que hacer, el
+procesador baja la frecuencia de sus núcleos: medidos en reposo, promediaban unos 1.200 MHz, con algunos en 800. Con un
+solo núcleo ocupado, todos subían a unos 4.300 MHz. La carga de esta medición es liviana, 110 pedidos por segundo, y no
+alcanza para despertarlo: cada pedido lo atiende un procesador a un tercio de su velocidad. El pedido del usuario
+extremo ocupa un núcleo durante 0,7 segundos, y por eso tarda lo mismo en los dos casos.
+
+**Qué cambia en cómo se leen estos números:**
+
+- **Los tiempos de este documento son conservadores:** todas las corridas registradas son con la máquina en reposo. Un
+  servidor con carga, o configurado para rendimiento, respondería más rápido.
+- **Dos corridas se comparan solo si la máquina estaba igual.** La forma de saberlo es mirar los escenarios que el cambio
+  no toca. Entre la corrida con `clock_timestamp()` y la corregida, la búsqueda dio 4,81 y 4,79 ms, y el portfolio del
+  pesado, 34,31 y 33,91 ms: son comparables. La de 18,99 ms no lo es con ninguna, y no se usa como resultado.
+
 ## Salida de la corrida con volumen
 
 Lo que imprimió `scripts/run-load-test.sh` en la corrida del 2026-11-08, sin las líneas de `docker compose`.
