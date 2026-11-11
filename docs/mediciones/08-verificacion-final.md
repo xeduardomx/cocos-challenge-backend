@@ -1,7 +1,7 @@
 # Verificación final
 
 > Corrida del 2026-11-09 sobre un clon limpio del commit `3bca905`, en la misma computadora de la
-> [medición de tiempo de respuesta](06-tiempo-de-respuesta.md). Después de esa corrida cambiaron documentos, la forma de apuntar a Neon, que se probó aparte (`docker compose up`, la prueba de humo y Postman en la copia local, y `run-on-neon.sh` con lecturas), y el paquete de cada clase, con todos los pasos repetidos sobre otro clon limpio ([abajo](#después-de-reordenar-los-paquetes-2026-11-10)). Por último se agregó el control de posibles duplicados, otra vez con todos los pasos sobre un clon limpio ([al final](#con-el-control-de-posibles-duplicados-2026-11-10)). GitHub
+> [medición de tiempo de respuesta](06-tiempo-de-respuesta.md). Después de esa corrida cambiaron documentos, la forma de apuntar a Neon, que se probó aparte (`docker compose up`, la prueba de humo y Postman en la copia local, y `run-on-neon.sh` con lecturas), y el paquete de cada clase, con todos los pasos repetidos sobre otro clon limpio ([abajo](#después-de-reordenar-los-paquetes-2026-11-10)). Por último se agregó el control de posibles duplicados, otra vez con todos los pasos sobre un clon limpio ([abajo](#con-el-control-de-posibles-duplicados-2026-11-10)), y se ajustó el tablero de Grafana, sin cambios en el código de la API ([al final](#con-el-tablero-ajustado-2026-11-11)). GitHub
 > Actions está bloqueado en esta cuenta (RFC, sección 11.2): estos son los pasos de `.github/workflows/ci.yml`, corridos en
 > local, más los ejemplos del README y la medición con volumen. Postgres usó el puerto 5434, porque el 5433 estaba
 > ocupado en esa máquina.
@@ -218,3 +218,47 @@ rompió a propósito de once formas, una por vez:
 | Con `API_DUPLICATE_ORDER_WINDOW=0s` | las dos se aceptan: el control queda apagado |
 | Con `API_DUPLICATE_ORDER_WINDOW=-1s` | la API no arranca: "must be longer than or equal to 0" |
 | El recorrido de dos compras de $600.000 a la vez | una `FILLED` y una `REJECTED`, como antes |
+
+## Con el tablero ajustado (2026-11-11)
+
+El tablero de Grafana pasó de cinco a seis paneles. Los errores se separaron en errores del servidor (5xx) y del cliente
+(4xx), los cuatro paneles que cuentan pasaron a leer el contador desde que arrancó la API, y cada panel sumó su
+explicación ([RFC, sección 8.3](../03-rfc.md#83-cómo-se-ven-prometheus-y-grafana-en-el-mismo-docker-compose)). No cambió
+el código de la API ni sus tests: cambió `observability/grafana/dashboards/cocos-api.json`. Se probó en un segundo
+`docker compose`, con otros puertos y el mismo archivo, para poder reiniciar la API y provocar errores.
+
+**Con el archivo final,** sobre un `up` nuevo:
+
+| Paso | Resultado |
+|---|---|
+| Prueba de humo, `./scripts/smoke-test.sh` | pasó |
+| Colección de Postman | 13 pedidos y 32 aserciones, sin fallas |
+| El portal, `./scripts/portal.sh build` | arma sin avisos, con los enlaces entre páginas revisados |
+
+**Cada panel, contra lo que se le mandó a la API:**
+
+| Prueba | Qué mostró el tablero |
+|---|---|
+| Un error de cada tipo, una sola vez: siete del cliente, un 503 y un 500 | siete barras en 1, y los dos números de errores del servidor en 1 y en rojo |
+| La API recién arrancada | 0 y 0 en verde, y "Sin errores del cliente" |
+| Un solo error del cliente | una barra con su nombre: `404 · GET /users/{userId}/portfolio` |
+| La API detenida | "Sin datos: la API no responde", en naranja |
+| Durante un minuto, otra transacción toma el turno del usuario 150 ms de cada 400, con 356 envíos | el percentil 95 del envío sube a 156 ms y aparece la línea roja de los 100 ms. La espera del turno marca 151 ms |
+| La colección de Postman, corrida apenas levanta todo y sin la prueba de humo, tres veces | las 4 órdenes, el rechazo y el 422, las tres veces |
+| Diez minutos de tráfico de ejemplo | cada número es el del contador de la API: 1.900 órdenes en seis combinaciones, 246 rechazos por tres motivos y 471 errores del cliente en siete barras |
+
+Con el panel anterior, un error que pasaba una sola vez no se veía: después de la colección de Postman, su consulta no
+devolvía nada para el 422.
+
+**Lo que apareció al probar,** antes de dar por bueno el archivo:
+
+| Qué pasaba | Qué se hizo |
+|---|---|
+| Los paneles de órdenes y de rechazos quedaban vacíos si la colección de Postman se corría apenas levantaba todo: las tres veces que se probó, con 4 órdenes grabadas. Contaban con `increase()`, que no ve lo que pasa antes de la primera lectura de Prometheus, y esa lectura llegó entre 3,6 y 10,5 segundos después de que la API estuvo lista (cuatro corridas). Ya pasaba con el tablero anterior. Con la prueba de humo antes, no, porque espera esa lectura | los cuatro paneles que cuentan leen el contador desde que arrancó la API |
+| Con un solo tipo de error, su barra salía sin nombre. También pasaba en el panel de órdenes, con una sola combinación | cada barra lleva su nombre |
+| El nombre largo de la cancelación se cortaba y tapaba el código | el código va primero: `409 · POST /users/…` |
+| Con la API detenida, los errores del servidor mostraban un 0 en verde | el 0 se muestra solo si Prometheus está leyendo la API |
+| Un ícono azul de aviso en el panel de latencia, una vez, con muchos pedidos justo después de reiniciar la API | es un aviso informativo de Prometheus, que corrige solo una diferencia mínima. Quedó en el [runbook](../portal/runbook.md#el-panel-de-latencia-muestra-un-ícono-azul-de-información) |
+
+**La captura del portal** ([métricas](../portal/metricas.md)) es de ese segundo compose, con los diez minutos de tráfico
+de ejemplo.
