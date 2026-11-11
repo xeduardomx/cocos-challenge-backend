@@ -1423,6 +1423,23 @@ usuario extremo tarda entre 0,66 y 0,94 segundos por portfolio. Los números, la
 percentil 95 sigue siendo el envío del usuario pesado, 59,58 ms. Esa medición encontró que la primera versión de la
 consulta nueva leía todas las órdenes del usuario, y se corrigió (72,9 ms antes de corregirla).
 
+**Con la base lejos, el tiempo lo pone la distancia** (visto en la fase 8). Al levantar la API en la máquina del autor
+contra la base de Neon, con `./scripts/run-on-neon.sh`, las lecturas tardaron unos 800 ms. No es la API ni la base: cada
+consulta viaja por internet hasta el servidor y vuelve. Ese viaje, medido desde la misma máquina hasta la zona donde
+está la base, lleva unos 170 ms: la mediana de cinco intentos, contra una dirección pública de esa zona y sin tocar la
+base. El portfolio hace cuatro consultas, una atrás de la otra: si existe el usuario, sus órdenes, los activos que tiene
+y sus últimos precios. Son cuatro viajes, unos 680 ms, más lo que tarda la base en contestar.
+
+- **La solución es poner la API cerca de la base,** en la misma zona. Es el caso del objetivo, que se midió con las dos
+  en la misma máquina, y no pide cambios en el código.
+- **Si la base tuviera que quedar lejos, se harían menos consultas por pedido:** de cuatro a dos, una con el usuario y
+  sus órdenes y otra con los activos y su último precio. Es la mitad de los viajes. Si no alcanzara, todo en una sola
+  consulta. No se hizo ni se midió: con la API al lado de la base el objetivo se cumple con margen, y hoy cada consulta
+  hace una sola cosa.
+- **Lanzar las consultas en paralelo, con hilos, se descartó.** Llega a las mismas dos esperas que juntarlas, pero suma
+  código concurrente y dos conexiones por pedido, y la base sigue recibiendo las cuatro consultas. Los hilos quedan para
+  las llamadas que no se pueden juntar, como las que van a APIs de terceros.
+
 ### 8.5 Qué se alertaría
 
 No se construyen alertas: en una corrida local no hay a quién avisarle. Queda escrito qué se alertaría con estas mismas
@@ -1746,6 +1763,7 @@ siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celu
 | Prometheus y Grafana en el compose, con el tablero cargado desde el repo; New Relic, documentado como el cambio de registro | quien evalúa ve las métricas reales sin crear cuentas | sección 8.3, ADR 0007 |
 | Objetivo: percentil 95 por debajo de 100 ms, con 2 millones de órdenes y usuarios de hasta 10.000, medido con k6 en la fase 6 | la consulta más cara del usuario pesado tarda 1,2 ms en la base | sección 8.4 |
 | El tablero separa los errores del servidor (5xx) de los del cliente (4xx), y queda escrito qué se alertaría: la API caída, los 5xx, la latencia y la espera del turno (agregado en la fase 8) | un 409 esperado no es una falla y un 500 sí: en un mismo panel se leían igual | secciones 8.3 y 8.5 |
+| Con la base lejos, el tiempo de respuesta lo pone la distancia: la solución es la API cerca de la base y, si no, menos consultas por pedido. Lanzarlas en paralelo se descartó (visto en la fase 8) | cada consulta es un viaje hasta la base: juntarlas saca viajes, y los hilos solo los hacen a la vez | sección 8.4 |
 | La base se configura en formato JDBC con usuario y clave aparte; Actuator expone solo `health` y `prometheus`; sin campos desconocidos ni cantidades decimales convertidas en enteras | la clave no viaja dentro de una URL, los endpoints con configuración no quedan abiertos, y 2,5 acciones no se compran como 2 | sección 9 |
 | Tres niveles de test: unitarios, de integración contra Postgres real y funcionales por HTTP con los casos del PRD | cada nivel prueba lo suyo: los cálculos solos, el SQL contra la base real, y el recorrido completo | sección 10.1 |
 | Antes de cada test, la base vuelve a los datos originales desde una foto (4 ms); los datos propios van encima | resuelve el choque con D-8.4: los casos del PRD corren tal cual y cada test controla sus datos | sección 10.2 |

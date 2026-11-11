@@ -1202,6 +1202,7 @@ copia local. A Neon se le aplicaron en la fase 8, una sola vez (ADR 0006).
 | Límite de pedidos por cliente, HTTPS propio y CORS | fuera de alcance; en producción, el HTTPS lo pone el balanceador | RFC, sección 9 |
 | New Relic de verdad | quien evalúa necesitaría una cuenta; queda documentado como cambiar el registro de Micrometer | RFC, sección 8.3; ADR 0007 |
 | Construir las alertas (reglas de Prometheus y Alertmanager) | en una corrida local no hay a quién avisarle; queda escrito qué se alertaría y con qué criterio | RFC, sección 8.5 |
+| Bajar la cantidad de consultas por pedido, para una base lejana | el diseño supone la API al lado de la base, y así el objetivo de tiempo de respuesta se cumple con margen; queda escrito qué se haría | RFC, sección 8.4 |
 
 ## Lo que falta, en orden
 

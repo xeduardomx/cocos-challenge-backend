@@ -46,6 +46,9 @@ Es una carga moderada, en una computadora de escritorio y con la base en memoria
 dice cuántos pedidos aguanta la API. La máquina, los datos, los límites y cómo repetirla están en
 [la medición completa](../mediciones/06-tiempo-de-respuesta.md).
 
+Con la base lejos, el tiempo lo pone la distancia: contra la base de Neon, las lecturas tardaron unos 800 ms. Por
+qué, y qué se haría, está en el [RFC, sección 8.4](../03-rfc.md#84-el-objetivo-de-tiempo-de-respuesta-gen-8).
+
 ## Qué se alertaría
 
 No hay alertas construidas: en una corrida local no hay a quién avisarle. Con estas mismas métricas, se alertaría esto:
