@@ -148,38 +148,6 @@
       }
     },
     {
-      "id": 4,
-      "type": "timeseries",
-      "title": "Errores por función",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 8,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (method, uri, status) (rate(http_server_requests_seconds_count{uri!~\"/actuator/.*\",status=~\"4..|5..\"}[5m]))",
-          "legendFormat": "{{method}} {{uri}} {{status}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps"
-        },
-        "overrides": []
-      }
-    },
-    {
       "id": 5,
       "type": "timeseries",
       "title": "Espera del turno, p95",
@@ -188,9 +156,9 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 0,
-        "y": 16,
-        "w": 24,
+        "x": 12,
+        "y": 8,
+        "w": 12,
         "h": 8
       },
       "targets": [
@@ -209,6 +177,141 @@
           "unit": "s"
         },
         "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Errores del servidor, 5xx (desde el arranque)",
+      "description": "Respuestas 500 (error interno) y 503 (la cuenta estuvo ocupada más de 2 segundos) desde que arrancó la API. Son las únicas que son una falla de la API: los dos números tienen que estar en 0. Si Prometheus no está leyendo la API, no muestra un 0: dice que no hay datos.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(http_server_requests_seconds_count{uri!~\"/actuator/.*\",status=\"500\"}) or vector(0)) and on() (up{job=\"api\"} == 1)",
+          "legendFormat": "500 · error interno",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(http_server_requests_seconds_count{uri!~\"/actuator/.*\",status=\"503\"}) or vector(0)) and on() (up{job=\"api\"} == 1)",
+          "legendFormat": "503 · cuenta ocupada",
+          "instant": true,
+          "range": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "noValue": "Sin datos: la API no responde",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "text": {
+          "titleSize": 16
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Errores del cliente, 4xx, por código y función (desde el arranque)",
+      "description": "Pedidos que la API no aceptó desde que arrancó, por código y función: datos inválidos (400), un usuario o una orden que no existe (404), un posible duplicado o una orden que ya no se puede cancelar (409), o un identificador de orden repetido con otro contenido (422). No son fallas de la API: respondió bien a un pedido que no se podía cumplir.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 16,
+        "w": 16,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sort_desc(sum by (status, method, uri) (http_server_requests_seconds_count{uri!~\"/actuator/.*\",outcome=\"CLIENT_ERROR\"}))",
+          "legendFormat": "{{status}} · {{method}} {{uri}}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "decimals": 0,
+          "displayName": "${__series.name}",
+          "min": 0,
+          "noValue": "Sin errores del cliente",
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        }
       }
     }
   ]
