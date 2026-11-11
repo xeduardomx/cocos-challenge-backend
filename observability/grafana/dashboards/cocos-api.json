@@ -118,7 +118,8 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "Latencia p95 por función",
+      "title": "Latencia p95 por función (objetivo: menos de 100 ms)",
+      "description": "Cuánto tarda cada función en responder. Cada punto dice: de los pedidos de los últimos 5 minutos, el 95 % tardó eso o menos. El objetivo es que quede debajo de 100 ms: si una función se acerca, aparece la línea roja. Una función aparece desde su segundo pedido, con 15 segundos o más entre los dos, y su línea se corta después de 5 minutos sin pedidos.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -142,6 +143,24 @@
       ],
       "fieldConfig": {
         "defaults": {
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.1
+              }
+            ]
+          },
           "unit": "s"
         },
         "overrides": []
@@ -151,6 +170,7 @@
       "id": 5,
       "type": "timeseries",
       "title": "Espera del turno, p95",
+      "description": "Cuánto espera un envío de orden el turno de su usuario: la API procesa una orden por usuario a la vez. Cada punto dice: de los envíos de los últimos 5 minutos, el 95 % esperó eso o menos. Sin órdenes simultáneas del mismo usuario queda cerca de 1 ms, que es lo mínimo que distingue. Si sube, hay órdenes del mismo usuario chocando. A los 2 segundos de espera, la API responde 503.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
