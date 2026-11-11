@@ -2023,6 +2023,8 @@ escenario manda 10 pedidos por segundo durante un minuto:</p>
 <p>Es una carga moderada, en una computadora de escritorio y con la base en memoria: sirve como orden de magnitud, y no
 dice cuántos pedidos aguanta la API. La máquina, los datos, los límites y cómo repetirla están en
 <a href="../../mediciones/06-tiempo-de-respuesta/">la medición completa</a>.</p>
+<p>Con la base lejos, el tiempo lo pone la distancia: contra la base de Neon, las lecturas tardaron unos 800 ms. Por
+qué, y qué se haría, está en el <a href="../../03-rfc/#84-el-objetivo-de-tiempo-de-respuesta-gen-8">RFC, sección 8.4</a>.</p>
 <h2 id="qué-se-alertaría">Qué se alertaría<a class="headerlink" href="#qué-se-alertaría" title="Permanent link">&para;</a></h2>
 <p>No hay alertas construidas: en una corrida local no hay a quién avisarle. Con estas mismas métricas, se alertaría esto:</p>
 <table>

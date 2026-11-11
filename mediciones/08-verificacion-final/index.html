@@ -1565,6 +1565,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#desde-main-antes-de-entregar-2026-11-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Desde main, antes de entregar (2026-11-11)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1729,6 +1740,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#desde-main-antes-de-entregar-2026-11-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Desde main, antes de entregar (2026-11-11)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1859,7 +1881,7 @@
 <h1 id="verificación-final">Verificación final<a class="headerlink" href="#verificación-final" title="Permanent link">&para;</a></h1>
 <blockquote>
 <p>Corrida del 2026-11-09 sobre un clon limpio del commit <code>3bca905</code>, en la misma computadora de la
-<a href="../06-tiempo-de-respuesta/">medición de tiempo de respuesta</a>. Después de esa corrida cambiaron documentos, la forma de apuntar a Neon, que se probó aparte (<code>docker compose up</code>, la prueba de humo y Postman en la copia local, y <code>run-on-neon.sh</code> con lecturas), y el paquete de cada clase, con todos los pasos repetidos sobre otro clon limpio (<a href="#después-de-reordenar-los-paquetes-2026-11-10">abajo</a>). Por último se agregó el control de posibles duplicados, otra vez con todos los pasos sobre un clon limpio (<a href="#con-el-control-de-posibles-duplicados-2026-11-10">abajo</a>), y se ajustó el tablero de Grafana, sin cambios en el código de la API (<a href="#con-el-tablero-ajustado-2026-11-11">al final</a>). GitHub
+<a href="../06-tiempo-de-respuesta/">medición de tiempo de respuesta</a>. Después de esa corrida cambiaron documentos, la forma de apuntar a Neon, que se probó aparte (<code>docker compose up</code>, la prueba de humo y Postman en la copia local, y <code>run-on-neon.sh</code> con lecturas), y el paquete de cada clase, con todos los pasos repetidos sobre otro clon limpio (<a href="#después-de-reordenar-los-paquetes-2026-11-10">abajo</a>). Por último se agregó el control de posibles duplicados, otra vez con todos los pasos sobre un clon limpio (<a href="#con-el-control-de-posibles-duplicados-2026-11-10">abajo</a>), y se ajustó el tablero de Grafana, sin cambios en el código de la API (<a href="#con-el-tablero-ajustado-2026-11-11">abajo</a>). Antes de entregar se repitieron los pasos desde un clon de <code>main</code> (<a href="#desde-main-antes-de-entregar-2026-11-11">al final</a>). GitHub
 Actions está bloqueado en esta cuenta (RFC, sección 11.2): estos son los pasos de <code>.github/workflows/ci.yml</code>, corridos en
 local, más los ejemplos del README y la medición con volumen. Postgres usó el puerto 5434, porque el 5433 estaba
 ocupado en esa máquina.</p>
@@ -2399,6 +2421,56 @@ devolvía nada para el 422.</p>
 </table>
 <p><strong>La captura del portal</strong> (<a href="../../portal/metricas/">métricas</a>) es de ese segundo compose, con los diez minutos de tráfico
 de ejemplo.</p>
+<h2 id="desde-main-antes-de-entregar-2026-11-11">Desde main, antes de entregar (2026-11-11)<a class="headerlink" href="#desde-main-antes-de-entregar-2026-11-11" title="Permanent link">&para;</a></h2>
+<p>Sobre un clon nuevo del repositorio, que trae <code>main</code> en <code>85e62b5</code> (tag <code>v1.0.0</code>), sin nada guardado de corridas
+anteriores. Postgres usó el puerto 5434.</p>
+<table>
+<thead>
+<tr>
+<th>Paso</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>./mvnw -B verify</code>, con el comando del README para Docker, bajando todas las dependencias</td>
+<td>397 tests, sin fallas, con el piso de cobertura cumplido</td>
+</tr>
+<tr>
+<td><code>docker compose build --no-cache --pull</code></td>
+<td>la imagen de la API compila desde cero</td>
+</tr>
+<tr>
+<td><code>docker compose up --build</code></td>
+<td>levanta la API, Postgres, Prometheus y Grafana</td>
+</tr>
+<tr>
+<td><code>./scripts/smoke-test.sh</code></td>
+<td>pasó</td>
+</tr>
+<tr>
+<td><code>./scripts/run-postman.sh</code></td>
+<td>13 pedidos y 32 aserciones, sin fallas</td>
+</tr>
+<tr>
+<td>El tablero, después de la colección</td>
+<td>las 4 órdenes, una de ellas rechazada, y el 422. Los errores del servidor, en 0</td>
+</tr>
+<tr>
+<td><code>./scripts/run-on-neon.sh</code> contra una base local ya migrada, sin migrar</td>
+<td>la API arranca con las migraciones apagadas, y la prueba de humo pasó</td>
+</tr>
+<tr>
+<td>Los enlaces del README</td>
+<td>los 17 que van a archivos del repositorio apuntan a algo que existe, y los del portal responden</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Contra la base de Neon,</strong> con el mismo contenido: el autor levantó la API con <code>./scripts/run-on-neon.sh</code> y corrió la
+prueba de humo, que solo lee. Pasó: el usuario 1 tiene los números originales. Contra Neon solo se hicieron lecturas, y
+tardaron unos 800 ms, por la distancia hasta esa base
+(<a href="../../03-rfc/#84-el-objetivo-de-tiempo-de-respuesta-gen-8">RFC, sección 8.4</a>).</p>
+<p>Después de esta corrida cambiaron solo documentos: la nota del README sobre Neon y lo que se escribió a partir de ella.</p>
 
 
 
