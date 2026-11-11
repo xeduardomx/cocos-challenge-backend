@@ -4055,6 +4055,10 @@ saber si GitHub desbloquea el CI. Las tareas 17 a 19 cambiaron en lo siguiente, 
 <li><strong>Si a Neon se le aplican las migraciones,</strong> que se decide en la fase 8 (ADR 0006).</li>
 <li><strong>El control de posibles duplicados</strong> (RFC 5.5, ENV-10 y los casos 21 a 27 del envío). Se agregó en la fase 8, después
   de este plan, con el mismo método de cada tarea: primero el test que falla (ADR 0009).</li>
+<li><strong>El ajuste del tablero</strong> (RFC 8.3 y 8.5). En la fase 8 el panel de errores de la tarea 18 pasó a dos, los del
+  servidor y los del cliente; los paneles que cuentan pasaron a leer el contador desde que arrancó la API, en lugar de
+  <code>increase()</code> sobre el rango; cada panel sumó su explicación; y quedó escrito qué se alertaría. No cambió el código de
+  la API: es el archivo del tablero.</li>
 </ul>
 <h2 id="cobertura-del-rfc-y-del-prd">Cobertura del RFC y del PRD<a class="headerlink" href="#cobertura-del-rfc-y-del-prd" title="Permanent link">&para;</a></h2>
 <table>
@@ -4116,6 +4120,10 @@ saber si GitHub desbloquea el CI. Las tareas 17 a 19 cambiaron en lo siguiente, 
 <tr>
 <td>RFC 8: logs, métricas, tablero y tiempo de respuesta</td>
 <td>3 (id de pedido), 17, 18 y 19</td>
+</tr>
+<tr>
+<td>RFC 8.3 y 8.5: los dos paneles de errores y qué se alertaría</td>
+<td>fuera de este plan: fase 8</td>
 </tr>
 <tr>
 <td>RFC 9: seguridad</td>

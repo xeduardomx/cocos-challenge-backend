@@ -4460,6 +4460,22 @@ decisión y es la base del alcance del PRD.</p>
 <td>El lado de un pedido solo puede ser <code>BUY</code> o <code>SELL</code>, desde su tipo: el error y Swagger ya no ofrecen <code>CASH_IN</code> ni <code>CASH_OUT</code>, que después se rechazaban</td>
 <td>Fase 8; RFC, sección 6.2</td>
 </tr>
+<tr>
+<td>El tablero separa los errores del servidor (5xx), que son fallas de la API, de los errores del cliente (4xx), que no lo son. El panel de errores del servidor no muestra un 0 si Prometheus no está leyendo la API</td>
+<td>Fase 8; RFC, sección 8.3</td>
+</tr>
+<tr>
+<td>Los cuatro paneles que cuentan (órdenes, rechazos y los dos de errores) muestran el contador desde que arrancó la API, y no lo que creció en el rango de tiempo elegido: así no pierden la primera respuesta de cada tipo ni lo que pasa antes de la primera lectura de Prometheus</td>
+<td>Fase 8; RFC, sección 8.3</td>
+</tr>
+<tr>
+<td>Cada panel del tablero lleva su explicación, el de latencia muestra el objetivo de 100 ms, y cada barra lleva su nombre aunque sea la única de su panel</td>
+<td>Fase 8; RFC, sección 8.3</td>
+</tr>
+<tr>
+<td>Qué se alertaría: la API caída, los errores del servidor, la latencia y la espera del turno. Los errores del cliente no se alertan: se miran</td>
+<td>Fase 8; RFC, sección 8.5</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Cambios al modelo de datos:</strong> decididos en el RFC (sección 3) y aplicados con migraciones en la fase 5, solo en la
@@ -4627,6 +4643,11 @@ copia local. A Neon se le aplicaron en la fase 8, una sola vez (ADR 0006).</p>
 <td>New Relic de verdad</td>
 <td>quien evalúa necesitaría una cuenta; queda documentado como cambiar el registro de Micrometer</td>
 <td>RFC, sección 8.3; ADR 0007</td>
+</tr>
+<tr>
+<td>Construir las alertas (reglas de Prometheus y Alertmanager)</td>
+<td>en una corrida local no hay a quién avisarle; queda escrito qué se alertaría y con qué criterio</td>
+<td>RFC, sección 8.5</td>
 </tr>
 </tbody>
 </table>

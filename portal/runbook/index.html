@@ -1317,10 +1317,32 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#grafana-no-muestra-la-latencia-o-los-errores" class="md-nav__link">
+  <a href="#grafana-no-muestra-la-latencia" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Grafana no muestra la latencia o los errores
+        Grafana no muestra la latencia
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#el-panel-de-latencia-muestra-un-ícono-azul-de-información" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        El panel de latencia muestra un ícono azul de información
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#el-panel-de-errores-del-servidor-dice-sin-datos-la-api-no-responde" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        El panel de errores del servidor dice "Sin datos: la API no responde"
       </span>
     </span>
   </a>
@@ -1900,10 +1922,32 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#grafana-no-muestra-la-latencia-o-los-errores" class="md-nav__link">
+  <a href="#grafana-no-muestra-la-latencia" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Grafana no muestra la latencia o los errores
+        Grafana no muestra la latencia
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#el-panel-de-latencia-muestra-un-ícono-azul-de-información" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        El panel de latencia muestra un ícono azul de información
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#el-panel-de-errores-del-servidor-dice-sin-datos-la-api-no-responde" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        El panel de errores del servidor dice "Sin datos: la API no responde"
       </span>
     </span>
   </a>
@@ -2116,8 +2160,8 @@ reciben en <code>API_URL</code>, <code>PROMETHEUS_URL</code> y <code>GRAFANA_URL
 <p>Otra operación tiene el turno de ese usuario desde hace más de 2 segundos. La respuesta trae <code>Retry-After: 1</code>, y
 reintentar con el mismo <code>clientOrderId</code> es seguro: no compra dos veces
 (<a href="../../03-rfc/#53-reintentos">RFC 5.3</a>).</p>
-<p>Si se repite, el panel "Espera del turno" de Grafana muestra cuánto están esperando los envíos, y esta consulta muestra
-qué transacciones están abiertas y desde cuándo:</p>
+<p>Si se repite, el panel "Errores del servidor" de Grafana cuenta los 503, el panel "Espera del turno" muestra cuánto
+están esperando los envíos, y esta consulta muestra qué transacciones están abiertas y desde cuándo:</p>
 <div class="language-bash highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>postgres<span class="w"> </span>psql<span class="w"> </span>-U<span class="w"> </span>postgres<span class="w"> </span>-X<span class="w"> </span>-c<span class="w"> </span><span class="s2">"select pid, state, now() - xact_start as en_curso, left(query, 50) as consulta from pg_stat_activity where datname = current_database() and xact_start is not null and pid &lt;&gt; pg_backend_pid();"</span>
 </code></pre></div>
 <h3 id="una-orden-responde-409-problemspossible-duplicate-order">Una orden responde 409 <code>/problems/possible-duplicate-order</code><a class="headerlink" href="#una-orden-responde-409-problemspossible-duplicate-order" title="Permanent link">&para;</a></h3>
@@ -2129,8 +2173,8 @@ es la orden que ya entró (<a href="../../03-rfc/#55-la-misma-orden-con-otro-ide
 <ul>
 <li><strong>Si la segunda orden era a propósito,</strong> se espera unos segundos y se manda de nuevo, tal cual.</li>
 <li><strong>Si se repite mucho,</strong> la app está generando un identificador nuevo en cada reintento: tiene que repetir el mismo
-  (<a href="../../03-rfc/#53-reintentos">RFC 5.3</a>). Cuántas veces pasa se ve en Prometheus:
-  <code>http_server_requests_seconds_count{uri="/users/{userId}/orders",method="POST",status="409"}</code>.</li>
+  (<a href="../../03-rfc/#53-reintentos">RFC 5.3</a>). Cuántas veces pasó se ve en Grafana, en el panel "Errores del cliente": es
+  la barra <code>409 · POST /users/{userId}/orders</code>.</li>
 <li><strong>Para cambiar la ventana,</strong> o apagar el control con 0, está la variable <code>API_DUPLICATE_ORDER_WINDOW</code>:
   <code>API_DUPLICATE_ORDER_WINDOW=0s docker compose up --build</code>.</li>
 </ul>
@@ -2140,8 +2184,8 @@ es la orden que ya entró (<a href="../../03-rfc/#55-la-misma-orden-con-otro-ide
 <code>NO_MARKET_PRICE</code> (el activo no cotiza). El panel "Rechazos por motivo" los cuenta
 (<a href="../../03-rfc/#74-un-rejected-no-es-un-error">RFC 7.4</a>).</p>
 <h3 id="una-respuesta-da-500-problemsinternal-error">Una respuesta da 500 <code>/problems/internal-error</code><a class="headerlink" href="#una-respuesta-da-500-problemsinternal-error" title="Permanent link">&para;</a></h3>
-<p>La respuesta trae el <code>requestId</code>, y con él se encuentra el error en los logs. El stack trace completo está en
-<code>error.stack_trace</code>:</p>
+<p>Es una falla de la API, y el panel "Errores del servidor" de Grafana la cuenta. La respuesta trae el <code>requestId</code>, y con
+él se encuentra el error en los logs. El stack trace completo está en <code>error.stack_trace</code>:</p>
 <div class="language-bash highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>api<span class="w"> </span>--no-log-prefix<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>EL_REQUEST_ID<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-c<span class="w"> </span><span class="s1">'select(.log.level == "ERROR") | {message, problemType, httpStatus, error: .error.type}'</span>
 </code></pre></div>
 <h3 id="la-base-no-responde">La base no responde<a class="headerlink" href="#la-base-no-responde" title="Permanent link">&para;</a></h3>
@@ -2155,9 +2199,20 @@ docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> 
 <p><strong>No alcanza con reiniciar solo Postgres.</strong> Sus datos viven en memoria, así que vuelve a cargar <code>database.sql</code> sin las
 migraciones, que la API aplica solo al arrancar. El portfolio funciona, pero la búsqueda, el envío, el listado y la
 cancelación dan 500.</p>
-<h3 id="grafana-no-muestra-la-latencia-o-los-errores">Grafana no muestra la latencia o los errores<a class="headerlink" href="#grafana-no-muestra-la-latencia-o-los-errores" title="Permanent link">&para;</a></h3>
-<p>No es una falla. Las órdenes y la espera del turno se ven desde el primer pedido. La latencia y los errores de cada
-función aparecen desde el segundo, con al menos 15 segundos entre los dos, porque Prometheus necesita dos lecturas.</p>
+<h3 id="grafana-no-muestra-la-latencia">Grafana no muestra la latencia<a class="headerlink" href="#grafana-no-muestra-la-latencia" title="Permanent link">&para;</a></h3>
+<p>No es una falla. Las órdenes, los rechazos y los errores se ven desde el primero. Los dos gráficos de líneas necesitan
+dos lecturas de Prometheus, que lee cada 15 segundos: la latencia de cada función aparece desde su segundo pedido, con
+al menos 15 segundos entre los dos, y la espera del turno, con el primer envío que llega después de la primera lectura.
+Y la línea se corta cuando pasan 5 minutos sin pedidos.</p>
+<h3 id="el-panel-de-latencia-muestra-un-ícono-azul-de-información">El panel de latencia muestra un ícono azul de información<a class="headerlink" href="#el-panel-de-latencia-muestra-un-ícono-azul-de-información" title="Permanent link">&para;</a></h3>
+<p>No es una falla. Es un aviso de Prometheus: al sumar los conteos de varias series para calcular el percentil apareció
+una diferencia mínima entre ellos, y la corrigió solo ("input to histogram_quantile needed to be fixed for
+monotonicity"). El número del panel vale. En las pruebas apareció una vez, con muchos pedidos justo después de
+reiniciar la API.</p>
+<h3 id="el-panel-de-errores-del-servidor-dice-sin-datos-la-api-no-responde">El panel de errores del servidor dice "Sin datos: la API no responde"<a class="headerlink" href="#el-panel-de-errores-del-servidor-dice-sin-datos-la-api-no-responde" title="Permanent link">&para;</a></h3>
+<p>Prometheus no está pudiendo leer la API. El panel no muestra un 0 en ese caso, para que una API caída no parezca una
+API sin errores. <code>docker compose ps</code> muestra si la API está corriendo, y <a href="http://localhost:9090/targets">http://localhost:9090/targets</a>, qué error le
+da a Prometheus. Recién levantada, dura hasta la primera lectura: 15 segundos como mucho.</p>
 <h3 id="la-colección-de-postman-falla-en-la-segunda-corrida">La colección de Postman falla en la segunda corrida<a class="headerlink" href="#la-colección-de-postman-falla-en-la-segunda-corrida" title="Permanent link">&para;</a></h3>
 <div class="language-text highlight"><pre><span></span><code>AssertionError  available cash is 627500
                 expected 618241.5 to deeply equal 627500

@@ -1277,6 +1277,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#qué-se-alertaría" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Qué se alertaría
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#en-producción-con-new-relic" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1717,6 +1728,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#qué-se-alertaría" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Qué se alertaría
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#en-producción-con-new-relic" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1813,7 +1835,11 @@
 <h2 id="el-tablero">El tablero<a class="headerlink" href="#el-tablero" title="Permanent link">&para;</a></h2>
 <p>Con todo levantado está en Grafana, en <a href="http://localhost:3000">http://localhost:3000</a>. Es la página de inicio y no pide usuario ni clave.</p>
 <p><img alt="Tablero de Grafana de la API, con tráfico de ejemplo" src="../img/tablero-grafana.png" /></p>
-<p>La captura es de la API corriendo en local, con tráfico de ejemplo: los números cambian en cada corrida.</p>
+<p>La captura es de la API corriendo en local, después de diez minutos de tráfico de ejemplo: los números cambian en cada
+corrida. El tráfico trae errores del cliente a propósito. Y durante un minuto, desde las 02:01:40, manda tres órdenes del
+mismo usuario a la vez: se ve en la espera del turno, que pasa de 1 ms a 3 ms. Sigue así cinco minutos y después baja,
+porque cada punto mira los últimos cinco minutos.</p>
+<p>Cada panel explica qué muestra en la "i" que está al lado de su título.</p>
 <table>
 <thead>
 <tr>
@@ -1824,28 +1850,36 @@
 <tbody>
 <tr>
 <td>Órdenes por estado, tipo y lado</td>
-<td>cuántas órdenes se ejecutan, quedan pendientes o se rechazan</td>
+<td>cuántas órdenes se ejecutaron, quedaron pendientes o se rechazaron desde que arrancó la API</td>
 </tr>
 <tr>
 <td>Rechazos por motivo</td>
-<td>por qué se rechazan: faltan pesos, faltan acciones o el activo no cotiza</td>
+<td>por qué se rechazaron: faltan pesos, faltan acciones o el activo no cotiza</td>
 </tr>
 <tr>
 <td>Latencia p95 por función</td>
-<td>cuánto tarda cada función, sin contar <code>/actuator/*</code></td>
-</tr>
-<tr>
-<td>Errores por función</td>
-<td>qué función devuelve errores, y con qué código</td>
+<td>cuánto tarda cada función: de los pedidos de los últimos 5 minutos, el 95 % tardó eso o menos. El objetivo es menos de 100 ms</td>
 </tr>
 <tr>
 <td>Espera del turno, p95</td>
-<td>cuánto espera un envío el turno de su usuario: si crece, hay órdenes del mismo usuario chocando</td>
+<td>cuánto espera un envío el turno de su usuario: si sube, hay órdenes del mismo usuario chocando</td>
+</tr>
+<tr>
+<td>Errores del servidor, 5xx</td>
+<td>cuántas respuestas 500 y 503 dio la API desde que arrancó. Son fallas de la API: tiene que estar en 0</td>
+</tr>
+<tr>
+<td>Errores del cliente, 4xx</td>
+<td>cuántos pedidos no aceptó la API desde que arrancó, por código y función. No son fallas de la API</td>
 </tr>
 </tbody>
 </table>
-<p>Las órdenes y la espera del turno se ven desde el primer pedido. La latencia y los errores de cada función aparecen
-desde el segundo, con al menos 15 segundos entre los dos: Prometheus necesita dos lecturas para calcularlos.</p>
+<p><strong>Los errores van en dos paneles porque no significan lo mismo.</strong> Un error del cliente (4xx) es la API diciéndole que no
+a un pedido que no se podía cumplir: la API funcionó. Un error del servidor (5xx) es una falla de la API: su panel está
+en verde mientras marca 0, y pasa a rojo con la primera.</p>
+<p>Los cuatro paneles que cuentan muestran todo lo que pasó desde que arrancó la API, desde el primer pedido. Los dos de
+líneas miran los últimos 5 minutos y necesitan dos lecturas de Prometheus, que lee cada 15 segundos: la latencia de una
+función aparece desde su segundo pedido, con al menos 15 segundos entre los dos.</p>
 <h2 id="qué-mide-la-api">Qué mide la API<a class="headerlink" href="#qué-mide-la-api" title="Permanent link">&para;</a></h2>
 <p>En texto, tal como las lee Prometheus, están en <a href="http://localhost:8080/actuator/prometheus">http://localhost:8080/actuator/prometheus</a>.</p>
 <table>
@@ -1989,6 +2023,43 @@ escenario manda 10 pedidos por segundo durante un minuto:</p>
 <p>Es una carga moderada, en una computadora de escritorio y con la base en memoria: sirve como orden de magnitud, y no
 dice cuántos pedidos aguanta la API. La máquina, los datos, los límites y cómo repetirla están en
 <a href="../../mediciones/06-tiempo-de-respuesta/">la medición completa</a>.</p>
+<h2 id="qué-se-alertaría">Qué se alertaría<a class="headerlink" href="#qué-se-alertaría" title="Permanent link">&para;</a></h2>
+<p>No hay alertas construidas: en una corrida local no hay a quién avisarle. Con estas mismas métricas, se alertaría esto:</p>
+<table>
+<thead>
+<tr>
+<th>Señal</th>
+<th>Se avisa cuando</th>
+<th>Por qué</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>La API no responde</td>
+<td>Prometheus no puede leerla durante 1 minuto (<code>up == 0</code>)</td>
+<td>si la API se cae, las otras señales dejan de llegar</td>
+</tr>
+<tr>
+<td>Errores del servidor</td>
+<td>las respuestas 5xx pasan el 1 % de los pedidos durante 5 minutos</td>
+<td>son las fallas de la API: errores internos (500) o cuentas ocupadas (503)</td>
+</tr>
+<tr>
+<td>Latencia</td>
+<td>el percentil 95 de una función pasa los 100 ms durante 10 minutos</td>
+<td>es el objetivo de tiempo de respuesta</td>
+</tr>
+<tr>
+<td>Espera del turno</td>
+<td>el percentil 95 pasa los 500 ms durante 5 minutos</td>
+<td>avisa antes de que las esperas lleguen a los 2 segundos y empiecen los 503</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Los errores del cliente (4xx) no se alertan.</strong> Un 400, un 404, un 409 o un 422 son respuestas correctas a un pedido
+que no se podía cumplir. Se miran en el tablero. A lo sumo dan un aviso sin urgencia si su proporción cambia de golpe,
+porque suele ser una versión nueva de la app que manda algo mal.</p>
+<p>El criterio, sus números y de dónde sale: <a href="../../03-rfc/#85-qué-se-alertaría">RFC, sección 8.5</a>.</p>
 <h2 id="en-producción-con-new-relic">En producción, con New Relic<a class="headerlink" href="#en-producción-con-new-relic" title="Permanent link">&para;</a></h2>
 <p>Se cambia el registro de Micrometer por <code>micrometer-registry-new-relic</code>, con la clave y la cuenta por variables de
 entorno. Las métricas y su código no cambian.</p>

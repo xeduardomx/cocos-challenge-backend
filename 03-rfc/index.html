@@ -1231,6 +1231,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#85-qué-se-alertaría" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        8.5 Qué se alertaría
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2746,6 +2757,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         8.4 El objetivo de tiempo de respuesta (GEN-8)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#85-qué-se-alertaría" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        8.5 Qué se alertaría
       </span>
     </span>
   </a>
@@ -5037,30 +5059,98 @@ tu cuenta o el mercado no lo dejaron".</p>
 <p>Las etiquetas toman pocos valores (2 lados × 2 tipos × 3 estados × 4 motivos, incluido "ninguno"), así que no
 multiplican las series. El usuario y la orden no van como etiqueta: tendrían un valor por usuario.</p>
 <p>Los posibles duplicados frenados (sección 5.5) no tienen contador propio: son las respuestas 409 del envío, que
-<code>http_server_requests_seconds</code> ya cuenta por dirección, método y código. Ese número dice cada cuánto actúa el control.</p>
+<code>http_server_requests_seconds</code> ya cuenta por dirección, método y código. Ese número dice cada cuánto actúa el control,
+y se ve en el panel de errores del cliente (sección 8.3).</p>
 <p>Dos cosas encontradas al implementar (fase 6):</p>
 <ul>
 <li><strong>El contador se llama <code>orders_recorded_total</code>, no <code>orders_created_total</code>.</strong> OpenMetrics, el formato que lee
   Prometheus, reserva el sufijo <code>_created</code>, y el cliente lo saca: <code>orders.created</code> salía como <code>orders_total</code>.
   <code>orders.recorded</code> nombra mejor lo que cuenta: las órdenes grabadas, también las rechazadas.</li>
 <li><strong>Los contadores existen en 0 desde que arranca la API.</strong> <code>increase()</code> necesita dos muestras de una serie. Un contador
-  que nace con la primera orden arranca en 1, y esa orden nunca se ve en el tablero. Por eso la API registra al arrancar
-  las 20 combinaciones de lado, tipo, estado y motivo, además de los reintentos y las cancelaciones.</li>
+  que nace con la primera orden arranca en 1, y esa orden no la ve ninguna consulta que mire cuánto creció. Por eso la
+  API registra al arrancar las 20 combinaciones de lado, tipo, estado y motivo, además de los reintentos y las
+  cancelaciones. Es lo que
+  <a href="https://prometheus.io/docs/practices/instrumentation/#avoid-missing-metrics">recomienda Prometheus</a> para toda serie
+  que se sabe que va a existir. Desde la fase 8 los paneles que cuentan leen el contador directo (sección 8.3), y los
+  ceros siguen sirviendo: el panel de rechazos muestra sus tres motivos desde el primer momento, y una alerta sobre
+  estas métricas vería la primera orden.</li>
 </ul>
 <h3 id="83-cómo-se-ven-prometheus-y-grafana-en-el-mismo-docker-compose">8.3 Cómo se ven: Prometheus y Grafana en el mismo <code>docker compose</code><a class="headerlink" href="#83-cómo-se-ven-prometheus-y-grafana-en-el-mismo-docker-compose" title="Permanent link">&para;</a></h3>
 <p>La decisión, con sus alternativas, está en el <a href="../adr/0007-metricas-con-prometheus-y-grafana/">ADR 0007</a>.</p>
 <ul>
 <li><strong>Prometheus</strong> lee <code>/actuator/prometheus</code> cada 15 segundos.</li>
 <li><strong>Grafana</strong> arranca con la fuente de datos y un tablero ya cargados desde archivos del repo: al levantar el compose,
-  el tablero está listo, sin configurar nada a mano, y es la página de inicio. Muestra las órdenes por estado, tipo y
-  lado, los rechazos por motivo, la latencia (percentil 95) y los errores por función, y la espera del turno. Los
-  paneles por función no incluyen <code>/actuator/*</code>, porque se llenarían con la lectura de Prometheus, y distinguen el
-  método: el envío y el listado comparten dirección. Las órdenes y la espera del turno se ven desde el primer pedido.
-  La latencia y los errores, desde el segundo de cada función y código, con una lectura de Prometheus (15 segundos) en
-  el medio: Spring crea esas series con el primer pedido, y <code>rate()</code> necesita dos muestras (precisado al implementar,
-  fase 6).
-  Los dos paneles que cuentan órdenes van en un solo color, porque por defecto Grafana pinta de rojo todo lo que pasa de
-  80, y una barra de órdenes ejecutadas parecía un problema (encontrado al armar el portal, fase 7).</li>
+  el tablero está listo, sin configurar nada a mano, y es la página de inicio. Tiene seis paneles, y cada uno lleva su
+  explicación en la "i" que está al lado del título:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Panel</th>
+<th>Qué contesta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Órdenes por estado, tipo y lado</td>
+<td>cuántas órdenes se ejecutaron, quedaron pendientes o se rechazaron desde que arrancó la API</td>
+</tr>
+<tr>
+<td>Rechazos por motivo</td>
+<td>por qué se rechazaron: faltan pesos, faltan acciones o el activo no cotiza</td>
+</tr>
+<tr>
+<td>Latencia p95 por función</td>
+<td>cuánto tarda cada función: de los pedidos de los últimos 5 minutos, el 95 % tardó eso o menos. El objetivo es menos de 100 ms</td>
+</tr>
+<tr>
+<td>Espera del turno, p95</td>
+<td>cuánto espera un envío el turno de su usuario: si sube, hay órdenes del mismo usuario chocando</td>
+</tr>
+<tr>
+<td>Errores del servidor, 5xx</td>
+<td>cuántas respuestas 500 y 503 dio la API desde que arrancó. Son fallas de la API: tiene que estar en 0</td>
+</tr>
+<tr>
+<td>Errores del cliente, 4xx</td>
+<td>cuántos pedidos no aceptó la API desde que arrancó, por código y función. No son fallas de la API</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Los errores van en dos paneles, porque no significan lo mismo</strong> (separados en la fase 8). Un 4xx es la API
+  diciéndole que no a un pedido que no se podía cumplir: datos inválidos, algo que no existe, un posible duplicado o un
+  identificador repetido con otro contenido (sección 7.3). La API funcionó. Un 5xx es una falla de la API: un error
+  interno (500) o una cuenta que estuvo ocupada más de 2 segundos (503). Juntos en un solo panel, como estaban, un 409
+  esperado se leía igual que un 500. Spring ya los distingue: cada respuesta sale con la etiqueta <code>outcome</code>, que vale
+  <code>CLIENT_ERROR</code> o <code>SERVER_ERROR</code>.</li>
+<li><strong>Los cuatro paneles que cuentan muestran el contador tal cual, desde que arrancó la API,</strong> y no lo que creció en el
+  rango de tiempo elegido (cambiado en la fase 8). <code>increase()</code> cuenta lo que creció entre dos lecturas de Prometheus, y
+  así se le escapan dos cosas. Una es la primera respuesta de cada función y código: Spring crea ese contador con ella,
+  así que nace en 1, y un solo 500 mostraba un 0. Para las órdenes, la sección 8.2 lo resuelve con contadores que
+  existen en 0 desde el arranque; los de las respuestas son de Spring. La otra es todo lo que pasa antes de la primera
+  lectura, que llegó entre 4 y 10 segundos después de que la API estuvo lista, en cuatro corridas: con la colección de
+  Postman corrida apenas levantaba todo, el panel de órdenes quedó vacío las tres veces que se probó, con 4 órdenes
+  grabadas (<a href="../mediciones/08-verificacion-final/#con-el-tablero-ajustado-2026-11-11">verificación</a>). Leyendo el
+  contador, el tablero muestra exactamente lo que se le mandó a la API.</li>
+<li><strong>Esa lectura está pensada para una sola instancia,</strong> como la de este compose: vuelve a 0 si la API se reinicia, y no
+  se puede acotar a la última hora. Con varias instancias, o para comparar en el tiempo, se usa <code>increase()</code> sobre el
+  rango o la proporción de errores sobre el total de pedidos, que es lo que usan las alertas de la sección 8.5.</li>
+<li><strong>El panel de errores del servidor no muestra un 0 si Prometheus no está leyendo la API:</strong> dice que no hay datos. Un 0
+  en verde con la API caída diría que todo está bien.</li>
+<li><strong>La latencia muestra su objetivo</strong> (sección 8.4): está en el título, y una línea roja marca los 100 ms cuando alguna
+  función se acerca.</li>
+<li><strong>Los paneles por función</strong> no incluyen <code>/actuator/*</code>, porque se llenarían con la lectura de Prometheus, y distinguen
+  el método: el envío y el listado comparten dirección.</li>
+<li><strong>Desde cuándo se ve cada cosa.</strong> Las órdenes, los rechazos y los errores, siempre y desde el primero. Los dos paneles
+  de líneas necesitan dos lecturas de Prometheus, que lee cada 15 segundos, porque <code>rate()</code> compara dos muestras. La
+  espera del turno aparece con el primer envío que llega después de la primera lectura. La latencia, desde el segundo
+  pedido de cada función y código, con una lectura en el medio: Spring crea esas series con el primer pedido (precisado
+  al implementar, fase 6).</li>
+<li><strong>Los paneles que cuentan van en un solo color,</strong> porque por defecto Grafana pinta de rojo todo lo que pasa de 80, y
+  una barra de órdenes ejecutadas parecía un problema (encontrado al armar el portal, fase 7). Los errores del servidor
+  sí cambian de color: verde en 0 y rojo desde 1. Y cada barra lleva su nombre: Grafana se lo saca a la que queda sola
+  en su panel, y no se sabía qué contaba (fase 8).</li>
 <li><strong>En producción con New Relic,</strong> se cambia el registro de Micrometer (<code>micrometer-registry-new-relic</code>, con la clave
   y la cuenta por variables de entorno). Las métricas y su código no cambian.</li>
 <li><strong>Alternativas:</strong> New Relic de verdad, con una cuenta gratuita, obligaría a quien evalúa a tener una cuenta y una
@@ -5080,6 +5170,64 @@ usuario extremo tarda entre 0,66 y 0,94 segundos por portfolio. Los números, la
 <p><strong>Medido de nuevo en la fase 8,</strong> con el control de posibles duplicados (sección 5.5): se cumple igual. El peor
 percentil 95 sigue siendo el envío del usuario pesado, 59,58 ms. Esa medición encontró que la primera versión de la
 consulta nueva leía todas las órdenes del usuario, y se corrigió (72,9 ms antes de corregirla).</p>
+<h3 id="85-qué-se-alertaría">8.5 Qué se alertaría<a class="headerlink" href="#85-qué-se-alertaría" title="Permanent link">&para;</a></h3>
+<p>No se construyen alertas: en una corrida local no hay a quién avisarle. Queda escrito qué se alertaría con estas mismas
+métricas, porque es lo que separa una falla de lo que no lo es (agregado en la fase 8).</p>
+<table>
+<thead>
+<tr>
+<th>Señal</th>
+<th>Se avisa cuando</th>
+<th>Por qué</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>La API no responde</td>
+<td>Prometheus no puede leerla durante 1 minuto (<code>up == 0</code>)</td>
+<td>si la API se cae, las otras señales dejan de llegar</td>
+</tr>
+<tr>
+<td>Errores del servidor</td>
+<td>las respuestas 5xx pasan el 1 % de los pedidos durante 5 minutos</td>
+<td>son las fallas de la API: errores internos (500) o cuentas ocupadas (503)</td>
+</tr>
+<tr>
+<td>Latencia</td>
+<td>el percentil 95 de una función pasa los 100 ms durante 10 minutos</td>
+<td>es el objetivo de tiempo de respuesta</td>
+</tr>
+<tr>
+<td>Espera del turno</td>
+<td>el percentil 95 pasa los 500 ms durante 5 minutos</td>
+<td>avisa antes de que las esperas lleguen a los 2 segundos y empiecen los 503</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Los errores del cliente (4xx) no se alertan.</strong> Un 400, un 404, un 409 o un 422 son respuestas correctas a un pedido
+que no se podía cumplir. Se miran en el tablero. A lo sumo dan un aviso sin urgencia si su proporción cambia de golpe,
+porque suele ser una versión nueva de la app que manda algo mal.</p>
+<ul>
+<li><strong>Dos errores del cliente se miran con más atención,</strong> porque delatan un error de quien integra: el 409 del posible
+  duplicado, que crece si la app genera un identificador nuevo en cada reintento (sección 5.5), y el 422, que aparece si
+  reusa un identificador con otro contenido (sección 5.3).</li>
+<li><strong>Se avisa por proporción y sostenida en el tiempo,</strong> no por un caso suelto: un pedido lento o un error aislado no
+  tienen que despertar a nadie.</li>
+<li><strong>Los 100 ms salen del objetivo de la sección 8.4. Los otros números son un punto de partida:</strong> el 1 %, los 500 ms y
+  los minutos se ajustan con tráfico real, que acá no hay.</li>
+<li><strong>Cómo se construirían:</strong> con reglas de alerta en Prometheus y Alertmanager para avisar, o con las condiciones de
+  alerta de New Relic. Las métricas son las mismas.</li>
+</ul>
+<p><strong>De dónde sale el criterio.</strong> El libro de SRE de Google propone mirar cuatro señales de un servicio: latencia, tráfico,
+errores y saturación. Y en el ejemplo de su guía para fijar objetivos cuentan como fallas solo las respuestas 5xx: "5XX
+responses count against SLO, while all other requests are considered successful".</p>
+<p>De las cuatro, el tablero muestra la latencia y los errores. La espera del turno hace de señal de saturación: es el
+único lugar donde el diseño hace esperar a propósito. El tráfico se ve como órdenes grabadas, no como pedidos por
+segundo.</p>
+<ul>
+<li><a href="https://sre.google/sre-book/monitoring-distributed-systems/">Google, <em>Site Reliability Engineering</em>, "Monitoring Distributed Systems"</a>.</li>
+<li><a href="https://sre.google/workbook/implementing-slos/">Google, <em>The Site Reliability Workbook</em>, "Implementing SLOs"</a>.</li>
+</ul>
 <h2 id="9-seguridad">9. Seguridad<a class="headerlink" href="#9-seguridad" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Sin autenticación,</strong> porque el enunciado dice que no hace falta (S-5). La consecuencia está documentada:
@@ -5533,6 +5681,11 @@ siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celu
 <td>Objetivo: percentil 95 por debajo de 100 ms, con 2 millones de órdenes y usuarios de hasta 10.000, medido con k6 en la fase 6</td>
 <td>la consulta más cara del usuario pesado tarda 1,2 ms en la base</td>
 <td>sección 8.4</td>
+</tr>
+<tr>
+<td>El tablero separa los errores del servidor (5xx) de los del cliente (4xx), y queda escrito qué se alertaría: la API caída, los 5xx, la latencia y la espera del turno (agregado en la fase 8)</td>
+<td>un 409 esperado no es una falla y un 500 sí: en un mismo panel se leían igual</td>
+<td>secciones 8.3 y 8.5</td>
 </tr>
 <tr>
 <td>La base se configura en formato JDBC con usuario y clave aparte; Actuator expone solo <code>health</code> y <code>prometheus</code>; sin campos desconocidos ni cantidades decimales convertidas en enteras</td>

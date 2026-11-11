@@ -1885,7 +1885,11 @@ cambian.</p>
 <h2 id="consecuencias">Consecuencias<a class="headerlink" href="#consecuencias" title="Permanent link">&para;</a></h2>
 <ul>
 <li>El tablero (órdenes por estado, tipo y lado; rechazos por motivo; latencia y errores por función; espera del turno)
-  se arma en la fase 6 y queda en el repo.</li>
+  se arma en la fase 6 y queda en el repo. En la fase 8 los errores pasaron a dos paneles, los del servidor (5xx) y los
+  del cliente (4xx), porque no significan lo mismo; los paneles que cuentan pasaron a leer el contador desde que arrancó
+  la API; y quedó escrito qué se alertaría con estas métricas
+  (<a href="../../03-rfc/#83-cómo-se-ven-prometheus-y-grafana-en-el-mismo-docker-compose">RFC, secciones 8.3 y 8.5</a>; revisado el
+  2026-11-11).</li>
 <li>Las etiquetas de las métricas toman pocos valores. El usuario y la orden no van como etiqueta.</li>
 <li>Con <code>docker compose up api</code> se puede levantar solo la API con su base, sin Prometheus ni Grafana.</li>
 <li><strong>Cuándo revisarla:</strong> al pasar a producción, donde la empresa ya tenga su herramienta (New Relic u otra). El código
