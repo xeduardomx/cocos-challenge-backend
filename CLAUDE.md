@@ -112,7 +112,9 @@ Fase por fase. Cada fase **cierra con su documento** y el autor lo aprueba antes
   (`docs/adr/0006-migraciones-con-flyway.md`).
 - Cómo se muestran las métricas: **decidido en el RFC** (2026-11-07). Prometheus y Grafana en el mismo `docker
   compose`; New Relic queda documentado como el cambio de registro de Micrometer
-  (`docs/adr/0007-metricas-con-prometheus-y-grafana.md`).
+  (`docs/adr/0007-metricas-con-prometheus-y-grafana.md`). En la fase 8 (2026-11-11) el tablero separó los errores del
+  servidor (5xx) de los del cliente (4xx), sus paneles que cuentan pasaron a leer el contador desde que arrancó la API,
+  y el RFC dice qué se alertaría (secciones 8.3 y 8.5).
 - Documentos y diagramas: **decidido al arrancar el RFC** (2026-11-07). Los documentos se escriben en Markdown, que es
   la única fuente. Los diagramas van en Mermaid, adentro del Markdown, porque GitHub los dibuja solo. El portal HTML
   de la fase 7 se genera desde esos mismos archivos y no se escribe a mano, así nunca dicen cosas distintas. La

@@ -156,8 +156,9 @@ docker run --rm --network host -v /var/run/docker.sock:/var/run/docker.sock \
   maven:3.9-eclipse-temurin-25 ./mvnw -B verify
 ```
 
-En Grafana, las órdenes y la espera del turno se ven desde el primer pedido. La latencia y los errores de cada función
-aparecen desde el segundo, con al menos 15 segundos entre los dos: Prometheus necesita dos lecturas.
+En Grafana, las órdenes, los rechazos y los errores se ven desde el primero. La latencia de cada función aparece desde
+su segundo pedido, con al menos 15 segundos entre los dos: Prometheus necesita dos lecturas. Cada panel explica qué
+muestra en la "i" que está al lado de su título.
 
 El resultado de la medición con volumen está en
 [`docs/mediciones/06-tiempo-de-respuesta.md`](docs/mediciones/06-tiempo-de-respuesta.md).
