@@ -1156,6 +1156,10 @@ decisión y es la base del alcance del PRD.
 | Un texto de búsqueda que queda vacío al sacarle los acentos no encuentra nada: la lista viene vacía | Fase 8; RFC, sección 4.3 |
 | `scripts/run-on-neon.sh` levanta la API, Prometheus y Grafana contra Neon. Con `--migrate` aplica antes las migraciones, por la conexión directa y pidiendo confirmación | Fase 8; RFC, sección 3.6 |
 | El lado de un pedido solo puede ser `BUY` o `SELL`, desde su tipo: el error y Swagger ya no ofrecen `CASH_IN` ni `CASH_OUT`, que después se rechazaban | Fase 8; RFC, sección 6.2 |
+| El tablero separa los errores del servidor (5xx), que son fallas de la API, de los errores del cliente (4xx), que no lo son. El panel de errores del servidor no muestra un 0 si Prometheus no está leyendo la API | Fase 8; RFC, sección 8.3 |
+| Los cuatro paneles que cuentan (órdenes, rechazos y los dos de errores) muestran el contador desde que arrancó la API, y no lo que creció en el rango de tiempo elegido: así no pierden la primera respuesta de cada tipo ni lo que pasa antes de la primera lectura de Prometheus | Fase 8; RFC, sección 8.3 |
+| Cada panel del tablero lleva su explicación, el de latencia muestra el objetivo de 100 ms, y cada barra lleva su nombre aunque sea la única de su panel | Fase 8; RFC, sección 8.3 |
+| Qué se alertaría: la API caída, los errores del servidor, la latencia y la espera del turno. Los errores del cliente no se alertan: se miran | Fase 8; RFC, sección 8.5 |
 
 **Cambios al modelo de datos:** decididos en el RFC (sección 3) y aplicados con migraciones en la fase 5, solo en la
 copia local. A Neon se le aplicaron en la fase 8, una sola vez (ADR 0006).
@@ -1197,6 +1201,7 @@ copia local. A Neon se le aplicaron en la fase 8, una sola vez (ADR 0006).
 | Versión en las direcciones (`/v1`) | hay una sola versión y un solo cliente | RFC, sección 6.1 |
 | Límite de pedidos por cliente, HTTPS propio y CORS | fuera de alcance; en producción, el HTTPS lo pone el balanceador | RFC, sección 9 |
 | New Relic de verdad | quien evalúa necesitaría una cuenta; queda documentado como cambiar el registro de Micrometer | RFC, sección 8.3; ADR 0007 |
+| Construir las alertas (reglas de Prometheus y Alertmanager) | en una corrida local no hay a quién avisarle; queda escrito qué se alertaría y con qué criterio | RFC, sección 8.5 |
 
 ## Lo que falta, en orden
 
