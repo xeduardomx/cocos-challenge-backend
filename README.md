@@ -37,7 +37,8 @@ Para bajar todo: `docker compose down`.
   por internet hasta su servidor y vuelve. El portfolio, por ejemplo, hace cuatro consultas, una atrás de la otra. En
   la prueba del autor, las lecturas tardaron unos 800 ms. El objetivo de tiempo de respuesta, un percentil 95 por
   debajo de 100 ms, se midió con la API y la base en la misma máquina
-  ([medición](docs/mediciones/06-tiempo-de-respuesta.md)).
+  ([medición](docs/mediciones/06-tiempo-de-respuesta.md)). Qué se haría con la base lejos está en el
+  [RFC, sección 8.4](docs/03-rfc.md#84-el-objetivo-de-tiempo-de-respuesta-gen-8).
 - **La copia local:** se arma con `docs/00-fuentes/database.sql` y las migraciones de la API, y vive en memoria. Cada
   `docker compose up` arranca con los datos originales, y nunca usa la base de Neon.
 - **Los puertos** se abren solo en tu máquina (`127.0.0.1`). Si alguno está ocupado, se mueve con una variable:

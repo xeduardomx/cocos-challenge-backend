@@ -1,7 +1,7 @@
 # Verificación final
 
 > Corrida del 2026-11-09 sobre un clon limpio del commit `3bca905`, en la misma computadora de la
-> [medición de tiempo de respuesta](06-tiempo-de-respuesta.md). Después de esa corrida cambiaron documentos, la forma de apuntar a Neon, que se probó aparte (`docker compose up`, la prueba de humo y Postman en la copia local, y `run-on-neon.sh` con lecturas), y el paquete de cada clase, con todos los pasos repetidos sobre otro clon limpio ([abajo](#después-de-reordenar-los-paquetes-2026-11-10)). Por último se agregó el control de posibles duplicados, otra vez con todos los pasos sobre un clon limpio ([abajo](#con-el-control-de-posibles-duplicados-2026-11-10)), y se ajustó el tablero de Grafana, sin cambios en el código de la API ([al final](#con-el-tablero-ajustado-2026-11-11)). GitHub
+> [medición de tiempo de respuesta](06-tiempo-de-respuesta.md). Después de esa corrida cambiaron documentos, la forma de apuntar a Neon, que se probó aparte (`docker compose up`, la prueba de humo y Postman en la copia local, y `run-on-neon.sh` con lecturas), y el paquete de cada clase, con todos los pasos repetidos sobre otro clon limpio ([abajo](#después-de-reordenar-los-paquetes-2026-11-10)). Por último se agregó el control de posibles duplicados, otra vez con todos los pasos sobre un clon limpio ([abajo](#con-el-control-de-posibles-duplicados-2026-11-10)), y se ajustó el tablero de Grafana, sin cambios en el código de la API ([abajo](#con-el-tablero-ajustado-2026-11-11)). Antes de entregar se repitieron los pasos desde un clon de `main` ([al final](#desde-main-antes-de-entregar-2026-11-11)). GitHub
 > Actions está bloqueado en esta cuenta (RFC, sección 11.2): estos son los pasos de `.github/workflows/ci.yml`, corridos en
 > local, más los ejemplos del README y la medición con volumen. Postgres usó el puerto 5434, porque el 5433 estaba
 > ocupado en esa máquina.
@@ -262,3 +262,26 @@ devolvía nada para el 422.
 
 **La captura del portal** ([métricas](../portal/metricas.md)) es de ese segundo compose, con los diez minutos de tráfico
 de ejemplo.
+
+## Desde main, antes de entregar (2026-11-11)
+
+Sobre un clon nuevo del repositorio, que trae `main` en `85e62b5` (tag `v1.0.0`), sin nada guardado de corridas
+anteriores. Postgres usó el puerto 5434.
+
+| Paso | Resultado |
+|---|---|
+| `./mvnw -B verify`, con el comando del README para Docker, bajando todas las dependencias | 397 tests, sin fallas, con el piso de cobertura cumplido |
+| `docker compose build --no-cache --pull` | la imagen de la API compila desde cero |
+| `docker compose up --build` | levanta la API, Postgres, Prometheus y Grafana |
+| `./scripts/smoke-test.sh` | pasó |
+| `./scripts/run-postman.sh` | 13 pedidos y 32 aserciones, sin fallas |
+| El tablero, después de la colección | las 4 órdenes, una de ellas rechazada, y el 422. Los errores del servidor, en 0 |
+| `./scripts/run-on-neon.sh` contra una base local ya migrada, sin migrar | la API arranca con las migraciones apagadas, y la prueba de humo pasó |
+| Los enlaces del README | los 17 que van a archivos del repositorio apuntan a algo que existe, y los del portal responden |
+
+**Contra la base de Neon,** con el mismo contenido: el autor levantó la API con `./scripts/run-on-neon.sh` y corrió la
+prueba de humo, que solo lee. Pasó: el usuario 1 tiene los números originales. Contra Neon solo se hicieron lecturas, y
+tardaron unos 800 ms, por la distancia hasta esa base
+([RFC, sección 8.4](../03-rfc.md#84-el-objetivo-de-tiempo-de-respuesta-gen-8)).
+
+Después de esta corrida cambiaron solo documentos: la nota del README sobre Neon y lo que se escribió a partir de ella.
