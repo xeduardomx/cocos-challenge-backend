@@ -10,6 +10,7 @@ public enum ProblemType {
   USER_NOT_FOUND("user-not-found", HttpStatus.NOT_FOUND),
   ORDER_NOT_FOUND("order-not-found", HttpStatus.NOT_FOUND),
   ORDER_NOT_CANCELLABLE("order-not-cancellable", HttpStatus.CONFLICT),
+  POSSIBLE_DUPLICATE_ORDER("possible-duplicate-order", HttpStatus.CONFLICT),
   CLIENT_ORDER_ID_REUSED("client-order-id-reused", HttpStatus.UNPROCESSABLE_CONTENT),
   USER_BUSY("user-busy", HttpStatus.SERVICE_UNAVAILABLE),
   INTERNAL_ERROR("internal-error", HttpStatus.INTERNAL_SERVER_ERROR);

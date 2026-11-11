@@ -4,6 +4,7 @@ import com.cocos.challenge.orders.domain.OrderType;
 import com.cocos.challenge.shared.domain.OrderSide;
 import com.cocos.challenge.shared.domain.OrderStatus;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.concurrent.atomic.AtomicLong;
@@ -29,6 +30,8 @@ public class TestData {
       values (:instrumentId, :userId, :size, :price, :side, :status, :type,
               coalesce(cast(:datetime as timestamptz), clock_timestamp()))
       """;
+  private static final String MAKE_ORDER_OLDER =
+      "update orders set datetime = datetime - :millis * interval '1 millisecond' where id = :id";
   private static final String INSERT_PRICE =
       """
       insert into marketdata (instrumentId, date, close, previousClose)
@@ -97,6 +100,11 @@ public class TestData {
         size,
         price,
         datetime);
+  }
+
+  /** Moves the time of an order back, as if it had been recorded that long ago. */
+  public void makeOlder(long orderId, Duration age) {
+    jdbc.sql(MAKE_ORDER_OLDER).param("millis", age.toMillis()).param("id", orderId).update();
   }
 
   /** Records a day without trades: open, high and low stay empty. */

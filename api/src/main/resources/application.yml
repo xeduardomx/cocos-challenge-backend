@@ -40,6 +40,9 @@ cocos:
   orders.page:
     default-size: 20
     max-size: 100
+  # An order equal to another accepted one of the user, this recent and with another client order
+  # id, is refused as a possible duplicate (RFC 5.5). Zero turns the check off
+  orders.duplicates.window: 5s
 springdoc:
   # Set both to false (or protect them) if the API is ever exposed publicly (ADR 0008)
   api-docs.enabled: true

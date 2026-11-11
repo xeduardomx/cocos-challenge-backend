@@ -13,3 +13,4 @@ una en la construcción está en el [RFC](../03-rfc.md).
 | [0006](0006-migraciones-con-flyway.md) | Flyway, con `database.sql` como versión 1 | Liquibase y scripts a mano |
 | [0007](0007-metricas-con-prometheus-y-grafana.md) | Micrometer, y Prometheus y Grafana en el `docker compose` | New Relic con cuenta propia, un tablero simulado y no tener tablero |
 | [0008](0008-openapi-con-springdoc.md) | La especificación OpenAPI, generada desde el código con springdoc | escribirla a mano; no tener una |
+| [0009](0009-ordenes-iguales-con-otro-identificador.md) | Una orden igual a otra aceptada hace menos de 5 segundos, con otro identificador, se frena: una consulta a `orders` dentro del turno, con la huella | dejarlo solo documentado; un cache en memoria; Redis; una confirmación explícita; ventanas de 2 y de 30 segundos |

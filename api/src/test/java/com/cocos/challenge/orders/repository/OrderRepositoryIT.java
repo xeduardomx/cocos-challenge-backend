@@ -18,6 +18,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @IntegrationTest
 class OrderRepositoryIT {
@@ -27,8 +29,19 @@ class OrderRepositoryIT {
   private static final long PAMP = 47;
   private static final long FIRST_NEW_ORDER_ID = 12;
   private static final String FINGERPRINT = "a".repeat(64);
+  private static final Duration WINDOW = Duration.ofSeconds(5);
+
+  // What this connection did over orders and has not reported yet: it can include statements from
+  // before the transaction, so the test looks at how much each number grows.
+  private static final String INDEX_USE_OVER_ORDERS =
+      """
+      select coalesce(sum(idx_scan), 0) as scans, coalesce(sum(idx_tup_fetch), 0) as rows_fetched
+      from pg_stat_xact_user_tables where relid = 'public.orders'::regclass
+      """;
 
   @Autowired private OrderRepository repository;
+  @Autowired private JdbcClient jdbc;
+  @Autowired private TransactionTemplate transaction;
 
   private static NewOrder buy(long userId, UUID clientOrderId) {
     return new NewOrder(
@@ -84,6 +97,66 @@ class OrderRepositoryIT {
 
     assertThat(stored.price()).isNull();
     assertThat(stored.rejectionReason()).isEqualTo(RejectionReason.NO_MARKET_PRICE);
+  }
+
+  @Test
+  void findsTheNewestOrderOfAnEqualRequestInsideTheWindow() {
+    repository.insert(buy(USER_ONE, UUID.randomUUID()));
+    StoredOrder newest = repository.insert(buy(USER_ONE, UUID.randomUUID()));
+
+    assertThat(repository.findRecentEqualOrderId(USER_ONE, UUID.randomUUID(), FINGERPRINT, WINDOW))
+        .contains(newest.id());
+  }
+
+  @Test
+  void findsNoEqualOrderWithAWindowOfZero() {
+    repository.insert(buy(USER_ONE, UUID.randomUUID()));
+
+    assertThat(
+            repository.findRecentEqualOrderId(
+                USER_ONE, UUID.randomUUID(), FINGERPRINT, Duration.ZERO))
+        .isEmpty();
+  }
+
+  /**
+   * The window has to bound the index scan, not filter every order of the user afterwards: with a
+   * volatile clock, such as clock_timestamp(), Postgres reads them all. Here that would be the 11
+   * original orders of user 1, all from 2023. The test table is tiny, so the plans that would hide
+   * the difference are turned off for this transaction.
+   */
+  @Test
+  void readsNoOrderOfTheUserFromOutsideTheWindow() {
+    IndexUse used =
+        transaction.execute(status -> {
+          jdbc.sql("set local enable_seqscan = off").update();
+          jdbc.sql("set local enable_bitmapscan = off").update();
+          IndexUse before = indexUseOverOrders();
+          repository.findRecentEqualOrderId(USER_ONE, UUID.randomUUID(), FINGERPRINT, WINDOW);
+          return indexUseOverOrders().since(before);
+        });
+
+    assertThat(used).isEqualTo(new IndexUse(1, 0));
+  }
+
+  private IndexUse indexUseOverOrders() {
+    return jdbc.sql(INDEX_USE_OVER_ORDERS).query(IndexUse.class).single();
+  }
+
+  /** How many index scans ran over orders, and how many rows they fetched from the table. */
+  private record IndexUse(long scans, long rowsFetched) {
+
+    IndexUse since(IndexUse earlier) {
+      return new IndexUse(scans - earlier.scans, rowsFetched - earlier.rowsFetched);
+    }
+  }
+
+  @Test
+  void leavesOutTheOrderOfTheSameClientOrderId() {
+    UUID clientOrderId = UUID.randomUUID();
+    repository.insert(buy(USER_ONE, clientOrderId));
+
+    assertThat(repository.findRecentEqualOrderId(USER_ONE, clientOrderId, FINGERPRINT, WINDOW))
+        .isEmpty();
   }
 
   @Test

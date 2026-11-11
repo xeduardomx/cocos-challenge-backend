@@ -44,7 +44,15 @@ en −10. Con turno, la segunda queda `REJECTED` y la posición termina en 5.
 Cada orden trae un identificador que genera el cliente. Si la misma orden llega de nuevo, la API devuelve la original
 con un 200, sin volver a evaluarla. Si ese identificador llega con otro contenido, responde 422 y no graba nada.
 
-[RFC 5.3](03-rfc.md#53-reintentos) · [ADR 0005](adr/0005-reintentos-con-identificador-y-huella.md)
+¿Y si la app, por un error suyo, manda la misma orden con un identificador nuevo? Ya no es un reintento, y la API no
+puede saber si es un error o una decisión. Una segunda red frena el caso más común: si la orden es igual a otra que el
+usuario mandó hace menos de 5 segundos, responde 409 y avisa cuál es. Es una consulta más dentro del turno, con la
+huella del pedido que ya se guarda. En EE. UU., la SEC les exige ese control a los brokers, y los procesadores de pagos
+lo traen prendido. Ninguno fija un número: la ventana es configurable.
+
+[RFC 5.3](03-rfc.md#53-reintentos) · [ADR 0005](adr/0005-reintentos-con-identificador-y-huella.md) ·
+[RFC 5.5](03-rfc.md#55-la-misma-orden-con-otro-identificador) ·
+[ADR 0009](adr/0009-ordenes-iguales-con-otro-identificador.md)
 
 ### 3. ¿Por qué las posiciones se calculan y no se guardan?
 
@@ -133,10 +141,10 @@ producción: el enunciado permite ajustar la base si se justifica. Los datos no 
 ### 12. ¿Cómo se sabe que funciona y que aguanta?
 
 Tests en tres niveles, con los casos del PRD: los cálculos en Java puro, y las consultas y las funciones de punta a punta
-contra un Postgres real. Los 20 casos del envío son el test funcional que pide el enunciado, y el build falla si la
+contra un Postgres real. Los 27 casos del envío son el test funcional que pide el enunciado, y el build falla si la
 cobertura baja de 85 % de las líneas o 80 % de las ramas. Y se midió con 2
 millones de órdenes: el objetivo era un percentil 95 por debajo de 100 ms, y el peor caso, el envío de un usuario con
-10.000 órdenes, dio 61,15 ms. Es una carga moderada en una computadora de escritorio: sirve como orden de magnitud.
+10.000 órdenes, dio 59,58 ms. Es una carga moderada en una computadora de escritorio: sirve como orden de magnitud.
 
 [RFC 10](03-rfc.md#10-estrategia-de-tests) · [RFC 8.4](03-rfc.md#84-el-objetivo-de-tiempo-de-respuesta-gen-8) ·
 [la medición](mediciones/06-tiempo-de-respuesta.md)

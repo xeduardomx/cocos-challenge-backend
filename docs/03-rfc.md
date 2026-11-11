@@ -1,6 +1,7 @@
 # 03 — RFC: cómo se construye la API
 
-> Fase 3 · 2026-11-07 · Estado: **aprobado por el autor el 2026-11-07**
+> Fase 3 · 2026-11-07 · Estado: **aprobado por el autor el 2026-11-07** · Revisado el 2026-11-10 (fase 8): se agregó
+> la sección 5.5
 >
 > El PRD ([`02-prd.md`](02-prd.md)) dice qué tiene que hacer la API; este documento dice cómo se construye. Cubre lo
 > que el PRD dejó para esta fase (su sección 6) y los cambios a la base que quedaron pendientes en
@@ -15,7 +16,8 @@ medidos. Lo central:
 
 - **La plata y las acciones nunca se gastan dos veces.** Cada envío toma el turno de su usuario, un lock sobre su
   fila, y cada orden trae un identificador que convierte un reintento en la misma orden. Probado en la copia local:
-  sin turno, dos ventas simultáneas dejan el mismo −10 que la orden 11 (sección 5).
+  sin turno, dos ventas simultáneas dejan el mismo −10 que la orden 11 (sección 5). Como segunda red, una orden igual
+  a otra recién aceptada, pero con otro identificador, se frena como posible duplicado (sección 5.5).
 - **La cuenta se calcula desde las órdenes, en un solo lugar y en Java,** con un solo índice nuevo para las consultas:
   1,2 ms en la base para un usuario de 10.000 órdenes, con 2 millones en la tabla (secciones 3.5 y 4).
 - **La base no acepta datos imposibles:** reglas que miran una fila, verificadas contra los datos de hoy, y tres
@@ -203,7 +205,9 @@ El envío de una orden es el recorrido más completo:
    4. si con esos datos no se puede armar la orden (el activo no existe o es ARS; por monto, la cantidad da 0 o no
       entra en `size`; o por monto y a mercado, el activo no cotiza), da error y no graba nada (A-6). Si se puede, los cálculos deciden el resultado: `FILLED`, `NEW` o `REJECTED`, con
       su motivo;
-   5. graba la orden.
+   5. si iba a quedar `FILLED` o `NEW`, se fija si el usuario tiene otra orden igual, aceptada hace menos de 5 segundos:
+      si la tiene, da error y no graba nada (sección 5.5);
+   6. graba la orden.
 4. **Los repositories** ejecutan cada paso en SQL, dentro de esa misma transacción.
 5. **El controller responde** con la orden y su estado (sección 6), y las métricas la cuentan por tipo, lado y estado
    (sección 8).
@@ -827,6 +831,97 @@ returning ...
   reserva todavía activa: puede rechazar de más, nunca gastar dos veces. Y cancelar bloquea la fila de la orden, no la
   del usuario, así que no espera a los envíos ni los traba.
 
+### 5.5 La misma orden con otro identificador
+
+El identificador protege un reintento solo si la app lo repite (5.3). Si la misma orden llega con un identificador
+nuevo, para la API son dos pedidos distintos y los dos válidos. Una segunda red frena el caso más común, el duplicado
+que llega enseguida (R-6, ENV-10, [ADR 0009](adr/0009-ordenes-iguales-con-otro-identificador.md)).
+
+Dentro del turno, después de evaluar la orden y solo si iba a quedar `FILLED` o `NEW`, se busca otra orden del mismo
+usuario con la misma huella, también `FILLED` o `NEW`, grabada hace menos de 5 segundos:
+
+```sql
+select id from orders
+where userid = :userId
+  and datetime > statement_timestamp() - :ventana
+  and requestfingerprint = :huella
+  and clientorderid <> :clientOrderId
+  and status in ('FILLED', 'NEW')
+order by datetime desc, id desc
+limit 1
+```
+
+- **Si existe,** la API responde 409 con el número de esa orden y no graba nada (sección 7.3).
+- **Si no existe,** graba la orden.
+
+<!-- --8<-- [start:duplicado] -->
+```mermaid
+sequenceDiagram
+    participant App
+    participant API
+    participant DB as Postgres
+    App->>API: compra 10 PAMP, con el identificador A
+    API->>DB: toma el turno, evalúa y graba la orden 12 (FILLED)
+    API-->>App: 201, la orden 12
+    App->>API: a los 2 segundos, la misma compra con el identificador B
+    API->>DB: toma el turno y busca B: no existe
+    API->>DB: evalúa: quedaría FILLED
+    API->>DB: busca la misma huella, aceptada hace menos de 5 segundos: la orden 12
+    API-->>App: 409, posible duplicado de la orden 12
+```
+<!-- --8<-- [end:duplicado] -->
+
+| Caso | Resultado |
+|---|---|
+| La misma orden, con otro identificador, dentro de los 5 segundos | 409, y no se graba |
+| La misma, pasados los 5 segundos | se acepta: se toma como una decisión nueva |
+| La misma, con el mismo identificador | 200, con la orden original (5.3) |
+| La primera quedó `REJECTED`, o era una límite y se canceló | la segunda se evalúa normalmente |
+| La segunda igual iba a quedar `REJECTED` | se graba `REJECTED`, como siempre |
+| Otro usuario manda la misma orden | se acepta: el control es por usuario |
+
+- **Por qué se mira después de evaluar.** Una orden que igual iba a quedar `REJECTED` no hace daño, y el enunciado
+  pide grabar los rechazos. Así el caso 2 de GEN no cambia: dos compras iguales de $600.000 que llegan juntas dejan una
+  `FILLED` y una `REJECTED`, no un posible duplicado.
+- **Por qué no hay carrera.** Las dos órdenes son del mismo usuario, así que pasan por el turno de a una (5.2): la
+  segunda siempre ve a la primera, ya confirmada. Con un cache en memoria habría que resolver eso a mano, y con dos
+  instancias de la API no funcionaría.
+- **Un solo reloj.** La hora de la orden anterior la puso la base al grabarla (sección 3.4), y "ahora" es
+  `statement_timestamp()`, el momento en que arranca la consulta: no importa si los relojes de dos instancias de la API
+  difieren.
+- **Por qué `statement_timestamp()` y no `clock_timestamp()`** (encontrado al medir, fase 8). `clock_timestamp()` es
+  volátil: puede cambiar en cada fila, así que Postgres no la usa como límite del recorrido del índice. La primera
+  versión buscaba por usuario y descartaba después, una por una, las 10.000 órdenes del usuario pesado, y el percentil
+  95 de su envío subió de unos 57 ms a 72,9 ms. `statement_timestamp()` es estable durante la consulta, y el índice
+  recorre solo la ventana ([`mediciones/05-duplicado-resultados.md`](mediciones/05-duplicado-resultados.md)).
+- **Qué es "igual".** La misma huella (5.3): el activo, el lado, el tipo, la cantidad o el monto y el precio límite, tal
+  como se mandaron. "10 PAMP" y "$9.258,50 de PAMP" son dos pedidos distintos. Las órdenes viejas no tienen huella, así
+  que nunca cuentan como la primera.
+- **Por qué `clientorderid <> :clientOrderId`** (encontrado al implementar, fase 8). Una orden con el mismo
+  identificador no es otra orden: es un reintento, y lo contestan la búsqueda por identificador o la regla de unicidad
+  (5.3). Dentro del turno nunca aparece, porque la búsqueda por identificador va antes. En el camino sin turno que
+  cubre la regla de unicidad sí: sin esa condición, el test de ese camino recibía un 409 en vez de reintentar.
+- **Cuánto cuesta.** Una consulta más por orden aceptada, que usa el índice por (usuario, fecha, id) de la sección 3.5
+  y lee solo las órdenes de ese usuario de los últimos 5 segundos: 3 páginas y unos 0,01 ms en la base para el usuario de
+  10.000 órdenes (medido).
+- **Lo que no frena.** Un reintento con otro identificador que llega pasados los 5 segundos: la API no lo puede
+  distinguir de una orden nueva. Contra eso la app tiene que repetir el identificador (5.3). Y si la app, ante el 409,
+  espera y reenvía sola, el duplicado entra igual: tiene que mostrarle el aviso a la persona. Lo mismo si el 409 se
+  pierde y la app reintenta con ese identificador pasados los 5 segundos: el pedido frenado no se graba, así que su
+  identificador sigue libre.
+
+**Alternativas evaluadas**
+
+| Opción | Por qué no |
+|---|---|
+| Un cache en la memoria de la API | cada instancia tiene su memoria: con dos, el segundo pedido puede caer en la que no vio el primero |
+| Un almacén compartido con vencimiento, como Redis | una pieza más para levantar y operar, separada de la transacción que graba la orden |
+| Mirar antes de evaluar | cambia el caso 2 de GEN, y frena órdenes que igual iban a quedar rechazadas |
+| Aceptar la segunda si trae una confirmación explícita | cambia el contrato del envío y necesita su pantalla en la app: queda como evolución |
+| Una ventana de 2 segundos | deja pasar un reintento automático con esperas de 1 y 2 segundos, y a la persona que toca de nuevo porque la app tarda |
+| Una ventana de 30 o 120 segundos, como en los pagos | frena a quien repite una compra a propósito |
+| Responder 429 | es el código de los límites de frecuencia, y muchos clientes lo reintentan solos |
+
 ## 6. Contratos de la API
 
 ### 6.1 Las direcciones
@@ -1002,6 +1097,21 @@ decisión 2):
 **Reintento** (caso 15): el mismo pedido, con el mismo identificador, responde 200 con la orden original, en su estado
 actual: una límite que después se canceló vuelve `CANCELLED`.
 
+**Posible duplicado** (caso 21): la compra de 10 PAMP de arriba, mandada otra vez enseguida con otro identificador.
+Responde 409 y no graba nada (sección 5.5):
+
+```json
+{
+  "type": "/problems/possible-duplicate-order",
+  "title": "Posible orden duplicada",
+  "status": 409,
+  "detail": "Acaba de entrar una orden igual, la 12. Si querés otra igual, esperá unos segundos y volvé a enviarla.",
+  "instance": "/users/1/orders",
+  "existingOrderId": 12,
+  "requestId": "0f8d6c3e-2b1a-4e7d-9c5f-6a4b3d2e1f00"
+}
+```
+
 **Listado** de las pendientes (caso 1 de LIS):
 
 ```http
@@ -1048,7 +1158,7 @@ con `"quantity": null`, `"price": null` y `"amount": 1000000.00`.
 | 201 | el envío creó una orden: `FILLED`, `NEW` o `REJECTED` |
 | 400 | el pedido no se puede armar: falta un dato, un valor no es válido, el activo no existe, el cursor no se puede leer |
 | 404 | no existe lo que está en la dirección: el usuario, o la orden (o es de otro usuario) |
-| 409 | se quiere cancelar una orden que ya no está `NEW` (CAN-3) |
+| 409 | se quiere cancelar una orden que ya no está `NEW` (CAN-3); o el envío es igual a otra orden recién aceptada del usuario, con otro identificador (sección 5.5) |
 | 422 | el identificador ya se usó con otro contenido. Es el código que propone el borrador del IETF para `Idempotency-Key` (R-2) |
 | 503 | el envío no consiguió el turno del usuario en 2 segundos: "intentá de nuevo" (sección 5.2) |
 | 500 | un error inesperado, sin detalles internos en la respuesta |
@@ -1090,6 +1200,7 @@ Van en `application.yml`, con `@ConfigurationProperties` (`CLAUDE.md`):
 | Tamaño de página del listado, por defecto (LIS-3) | 20 | una pantalla de órdenes |
 | Tamaño de página máximo (LIS-3) | 100 | un pedido más grande da 400 |
 | Espera máxima del turno (sección 5.2) | 2 segundos | el turno dura milisegundos |
+| Ventana del posible duplicado (sección 5.5) | 5 segundos | frena el doble clic y el reintento inmediato, y una persona casi no puede repetir una orden a propósito en menos tiempo. Con 0, el control se apaga |
 
 La espera del turno tiene un mínimo de 1 ms, que se valida al arrancar: Postgres toma un `lock_timeout` de 0 como
 "sin límite" (precisado al implementar, fase 5).
@@ -1111,10 +1222,11 @@ Spring Boot 4.1.2, la misma versión que usa la API.
 ### 7.1 El formato
 
 Todos los errores usan Problem Details (RFC 9457), con `Content-Type: application/problem+json`. Spring lo trae, y se
-prende con `spring.mvc.problemdetails.enabled: true` (por defecto viene apagado). A los campos estándar se suman tres:
-`requestId`, el id del pedido que también está en los logs (sección 8); `errors`, la lista de campos con problemas,
-en un `validation-error` que tiene un campo concreto (un parámetro de la dirección que no se puede leer no lo tiene, y
-va sin `errors`); y `currentStatus`, el estado actual de la orden, en un 409.
+prende con `spring.mvc.problemdetails.enabled: true` (por defecto viene apagado). A los campos estándar se suman
+cuatro: `requestId`, el id del pedido que también está en los logs (sección 8); `errors`, la lista de campos con
+problemas, en un `validation-error` que tiene un campo concreto (un parámetro de la dirección que no se puede leer no lo
+tiene, y va sin `errors`); `currentStatus`, el estado actual de la orden, en el 409 de la cancelación; y
+`existingOrderId`, el número de la orden igual que ya entró, en el 409 de un posible duplicado.
 
 ```json
 {
@@ -1153,6 +1265,7 @@ Siguen los dos tipos de error del recorrido de un pedido (sección 2, pasos 2 y 
 | 404 | `/problems/user-not-found` | el usuario de la dirección no existe | "No existe el usuario 99." |
 | 404 | `/problems/order-not-found` | la orden no existe, o es de otro usuario: la respuesta es la misma, para no confirmar órdenes ajenas (CAN-4) | "No existe la orden 999." |
 | 409 | `/problems/order-not-cancellable` | la orden ya no está `NEW`. Trae el estado actual en `currentStatus` (CAN-3) | "La orden 3 ya está CANCELLED: solo se cancela una orden NEW." |
+| 409 | `/problems/possible-duplicate-order` | el envío iba a quedar aceptado y es igual a otra orden aceptada del usuario hace menos de 5 segundos, con otro identificador. Trae el número de esa orden en `existingOrderId` (R-6) | "Acaba de entrar una orden igual, la 12. Si querés otra igual, esperá unos segundos y volvé a enviarla." |
 | 422 | `/problems/client-order-id-reused` | el identificador ya se usó con otro contenido (R-2) | "Ese identificador ya se usó en otra orden. Para una orden nueva, generá uno nuevo." |
 | 503 | `/problems/user-busy` | el envío no consiguió el turno del usuario en 2 segundos. Trae el encabezado `Retry-After: 1` | "Tu cuenta está procesando otra orden. Intentá de nuevo." |
 | 500 | `/problems/internal-error` | cualquier error inesperado | "Ocurrió un error inesperado." |
@@ -1214,6 +1327,9 @@ Con Micrometer, que viene con Spring Boot, expuestas para Prometheus en `/actuat
 Las etiquetas toman pocos valores (2 lados × 2 tipos × 3 estados × 4 motivos, incluido "ninguno"), así que no
 multiplican las series. El usuario y la orden no van como etiqueta: tendrían un valor por usuario.
 
+Los posibles duplicados frenados (sección 5.5) no tienen contador propio: son las respuestas 409 del envío, que
+`http_server_requests_seconds` ya cuenta por dirección, método y código. Ese número dice cada cuánto actúa el control.
+
 Dos cosas encontradas al implementar (fase 6):
 
 - **El contador se llama `orders_recorded_total`, no `orders_created_total`.** OpenMetrics, el formato que lee
@@ -1257,6 +1373,10 @@ del objetivo, como límite documentado (A-4): su portfolio lee unas 850.000 órd
 usuario extremo tarda entre 0,66 y 0,94 segundos por portfolio. Los números, la máquina y cómo repetirlo están en
 [`mediciones/06-tiempo-de-respuesta.md`](mediciones/06-tiempo-de-respuesta.md).
 
+**Medido de nuevo en la fase 8,** con el control de posibles duplicados (sección 5.5): se cumple igual. El peor
+percentil 95 sigue siendo el envío del usuario pesado, 59,58 ms. Esa medición encontró que la primera versión de la
+consulta nueva leía todas las órdenes del usuario, y se corrigió (72,9 ms antes de corregirla).
+
 ## 9. Seguridad
 
 - **Sin autenticación,** porque el enunciado dice que no hace falta (S-5). La consecuencia está documentada:
@@ -1299,7 +1419,7 @@ Primero el test que falla, después el código (`CLAUDE.md`). Los casos del PRD 
 |---|---|---|---|
 | Unitarios | los cálculos en Java puro: la cuenta, el PPC, la cantidad por monto, el redondeo, la huella y el cursor | JUnit 6 (el que trae Spring Boot 4.1.2) y AssertJ, sin Spring ni base: milisegundos | PPC $150 (caso 5 de POR); $9.258,50 en PAMP dan 10 acciones (caso 4 del envío); `10000` y `10000.00` dan la misma huella |
 | Integración | cada consulta y cada migración, contra Postgres 18 real | Testcontainers, con `database.sql` y las migraciones: el mismo camino que Neon (sección 3.6) | el último precio sale por fecha y no por orden de carga (caso 8 de POR); la búsqueda; el cursor con microsegundos (caso 4 de LIS) |
-| Funcionales | las cinco funciones de punta a punta, por HTTP, con la API levantada | Spring Boot sobre la base de Testcontainers y un cliente HTTP | los casos del PRD: los 20 del envío, que son el test funcional que pide el enunciado (GEN-3), y los de portfolio, búsqueda, cancelación y listado |
+| Funcionales | las cinco funciones de punta a punta, por HTTP, con la API levantada | Spring Boot sobre la base de Testcontainers y un cliente HTTP | los casos del PRD: los 27 del envío, que son el test funcional que pide el enunciado (GEN-3), y los de portfolio, búsqueda, cancelación y listado |
 
 Neon nunca se toca en los tests (`CLAUDE.md`). El tiempo de respuesta no se prueba acá: se mide en la fase 6 (sección
 8.4), porque los tiempos en CI varían.
@@ -1326,13 +1446,16 @@ varios escriben (el envío, la cancelación), mientras D-8.4 pedía que cada tes
 
 ### 10.3 Los casos simultáneos
 
-Son el caso 1 y el 2 de GEN, el caso 20 del envío y CAN-5. Dos hilos mandan sus pedidos a la vez. Para que el test
+Son el caso 1 y el 2 de GEN, los casos 20 y 27 del envío y CAN-5. Dos hilos mandan sus pedidos a la vez. Para que el test
 falle siempre sin el turno, y no solo cuando los hilos se cruzan por casualidad, el test inyecta una pausa: la primera
 orden espera, después de leer su cuenta, a que la segunda haya arrancado. La pausa va en el test (un espía sobre el
 repository), sin cambiar el código de la API. Sin el turno, las dos leen la misma cuenta y el test falla; con el turno,
 la segunda espera, y el test verifica que esté esperando su turno en Postgres antes de soltar a la primera. Es lo
 mismo que las pruebas A y B de la sección 5, pero con la API real. Si alguien cambiara el nivel de aislamiento a
 `REPEATABLE READ`, este mismo test fallaría, como la prueba C.
+
+**Los casos del posible duplicado no esperan 5 segundos.** Para probar "pasada la ventana", el test le cambia la hora a
+la primera orden en la base, en vez de dormir: corre en milisegundos y no depende de la velocidad de la máquina.
 
 ### 10.4 Cobertura
 
@@ -1432,6 +1555,10 @@ entorno: la base (sección 9), si migra al arrancar (sección 3.6) y los número
 Spring: una sola configuración, y las variables la pisan. Para apuntar a Neon, `scripts/run-on-neon.sh` llena las variables de
 la base desde `.env`, que nunca se sube al repo.
 
+El compose también deja cambiar la ventana del posible duplicado (sección 5.5), con `API_DUPLICATE_ORDER_WINDOW`: por
+ejemplo, `API_DUPLICATE_ORDER_WINDOW=0s docker compose up --build` apaga el control. Un valor negativo no deja arrancar la
+API (agregado en la fase 8).
+
 ### 11.5 La colección de Postman
 
 En `postman/`, con la colección y un entorno local (la dirección de la API). Recorre todo:
@@ -1519,13 +1646,14 @@ siete diagramas sin errores, el buscador encuentra con y sin tilde, y en un celu
 | El turno del usuario es un lock sobre su fila de `users`, en `READ COMMITTED`, con espera máxima de 2 segundos | probado: sin turno, dos ventas dejan el mismo −10 que la orden 11; en `REPEATABLE READ`, también | sección 5.2, ADR 0004 |
 | El reintento se reconoce dentro del turno, con la huella `v1` del pedido; la regla de unicidad queda como red | probado: dos pedidos con el mismo identificador crean una sola orden | sección 5.3, ADR 0005 |
 | La cancelación no toma el turno: es un solo `UPDATE` condicionado | solo libera reservas, y dos cancelaciones simultáneas no ganan las dos (probado) | sección 5.4 |
+| Una orden igual a otra aceptada hace menos de 5 segundos, con otro identificador, se frena con 409: una consulta a `orders` dentro del turno, con la huella que ya se guarda (agregado en la fase 8) | el identificador no protege si la app genera uno nuevo en cada intento. El turno evita la carrera, y la base ya tiene el dato: no hace falta un cache | sección 5.5, ADR 0009 |
 | Direcciones con el usuario en la ruta, cancelación con `POST .../cancel` y sin versión en la ruta | no hay autenticación (S-5), y la orden cancelada no se borra | sección 6.1 |
 | `REJECTED` y orden nueva responden 201; el reintento, 200; el identificador repetido con otro contenido, 422 | la orden rechazada existe; el reintento no crea nada | sección 6.3 |
 | `amount` es siempre cantidad × precio, y en depósitos y retiros reemplaza a cantidad y precio | muestra lo que de verdad se usa en una orden por monto, y cumple LIS-5 | sección 6.2 |
 | El identificador va en el cuerpo (`clientOrderId`), no en un encabezado | es un dato de la orden, como el `ClOrdID` de FIX | sección 6.5 |
-| Los números configurables: 20 resultados, 50 caracteres, páginas de 20 (máximo 100), turno de 2 segundos | cada uno con su porqué | sección 6.6 |
+| Los números configurables: 20 resultados, 50 caracteres, páginas de 20 (máximo 100), turno de 2 segundos, ventana del posible duplicado de 5 segundos | cada uno con su porqué | sección 6.6 |
 | Se publica la especificación OpenAPI con springdoc-openapi | quien evalúa recorre la API desde el navegador, y la especificación sale del código | sección 6.7, ADR 0008 |
-| Errores en Problem Details con `type` fijo, `requestId` y lista de campos; catálogo de 8 tipos, con textos en español | el cliente decide por el `type`, la persona lee el `detail`, y un 500 no muestra nada interno | sección 7 |
+| Errores en Problem Details con `type` fijo, `requestId` y lista de campos; catálogo de 9 tipos, con textos en español | el cliente decide por el `type`, la persona lee el `detail`, y un 500 no muestra nada interno | sección 7 |
 | Logs en JSON (ECS) con el id de cada pedido; la API nunca lee el email | se filtran por campo, y el email no se puede registrar por error | sección 8.1 |
 | Cinco métricas: órdenes creadas por lado, tipo, estado y motivo; cancelaciones; reintentos; espera del turno; y las de HTTP | responden GEN-4 sin etiquetas que multipliquen las series | sección 8.2 |
 | Prometheus y Grafana en el compose, con el tablero cargado desde el repo; New Relic, documentado como el cambio de registro | quien evalúa ve las métricas reales sin crear cuentas | sección 8.3, ADR 0007 |
@@ -1552,3 +1680,4 @@ En la carpeta [`adr/`](adr/), un archivo corto por decisión, con contexto, opci
 - [ADR 0006 — Migraciones con Flyway, sobre una base con datos y sin historial](adr/0006-migraciones-con-flyway.md)
 - [ADR 0007 — Métricas con Micrometer, y Prometheus y Grafana en el `docker compose`](adr/0007-metricas-con-prometheus-y-grafana.md)
 - [ADR 0008 — Especificación OpenAPI con springdoc-openapi](adr/0008-openapi-con-springdoc.md)
+- [ADR 0009 — Órdenes iguales con otro identificador: una segunda red, con la huella y una ventana de 5 segundos](adr/0009-ordenes-iguales-con-otro-identificador.md)

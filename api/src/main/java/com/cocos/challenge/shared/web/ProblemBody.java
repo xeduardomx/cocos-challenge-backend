@@ -17,5 +17,12 @@ record ProblemBody(
     @Schema(description = "El id del pedido, el mismo que está en los logs") String requestId,
     @Schema(description = "Los campos con problemas, en un 400")
         @Nullable List<FieldViolation> errors,
-    @Schema(description = "El estado actual de la orden, en un 409", example = "FILLED")
-        @Nullable String currentStatus) {}
+    @Schema(
+            description = "El estado actual de la orden, en el 409 de la cancelación",
+            example = "FILLED")
+        @Nullable String currentStatus,
+    @Schema(
+            description =
+                "El número de la orden igual que ya entró, en el 409 de un posible duplicado",
+            example = "12")
+        @Nullable Long existingOrderId) {}

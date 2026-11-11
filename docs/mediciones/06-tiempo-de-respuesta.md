@@ -4,6 +4,9 @@
 > Docker en la misma máquina, y los datos en memoria: sirven como orden de magnitud. Es la salida de
 > [`scripts/run-load-test.sh`](https://github.com/xeduardomx/cocos-challenge-backend/blob/main/scripts/run-load-test.sh), que carga
 > [`perf/seed-volume.sql`](https://github.com/xeduardomx/cocos-challenge-backend/blob/main/perf/seed-volume.sql) y corre [`perf/load-test.js`](https://github.com/xeduardomx/cocos-challenge-backend/blob/main/perf/load-test.js) con k6.
+>
+> **Medida de nuevo el 2026-11-10,** cuando la API sumó el control de posibles duplicados: el objetivo se sigue
+> cumpliendo, y el resultado está en ["Con el control de posibles duplicados"](#con-el-control-de-posibles-duplicados-2026-11-10).
 
 ## Qué se midió y con qué objetivo
 
@@ -18,7 +21,7 @@ de k6: desde que se manda el pedido hasta que llega la respuesta completa, sin c
 |---|---|
 | `search` | Busca un texto, rotando entre cinco (`pamp`, `banco`, `gas`, `ypf`, `holding`) |
 | `portfolio_typical`, `portfolio_heavy` | Pide el portfolio de un usuario típico al azar, o del pesado |
-| `submit_typical`, `submit_heavy` | Compra a mercado 1 acción de METR ($229,50), y la compra tiene que quedar `FILLED`. Cada envío lleva su propio `clientOrderId` |
+| `submit_typical`, `submit_heavy` | Compra a mercado 1 acción de METR ($229,50), y la compra tiene que quedar `FILLED`. Cada envío lleva su propio `clientOrderId`. Desde el 2026-11-10 la compra va por monto, con centavos que rotan: ver "Con el control de posibles duplicados" |
 | `list_typical`, `list_heavy` | Pide la primera página del listado, y la mitad de las veces con el filtro `status=NEW`, la consulta de listado más cara según el RFC 3.5 |
 | `cancel_typical`, `cancel_heavy` | Manda una orden `LIMIT`, que queda `NEW`, y la cancela. **El umbral mide solo el pedido de cancelar:** va sobre la etiqueta `step:cancel` |
 
@@ -103,8 +106,6 @@ docker compose down
 
 k6 terminó con código 0, con los nueve umbrales de tiempo y los demás cumplidos. En cada escenario, pedidos y tiempos en milisegundos:
 
-<!-- --8<-- [start:resultado-volumen] -->
-
 | Escenario | Pedidos | p50 (ms) | p95 (ms) | p99 (ms) | Máximo (ms) | p95 de la corrida anterior (ms) |
 |---|---|---|---|---|---|---|
 | `search` | 600 | 3,06 | **4,53** | 5,45 | 33,33 | 4,59 |
@@ -116,8 +117,6 @@ k6 terminó con código 0, con los nueve umbrales de tiempo y los demás cumplid
 | `list_heavy` | 601 | 4,18 | **8,31** | 9,15 | 11,12 | 8,21 |
 | `cancel_typical` (solo el pedido de cancelar) | 601 | 1,87 | **3,1** | 4,1 | 5,24 | 3,12 |
 | `cancel_heavy` (solo el pedido de cancelar) | 601 | 1,49 | **3,09** | 3,69 | 4,47 | 3,2 |
-
-<!-- --8<-- [end:resultado-volumen] -->
 
 La última columna es el percentil 95 de una corrida anterior con la misma carga y los mismos datos. Entre las dos
 corridas, la mayor diferencia es de 1,24 ms, en `submit_heavy`.
@@ -185,9 +184,126 @@ Los límites de esta medición: es una carga moderada de 110 pedidos por segundo
 escritorio, con la base en memoria y k6 compartiendo la máquina con la API; y no dice cuántos pedidos aguanta la API, ni
 cómo se comporta por encima de esa carga. El usuario extremo no entra en el objetivo y queda documentado arriba.
 
+## Con el control de posibles duplicados (2026-11-10)
+
+En la fase 8 la API sumó el control de posibles duplicados: una orden igual a otra aceptada del mismo usuario hace
+menos de 5 segundos, con otro identificador, se frena con 409
+([RFC, sección 5.5](../03-rfc.md#55-la-misma-orden-con-otro-identificador)). Para la medición cambiaron dos cosas.
+
+**1. El script: ahora cada orden es distinta.** Antes, cada escenario mandaba siempre la misma compra, 10 veces por
+segundo. Con el control casi todas se frenarían. Se comprobó con el script anterior, en una corrida corta de la línea de
+base: quedó `FILLED` el 1 % de las compras, y el resto recibió el 409.
+
+| Orden | Antes | Ahora |
+|---|---|---|
+| Compra a mercado | 1 acción de METR, por cantidad | por monto, de $230,00 a $429,99: siempre alcanza para 1 acción de METR ($229,50) y no para 2, así que gasta lo mismo que antes |
+| Orden `LIMIT` de la cancelación | 1 acción a $100 | 1 acción, a un precio de $10,00 a $209,99 |
+
+Los centavos salen del escenario y del número de iteración. Cada escenario tiene un rango propio, porque en la línea de
+base un solo usuario recibe a la vez las órdenes de todos. Dentro de su rango, un escenario repite una orden recién a
+los 100 segundos: 1.000 iteraciones, a 10 por segundo.
+
+**2. La consulta nueva, corregida con esta medición.** La primera versión del control comparaba la hora contra
+`clock_timestamp()`. La corrida terminó con código 0, pero el envío del usuario pesado subió a 72,9 ms de percentil 95.
+Esa función es volátil, y Postgres leía las 10.000 órdenes del usuario en vez de usar el índice para la ventana. Con
+`statement_timestamp()` lee solo los últimos 5 segundos. El detalle está en
+[`05-duplicado-resultados.md`](05-duplicado-resultados.md).
+
+**Resultado con volumen,** con la consulta corregida. k6 terminó con código 0, con los nueve umbrales de tiempo y los
+demás cumplidos:
+
+<!-- --8<-- [start:resultado-volumen] -->
+
+| Escenario | Pedidos | p50 (ms) | p95 (ms) | p99 (ms) | Máximo (ms) | p95 del 2026-11-08, sin el control (ms) |
+|---|---|---|---|---|---|---|
+| `search` | 601 | 3,03 | **4,79** | 8 | 25,44 | 4,53 |
+| `portfolio_typical` | 600 | 5,51 | **7,12** | 8,17 | 24,3 | 6,94 |
+| `portfolio_heavy` | 600 | 24,7 | **33,91** | 36,23 | 42,36 | 35,01 |
+| `submit_typical` | 601 | 6,61 | **8,94** | 11,68 | 15 | 8,32 |
+| `submit_heavy` | 601 | 29,18 | **59,58** | 68,88 | 72,46 | 61,15 |
+| `list_typical` | 601 | 2,89 | **4,65** | 5,25 | 23,12 | 4,52 |
+| `list_heavy` | 600 | 4,07 | **8,39** | 9,53 | 10,59 | 8,31 |
+| `cancel_typical` (solo el pedido de cancelar) | 601 | 1,7 | **3,14** | 3,83 | 4,44 | 3,1 |
+| `cancel_heavy` (solo el pedido de cancelar) | 600 | 1,18 | **2,96** | 3,67 | 4,81 | 3,09 |
+
+<!-- --8<-- [end:resultado-volumen] -->
+
+El envío del usuario pesado, por versión de la consulta:
+
+| Corrida | p50 (ms) | p95 (ms) |
+|---|---|---|
+| 2026-11-08, sin el control | 32,14 | 61,15 |
+| 2026-11-10, con el control y `clock_timestamp()` | 37,24 | 72,9 |
+| 2026-11-10, con el control y `statement_timestamp()` | 29,18 | **59,58** |
+
+**Línea de base,** con el usuario 1 como único usuario. k6 terminó con código 0:
+
+| Escenario | Pedidos | p50 (ms) | p95 (ms) | p99 (ms) | Máximo (ms) |
+|---|---|---|---|---|---|
+| `search` | 601 | 3,31 | **4,87** | 6,05 | 12,17 |
+| `portfolio_typical` | 601 | 6,65 | **10** | 11,28 | 35,14 |
+| `portfolio_heavy` | 600 | 6,64 | **9,91** | 11,22 | 37 |
+| `submit_typical` | 601 | 16,8 | **35,15** | 41,05 | 43,47 |
+| `submit_heavy` | 601 | 14,33 | **35,04** | 40,52 | 49,52 |
+| `list_typical` | 600 | 3,63 | **6,51** | 7,39 | 37,69 |
+| `list_heavy` | 601 | 3,63 | **6,31** | 7,33 | 9,27 |
+| `cancel_typical` (solo el pedido de cancelar) | 600 | 2,01 | **3,49** | 3,95 | 8,47 |
+| `cancel_heavy` (solo el pedido de cancelar) | 601 | 2,1 | **3,46** | 4,11 | 8,45 |
+
+**Cómo terminaron las órdenes.** Ninguna se frenó como posible duplicado ni quedó rechazada: todas las compras se
+ejecutaron y todas las órdenes `LIMIT` se cancelaron. En la línea de base, 1.504 compras `FILLED` y 1.503 órdenes `LIMIT`
+canceladas, sin ninguna respuesta 409.
+
+```text
+== Orders created by this run, by kind of user, type and final status (warm-up included)
+ user_kind |  type  |  status   | orders 
+-----------+--------+-----------+--------
+ heavy     | LIMIT  | CANCELLED |    750
+ heavy     | MARKET | FILLED    |    751
+ typical   | LIMIT  | CANCELLED |    751
+ typical   | MARKET | FILLED    |    751
+(4 rows)
+```
+
+**El usuario extremo,** en esta corrida: 0,790, 0,813, 0,773, 0,718 y 0,706 segundos.
+
+**El objetivo se sigue cumpliendo.** Con el control, el peor percentil 95 sigue siendo el envío del usuario pesado:
+59,58 ms, dentro de lo que ya variaba de una corrida a otra (61,15, 57,13 y 56,12 ms en las tres anteriores).
+
+### La máquina en reposo mide de más
+
+Al repetir esta medición para la verificación final, una corrida sobre el mismo código dio tiempos unas tres veces más
+bajos en **todos** los escenarios, también en los que el cambio no toca: el envío del usuario pesado, 18,99 ms de
+percentil 95, y la búsqueda, 1,41 ms. Un pedido suelto del usuario extremo, en cambio, tardó lo mismo que siempre.
+
+La diferencia no estaba en la API. Durante esa corrida, un proceso del sistema operativo que no tiene que ver con el
+proyecto (el que reporta errores de Ubuntu) ocupó un núcleo entero, de las 20:53 a las 21:05 según su registro. Se
+comprobó con una prueba controlada: la línea de base, en corto (10 segundos de calentamiento y 20 de medición), tres
+veces seguidas sobre el mismo código. En la del medio, un bucle vacío mantuvo ocupado un núcleo:
+
+| Corrida | Búsqueda, p50 | Portfolio, p50 | Envío, p50 | Envío, p95 |
+|---|---|---|---|---|
+| Máquina en reposo | 3,97 ms | 5,71 ms | 10,94 ms | 26,48 ms |
+| Con un núcleo ocupado por otro proceso | 1,29 ms | 1,7 ms | 4,3 ms | 6,99 ms |
+| Máquina en reposo, otra vez | 3,94 ms | 5,71 ms | 11,74 ms | 29,16 ms |
+
+**Por qué.** La computadora usa el modo de ahorro de energía de Linux (`powersave`). Con casi nada que hacer, el
+procesador baja la frecuencia de sus núcleos: medidos en reposo, promediaban unos 1.200 MHz, con algunos en 800. Con un
+solo núcleo ocupado, todos subían a unos 4.300 MHz. La carga de esta medición es liviana, 110 pedidos por segundo, y no
+alcanza para despertarlo: cada pedido lo atiende un procesador a un tercio de su velocidad. El pedido del usuario
+extremo ocupa un núcleo durante 0,7 segundos, y por eso tarda lo mismo en los dos casos.
+
+**Qué cambia en cómo se leen estos números:**
+
+- **Los tiempos de este documento son conservadores:** todas las corridas registradas son con la máquina en reposo. Un
+  servidor con carga, o configurado para rendimiento, respondería más rápido.
+- **Dos corridas se comparan solo si la máquina estaba igual.** La forma de saberlo es mirar los escenarios que el cambio
+  no toca. Entre la corrida con `clock_timestamp()` y la corregida, la búsqueda dio 4,81 y 4,79 ms, y el portfolio del
+  pesado, 34,31 y 33,91 ms: son comparables. La de 18,99 ms no lo es con ninguna, y no se usa como resultado.
+
 ## Salida de la corrida con volumen
 
-Lo que imprimió `scripts/run-load-test.sh`, sin las líneas de `docker compose`.
+Lo que imprimió `scripts/run-load-test.sh` en la corrida del 2026-11-08, sin las líneas de `docker compose`.
 
 ```text
 == Volume data

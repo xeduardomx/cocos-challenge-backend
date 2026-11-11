@@ -1,6 +1,7 @@
 # 02 — PRD: qué tiene que hacer la API
 
-> Fase 2 · 2026-11-07 · Estado: **aprobado por el autor el 2026-11-07**
+> Fase 2 · 2026-11-07 · Estado: **aprobado por el autor el 2026-11-07** · Revisado el 2026-11-10 (fase 8): se agregó
+> ENV-10, con sus casos
 >
 > Este documento dice qué hace la API y para qué. El porqué de cada decisión está en
 > [`01-analisis.md`](01-analisis.md) y [`01-decisiones.md`](01-decisiones.md), bajo el código que aparece entre
@@ -22,8 +23,9 @@
 **Para quién.**
 
 - **El inversor:** usa la app y nunca ve la API. Cuando este documento dice "el usuario", es él.
-- **La app:** llama a la API en nombre del inversor. Tiene una responsabilidad propia: ponerle un identificador a cada
-  orden nueva y usar el mismo cuando reintenta (R-2).
+- **La app:** llama a la API en nombre del inversor. Tiene dos responsabilidades propias: ponerle un identificador a
+  cada orden nueva y usar el mismo cuando reintenta (R-2); y, si la API frena una orden como posible duplicado,
+  mostrarle el aviso al inversor en vez de reenviarla sola (R-6).
 - **Soporte (secundario):** tiene que poder contestar "¿por qué me rechazaron esta orden?" y ver cuántas órdenes se
   ejecutan o se rechazan.
 
@@ -191,6 +193,7 @@ enseguida qué pasó con su orden. Estos casos son la base del test funcional qu
 | ENV-7 | **Error, sin grabar nada, cuando con lo enviado no se puede armar una orden** (la lista completa está en los casos) | A-6 |
 | ENV-8 | **La respuesta devuelve la orden:** su número (con el que se la cancela), el activo, el lado, el tipo, la cantidad (incluida la calculada por monto), el precio grabado, el estado, la fecha y hora con zona horaria, el identificador que puso la app y, si se rechazó, el motivo. Un rechazo no es un error: la orden existe, rechazada | A-6, D-10, R-2 |
 | ENV-9 | **Identificador obligatorio, único por usuario.** Si llega repetido con el mismo contenido, es un reintento: se devuelve la orden original, sin crear otra ni volver a evaluarla, aunque haya quedado rechazada. Si llega repetido con otro contenido, es un error. Un pedido que dio error no gasta el identificador, y dos usuarios pueden usar el mismo | R-2 |
+| ENV-10 | **Una orden igual a otra recién aceptada, con otro identificador, se frena como posible duplicado.** Vale cuando la orden iba a quedar `FILLED` o `NEW` y el mismo usuario tiene otra con el mismo contenido, en `FILLED` o `NEW`, de hace menos de 5 segundos. Es un error, no se graba nada y la respuesta dice cuál es la orden anterior. Pasados los 5 segundos se acepta. Una orden que igual iba a quedar `REJECTED` se graba como siempre (ENV-5). Agregado en la fase 8 | R-6 |
 
 **Casos.** Son del usuario 1 con sus datos originales, salvo que se aclare otra cosa.
 
@@ -249,6 +252,22 @@ enseguida qué pasó con su orden. Estos casos son la base del test funcional qu
 18. **Cuando** dos usuarios usan el mismo identificador, **entonces** se crean las dos órdenes.
 19. **Cuando** un pedido da error y lo corrige, **entonces** la orden se crea con el mismo identificador.
 20. **Cuando** llegan al mismo tiempo dos pedidos con el mismo identificador, **entonces** se crea una sola orden.
+
+*Posible duplicado (el mismo contenido, con otro identificador)*
+
+21. **Dado** que compró 10 PAMP a mercado, **cuando** enseguida manda la misma compra con otro identificador,
+    **entonces** recibe un error que nombra la orden anterior, y `orders` no suma filas.
+22. **Dado** que esa primera compra ya tiene más de 5 segundos, **cuando** la manda de nuevo con otro identificador,
+    **entonces** queda `FILLED`.
+23. **Dado** el usuario 2, sin pesos, cuya compra de 1 PAMP quedó `REJECTED`, **cuando** recibe un depósito y la manda de
+    nuevo enseguida con otro identificador, **entonces** queda `FILLED`: una orden rechazada no cuenta como la primera.
+24. **Dado** que mandó una compra límite que quedó `NEW` y la canceló, **cuando** la manda de nuevo enseguida,
+    **entonces** queda `NEW`: una orden cancelada tampoco cuenta.
+25. **Dado** un usuario con plata para una sola compra, **cuando** manda dos iguales seguidas con identificadores
+    distintos, **entonces** la segunda queda `REJECTED` por falta de pesos, no como posible duplicado.
+26. **Cuando** otro usuario manda la misma orden, o el mismo usuario manda 11 PAMP en vez de 10, **entonces** se aceptan.
+27. **Cuando** llegan al mismo tiempo dos compras iguales con identificadores distintos, y la plata alcanza para las
+    dos, **entonces** se crea una sola orden y la otra recibe el error.
 
 ### 3.4 Cancelación de órdenes
 
@@ -350,8 +369,9 @@ enseguida qué pasó con su orden. Estos casos son la base del test funcional qu
   tipeo (A-5).
 - **Las órdenes límite no vencen:** quedan pendientes, reservando su plata o sus acciones, hasta que el usuario las
   cancela (D-7, A-7).
-- **Reintentos:** si la app genera un identificador nuevo en cada reintento, la protección no funciona. Ninguna API
-  puede arreglar ese error de la app (R-2).
+- **Reintentos:** si la app genera un identificador nuevo en cada reintento, la protección del identificador no
+  funciona (R-2). La segunda red de ENV-10 frena el duplicado que llega en los primeros 5 segundos; el que llega
+  después pasa, porque la API no lo puede distinguir de una orden nueva (R-6).
 - **Precios con 2 decimales:** si se incorporan acciones de menos de $1, o precios ajustados con más decimales, hay que
   ampliar las columnas de precios (D-4).
 - **Transferencias sin centavos:** la base guarda los montos de los depósitos y retiros como enteros. No afecta, porque
@@ -390,3 +410,7 @@ Casi todo este documento ordena decisiones del análisis. Estas se tomaron al ar
 | El portfolio muestra, en cada posición, las acciones reservadas por ventas pendientes | surgió al revisar los casos del envío: sin ese dato, una venta rechazada no se explica. El usuario ve 40 PAMP, quiere vender 20 y no sabe que 30 están reservadas por una venta pendiente. Es lo mismo que A-1 hace con los pesos | POR-7 |
 | La respuesta del envío y el listado traen el número de orden | es el dato con el que se cancela una orden | ENV-8, LIS-4, CAN-1 |
 | Soporte es un usuario secundario, con métricas de órdenes | tiene que poder contestar "¿por qué me rechazaron?" y ver cuántas órdenes se ejecutan o se rechazan | sección 1, GEN-4 |
+
+**Agregado en la fase 8 (2026-11-10):** ENV-10 y sus casos 21 a 27. Al revisar la entrega se vio que el identificador no
+alcanza si la app genera uno nuevo en cada intento, y se decidió sumar una segunda red (R-6,
+[ADR 0009](adr/0009-ordenes-iguales-con-otro-identificador.md)).

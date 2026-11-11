@@ -87,6 +87,27 @@ curl -s -X POST localhost:8080/users/1/orders -H 'Content-Type: application/json
 Si mandás exactamente lo mismo otra vez, responde 200 con la misma orden y no compra de nuevo: así un reintento no
 gasta dos veces.
 
+**La misma orden con otro identificador.** Si una app, por error, manda dos veces la misma orden y cada vez genera un
+identificador nuevo, ya no es un reintento. La API frena el caso más común: una orden igual a otra aceptada del mismo
+usuario hace menos de 5 segundos responde 409, no se graba, y el aviso dice cuál es la que ya entró. Pasados los 5
+segundos, se acepta ([por qué 5 segundos y qué hacen otros](docs/adr/0009-ordenes-iguales-con-otro-identificador.md)):
+
+```bash
+for n in 1 2; do
+  curl -s -X POST localhost:8080/users/1/orders -H 'Content-Type: application/json' \
+    -d '{"clientOrderId":"0000000'$n'-0000-4000-8000-000000000000","instrumentId":54,"side":"BUY","type":"MARKET","quantity":1}' \
+    | jq -c '{status, detail}'
+done
+```
+
+```json
+{"status":"FILLED","detail":null}
+{"status":409,"detail":"Acaba de entrar una orden igual, la 13. Si querés otra igual, esperá unos segundos y volvé a enviarla."}
+```
+
+La ventana se cambia con `API_DUPLICATE_ORDER_WINDOW`, y con 0 el control queda apagado: `API_DUPLICATE_ORDER_WINDOW=0s docker
+compose up --build`.
+
 **Las órdenes pendientes y cancelar una:**
 
 ```bash

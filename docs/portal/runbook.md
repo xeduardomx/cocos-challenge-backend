@@ -84,6 +84,23 @@ qué transacciones están abiertas y desde cuándo:
 docker compose exec -T postgres psql -U postgres -X -c "select pid, state, now() - xact_start as en_curso, left(query, 50) as consulta from pg_stat_activity where datname = current_database() and xact_start is not null and pid <> pg_backend_pid();"
 ```
 
+### Una orden responde 409 `/problems/possible-duplicate-order`
+
+```json
+{"detail":"Acaba de entrar una orden igual, la 14. Si querés otra igual, esperá unos segundos y volvé a enviarla.","instance":"/users/1/orders","status":409,"title":"Posible orden duplicada","type":"/problems/possible-duplicate-order","existingOrderId":14,"requestId":"mi-pedido-4"}
+```
+
+No es una falla: el usuario tiene una orden igual, aceptada hace menos de 5 segundos y mandada con otro
+`clientOrderId`, y la API frena la segunda por si es una repetición que nadie pidió. No se grabó nada. `existingOrderId`
+es la orden que ya entró ([RFC 5.5](../03-rfc.md#55-la-misma-orden-con-otro-identificador)).
+
+- **Si la segunda orden era a propósito,** se espera unos segundos y se manda de nuevo, tal cual.
+- **Si se repite mucho,** la app está generando un identificador nuevo en cada reintento: tiene que repetir el mismo
+  ([RFC 5.3](../03-rfc.md#53-reintentos)). Cuántas veces pasa se ve en Prometheus:
+  `http_server_requests_seconds_count{uri="/users/{userId}/orders",method="POST",status="409"}`.
+- **Para cambiar la ventana,** o apagar el control con 0, está la variable `API_DUPLICATE_ORDER_WINDOW`:
+  `API_DUPLICATE_ORDER_WINDOW=0s docker compose up --build`.
+
 ### Una orden queda `REJECTED`
 
 No es un error: la orden se grabó, rechazada, y responde 201. El campo `rejectionReason` dice por qué:

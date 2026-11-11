@@ -5,6 +5,7 @@ import com.cocos.challenge.account.service.AccountService;
 import com.cocos.challenge.instruments.domain.Instrument;
 import com.cocos.challenge.instruments.domain.MarketPrice;
 import com.cocos.challenge.instruments.service.InstrumentCatalog;
+import com.cocos.challenge.orders.config.DuplicateOrderProperties;
 import com.cocos.challenge.orders.domain.NewOrder;
 import com.cocos.challenge.orders.domain.StoredOrder;
 import com.cocos.challenge.orders.domain.evaluation.OrderCandidate;
@@ -17,6 +18,7 @@ import com.cocos.challenge.orders.domain.submission.SubmissionResult;
 import com.cocos.challenge.orders.domain.submission.SubmitOrderCommand;
 import com.cocos.challenge.orders.error.ClientOrderIdReusedException;
 import com.cocos.challenge.orders.error.InvalidOrderException;
+import com.cocos.challenge.orders.error.PossibleDuplicateOrderException;
 import com.cocos.challenge.orders.repository.OrderRepository;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -25,8 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * One attempt to submit an order, all in one transaction that starts by taking the turn of the user
- * (RFC 5.2 and 5.3). It stays in READ COMMITTED: once a second order of the user gets the turn, its
- * account has to include the order that held it.
+ * (RFC 5.2, 5.3 and 5.5). It stays in READ COMMITTED: once a second order of the user gets the
+ * turn, its account has to include the order that held it.
  */
 @Service
 public class OrderSubmissionTransaction {
@@ -38,18 +40,21 @@ public class OrderSubmissionTransaction {
   private final QuantityResolver quantityResolver;
   private final AccountService accounts;
   private final OrderEvaluator evaluator;
+  private final DuplicateOrderProperties duplicates;
 
   public OrderSubmissionTransaction(
       OrderRepository orders,
       InstrumentCatalog catalog,
       QuantityResolver quantityResolver,
       AccountService accounts,
-      OrderEvaluator evaluator) {
+      OrderEvaluator evaluator,
+      DuplicateOrderProperties duplicates) {
     this.orders = orders;
     this.catalog = catalog;
     this.quantityResolver = quantityResolver;
     this.accounts = accounts;
     this.evaluator = evaluator;
+    this.duplicates = duplicates;
   }
 
   @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -90,6 +95,9 @@ public class OrderSubmissionTransaction {
             resolved.price(),
             marketPrice != null);
     OrderDecision decision = evaluator.evaluate(candidate, account);
+    if (duplicates.enabled() && decision.status().accepted()) {
+      refuseIfPossibleDuplicate(command, fingerprint);
+    }
     return orders.insert(
         new NewOrder(
             command.userId(),
@@ -102,5 +110,20 @@ public class OrderSubmissionTransaction {
             command.clientOrderId(),
             fingerprint.value(),
             decision.rejectionReason()));
+  }
+
+  /**
+   * The second net, after the client order id (RFC 5.5): the user has an equal order, accepted
+   * moments ago and sent with another identifier. Inside the turn, that order is already confirmed.
+   * An order that would be rejected anyway never gets here: it does no harm, and it is recorded.
+   */
+  private void refuseIfPossibleDuplicate(
+      SubmitOrderCommand command, RequestFingerprint fingerprint) {
+    Optional<Long> existingOrderId =
+        orders.findRecentEqualOrderId(
+            command.userId(), command.clientOrderId(), fingerprint.value(), duplicates.window());
+    if (existingOrderId.isPresent()) {
+      throw new PossibleDuplicateOrderException(existingOrderId.get());
+    }
   }
 }

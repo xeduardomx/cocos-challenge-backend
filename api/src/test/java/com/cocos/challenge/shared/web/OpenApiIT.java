@@ -69,6 +69,35 @@ class OpenApiIT {
   }
 
   @Test
+  void documentsThePossibleDuplicateOfASubmissionAsAProblem() {
+    JsonNode responses =
+        api.get(API_DOCS)
+            .json()
+            .path("paths")
+            .path("/users/{userId}/orders")
+            .path("post")
+            .path("responses");
+
+    assertThat(responses.path("409").path("content").has("application/problem+json")).isTrue();
+  }
+
+  @Test
+  void documentsTheExtraMembersOfAProblem() {
+    JsonNode members =
+        api.get(API_DOCS)
+            .json()
+            .path("components")
+            .path("schemas")
+            .path("Problem")
+            .path("properties");
+
+    assertThat(members.has("requestId")).isTrue();
+    assertThat(members.has("errors")).isTrue();
+    assertThat(members.has("currentStatus")).isTrue();
+    assertThat(members.has("existingOrderId")).isTrue();
+  }
+
+  @Test
   void sendsThePageToTryTheApiToItsRealAddress() {
     ApiResponse response = api.get(SWAGGER_UI);
 
