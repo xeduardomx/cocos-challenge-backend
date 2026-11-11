@@ -8,18 +8,22 @@ Con todo levantado está en Grafana, en <http://localhost:3000>. Es la página d
 
 ![Tablero de Grafana de la API, con tráfico de ejemplo](img/tablero-grafana.png)
 
-La captura es de la API corriendo en local, con tráfico de ejemplo: los números cambian en cada corrida.
+La captura es de la API corriendo en local, después de diez minutos de tráfico de ejemplo: los números cambian en cada
+corrida. El tráfico trae errores del cliente a propósito. Y durante un minuto, desde las 02:01:40, manda tres órdenes del
+mismo usuario a la vez: se ve en la espera del turno, que pasa de 1 ms a 3 ms. Sigue así cinco minutos y después baja,
+porque cada punto mira los últimos cinco minutos.
 
-| Panel | Qué contesta |
-|---|---|
-| Órdenes por estado, tipo y lado | cuántas órdenes se ejecutan, quedan pendientes o se rechazan |
-| Rechazos por motivo | por qué se rechazan: faltan pesos, faltan acciones o el activo no cotiza |
-| Latencia p95 por función | cuánto tarda cada función, sin contar `/actuator/*` |
-| Errores por función | qué función devuelve errores, y con qué código |
-| Espera del turno, p95 | cuánto espera un envío el turno de su usuario: si crece, hay órdenes del mismo usuario chocando |
+Cada panel explica qué muestra en la "i" que está al lado de su título.
 
-Las órdenes y la espera del turno se ven desde el primer pedido. La latencia y los errores de cada función aparecen
-desde el segundo, con al menos 15 segundos entre los dos: Prometheus necesita dos lecturas para calcularlos.
+--8<-- "03-rfc.md:tablero"
+
+**Los errores van en dos paneles porque no significan lo mismo.** Un error del cliente (4xx) es la API diciéndole que no
+a un pedido que no se podía cumplir: la API funcionó. Un error del servidor (5xx) es una falla de la API: su panel está
+en verde mientras marca 0, y pasa a rojo con la primera.
+
+Los cuatro paneles que cuentan muestran todo lo que pasó desde que arrancó la API, desde el primer pedido. Los dos de
+líneas miran los últimos 5 minutos y necesitan dos lecturas de Prometheus, que lee cada 15 segundos: la latencia de una
+función aparece desde su segundo pedido, con al menos 15 segundos entre los dos.
 
 ## Qué mide la API
 
@@ -41,6 +45,14 @@ escenario manda 10 pedidos por segundo durante un minuto:
 Es una carga moderada, en una computadora de escritorio y con la base en memoria: sirve como orden de magnitud, y no
 dice cuántos pedidos aguanta la API. La máquina, los datos, los límites y cómo repetirla están en
 [la medición completa](../mediciones/06-tiempo-de-respuesta.md).
+
+## Qué se alertaría
+
+No hay alertas construidas: en una corrida local no hay a quién avisarle. Con estas mismas métricas, se alertaría esto:
+
+--8<-- "03-rfc.md:alertas"
+
+El criterio, sus números y de dónde sale: [RFC, sección 8.5](../03-rfc.md#85-qué-se-alertaría).
 
 ## En producción, con New Relic
 
