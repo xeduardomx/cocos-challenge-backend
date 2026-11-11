@@ -191,19 +191,19 @@ exit: 0
 | La revisión del código | el campo `existingOrderId` no estaba en el esquema de errores que publica Swagger; "aceptada" estaba definido en dos lugares; con la ventana en 0 la consulta se hacía igual | el esquema lo documenta, hay una sola definición (`OrderStatus.accepted()`) y con 0 no se consulta |
 | Una corrida de la medición sobre el commit `0dd94db` | dio tiempos tres veces más bajos en todos los escenarios: 18,99 ms el envío del usuario pesado | no era el código: otro proceso tenía ocupado un núcleo. Quedó comprobado y escrito en [`06-tiempo-de-respuesta.md`](06-tiempo-de-respuesta.md#la-máquina-en-reposo-mide-de-más), y esa corrida no se usa como resultado |
 
-**Cada test nuevo se vio fallar.** Los primeros, antes de escribir el código. Los que pasaban de entrada, rompiendo la
-consulta a propósito:
+**Cada test nuevo se vio fallar.** Los primeros, antes de escribir el código. Y al final, sobre el código terminado, se
+rompió a propósito de once formas, una por vez:
 
 | Rotura | Test que falló |
 |---|---|
-| La ventana en microsegundos, por un error de unidad | los que esperan el 409, entre ellos el de una orden a mitad de la ventana |
-| Sin el control | los que esperan el 409, con los de la orden por monto, la venta y la venta límite |
-| Solo cuentan las `FILLED` | el de la orden límite pendiente |
+| Sin el control | los que esperan el 409: la misma orden enseguida, la límite pendiente, la orden por monto, la venta, la venta límite y la orden a mitad de la ventana |
+| La ventana en microsegundos, por un error de unidad | los mismos |
+| Solo cuentan las `FILLED` | el de la orden límite pendiente, el de la venta límite y el de la definición de "aceptada" |
 | Sin filtrar por usuario | el de otro usuario con la misma orden |
-| Sin comparar la huella | el de otra cantidad, entre otros |
-| Sin la condición de la hora | el de la ventana en 0 |
+| Sin comparar la huella | el de otra cantidad |
+| Sin la condición de la hora | el de la ventana en 0 y el que cuenta las filas leídas |
 | La más vieja primero | el que pide la más nueva |
-| Sin excluir el mismo identificador | el del identificador propio |
+| Sin excluir el mismo identificador | el del identificador propio y el del camino sin turno |
 | El control antes de tomar el turno | el de dos iguales al mismo tiempo |
 | `clock_timestamp()` en lugar de `statement_timestamp()` | el que cuenta las filas leídas: 11 en vez de 0 |
 | Con la ventana en 0, la consulta se hace igual | el del control apagado, que espía el repositorio |
