@@ -1,0 +1,100 @@
+# The documentation portal (phase 7, RFC 11.6). The Markdown files in docs/ are the only source: this
+# file only says how to show them. Serve it or build it with ./scripts/portal.sh.
+
+[project]
+site_name = "Cocos Capital: challenge backend"
+site_description = "Análisis, decisiones, diseño y mediciones de la API del challenge."
+site_url = "https://xeduardomx.github.io/cocos-challenge-backend/"
+repo_url = "https://github.com/xeduardomx/cocos-challenge-backend"
+repo_name = "xeduardomx/cocos-challenge-backend"
+docs_dir = "docs"
+site_dir = "site"
+extra_css = ["portal/portal.css"]
+nav = [
+  { "Inicio" = "README.md" },
+  { "Diagramas" = "portal/diagramas.md" },
+  { "Enunciado" = "00-fuentes/backend-challenge.md" },
+  { "Análisis" = [
+    { "Análisis" = "01-analisis.md" },
+    { "Registro de decisiones" = "01-decisiones.md" },
+  ] },
+  { "PRD" = "02-prd.md" },
+  { "RFC" = [
+    { "RFC" = "03-rfc.md" },
+    { "ADR" = [
+      "adr/README.md",
+      "adr/0001-capas-por-funcion.md",
+      "adr/0002-sql-directo-con-jdbcclient.md",
+      "adr/0003-posiciones-calculadas.md",
+      "adr/0004-turno-del-usuario.md",
+      "adr/0005-reintentos-con-identificador-y-huella.md",
+      "adr/0006-migraciones-con-flyway.md",
+      "adr/0007-metricas-con-prometheus-y-grafana.md",
+      "adr/0008-openapi-con-springdoc.md",
+      "adr/0009-ordenes-iguales-con-otro-identificador.md",
+    ] },
+  ] },
+  { "Plan" = "04-plan.md" },
+  { "Operación" = [
+    { "Runbook" = "portal/runbook.md" },
+    { "Métricas" = "portal/metricas.md" },
+    { "Mediciones" = [
+      "mediciones/README.md",
+      "mediciones/03-resultados.md",
+      "mediciones/03-pruebas-resultados.md",
+      "mediciones/04-resultados.md",
+      "mediciones/05-resultados.md",
+      "mediciones/05-duplicado-resultados.md",
+      "mediciones/06-tiempo-de-respuesta.md",
+      "mediciones/08-verificacion-final.md",
+      "mediciones/08-migracion-neon.md",
+      "mediciones/10-resultados.md",
+    ] },
+  ] },
+]
+
+[project.theme]
+language = "es"
+features = [
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.tabs",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Pasar al modo oscuro"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Pasar al modo claro"
+
+[project.markdown_extensions]
+attr_list = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+# The same anchors as GitHub, with accents, so that a link to a section works in both places.
+toc.slugify = { object = "pymdownx.slugs.slugify", kwds = { case = "lower" } }
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+# Portal pages take diagrams and tables from the documents instead of copying them. A missing file
+# or section stops the build.
+pymdownx.snippets.base_path = ["docs"]
+pymdownx.snippets.check_paths = true
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.tasklist.custom_checkbox = true

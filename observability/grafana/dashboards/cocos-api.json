@@ -1,0 +1,344 @@
+{
+  "uid": "cocos-api",
+  "title": "Cocos challenge API",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "30s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "tags": [
+    "cocos"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "bargauge",
+      "title": "Órdenes por estado, tipo y lado (desde el arranque)",
+      "description": "Cuántas órdenes grabó la API desde que arrancó, según cómo quedaron: FILLED (ejecutada), NEW (pendiente) o REJECTED (rechazada). No cuenta las órdenes que ya estaban en la base.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (status, type, side) (orders_recorded_total) > 0",
+          "legendFormat": "{{status}} · {{type}} · {{side}}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "decimals": 0,
+          "displayName": "${__series.name}",
+          "min": 0,
+          "noValue": "Sin órdenes todavía",
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "bargauge",
+      "title": "Rechazos por motivo (desde el arranque)",
+      "description": "Por qué quedaron REJECTED las órdenes que grabó la API desde que arrancó: no alcanzan los pesos, no alcanzan las acciones o el activo no cotiza. Un rechazo no es un error: la orden se graba y la API responde 201.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (reason) (orders_recorded_total{status=\"REJECTED\"})",
+          "legendFormat": "{{reason}}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "decimals": 0,
+          "displayName": "${__series.name}",
+          "min": 0,
+          "noValue": "Sin rechazos todavía",
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Latencia p95 por función (objetivo: menos de 100 ms)",
+      "description": "Cuánto tarda cada función en responder. Cada punto dice: de los pedidos de los últimos 5 minutos, el 95 % tardó eso o menos. El objetivo es que quede debajo de 100 ms: si una función se acerca, aparece la línea roja. Una función aparece desde su segundo pedido, con 15 segundos o más entre los dos, y su línea se corta después de 5 minutos sin pedidos.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, method, uri) (rate(http_server_requests_seconds_bucket{uri!~\"/actuator/.*\"}[5m])))",
+          "legendFormat": "{{method}} {{uri}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.1
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Espera del turno, p95",
+      "description": "Cuánto espera un envío de orden el turno de su usuario: la API procesa una orden por usuario a la vez. Cada punto dice: de los envíos de los últimos 5 minutos, el 95 % esperó eso o menos. Sin órdenes simultáneas del mismo usuario queda cerca de 1 ms, que es lo mínimo que distingue. Si sube, hay órdenes del mismo usuario chocando. A los 2 segundos de espera, la API responde 503.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(orders_turn_wait_seconds_bucket[5m])))",
+          "legendFormat": "p95",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Errores del servidor, 5xx (desde el arranque)",
+      "description": "Respuestas 500 (error interno) y 503 (la cuenta estuvo ocupada más de 2 segundos) desde que arrancó la API. Son las únicas que son una falla de la API: los dos números tienen que estar en 0. Si Prometheus no está leyendo la API, no muestra un 0: dice que no hay datos.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(http_server_requests_seconds_count{uri!~\"/actuator/.*\",status=\"500\"}) or vector(0)) and on() (up{job=\"api\"} == 1)",
+          "legendFormat": "500 · error interno",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(http_server_requests_seconds_count{uri!~\"/actuator/.*\",status=\"503\"}) or vector(0)) and on() (up{job=\"api\"} == 1)",
+          "legendFormat": "503 · cuenta ocupada",
+          "instant": true,
+          "range": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "noValue": "Sin datos: la API no responde",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "text": {
+          "titleSize": 16
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Errores del cliente, 4xx, por código y función (desde el arranque)",
+      "description": "Pedidos que la API no aceptó desde que arrancó, por código y función: datos inválidos (400), un usuario o una orden que no existe (404), un posible duplicado o una orden que ya no se puede cancelar (409), o un identificador de orden repetido con otro contenido (422). No son fallas de la API: respondió bien a un pedido que no se podía cumplir.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 16,
+        "w": 16,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sort_desc(sum by (status, method, uri) (http_server_requests_seconds_count{uri!~\"/actuator/.*\",outcome=\"CLIENT_ERROR\"}))",
+          "legendFormat": "{{status}} · {{method}} {{uri}}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "decimals": 0,
+          "displayName": "${__series.name}",
+          "min": 0,
+          "noValue": "Sin errores del cliente",
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        }
+      }
+    }
+  ]
+}

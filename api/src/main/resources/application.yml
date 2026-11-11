@@ -1,0 +1,49 @@
+spring:
+  application.name: cocos-challenge-api
+  flyway:
+    # The compose file and the tests turn it on; the API never migrates by itself
+    enabled: false
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: database.sql de Cocos
+    group: true
+  jackson:
+    # Strict JSON, nothing guessed: an unknown or repeated field, a decimal for an integer and a
+    # number written as text are refused
+    deserialization:
+      fail-on-unknown-properties: true
+      accept-float-as-int: false
+    mapper.allow-coercion-of-scalars: false
+    read.strict-duplicate-detection: true
+    # Without it a number is taken as the position of an enum value: "side": 1 would sell
+    datatype.enum.fail-on-numbers-for-enums: true
+  mvc.problemdetails.enabled: true
+  messages.fallback-to-system-locale: false
+logging:
+  structured.format.console: ecs
+  # ApiExceptionHandler writes the line of every error: this logger would repeat the one of a 405
+  level.org.springframework.web.servlet.PageNotFound: ERROR
+management:
+  endpoints.web.exposure.include: health, prometheus
+  metrics.distribution.percentiles-histogram:
+    http.server.requests: true
+    # The dashboard shows the p95 of the wait for the turn
+    orders.turn.wait: true
+cocos:
+  display:
+    time-zone: America/Argentina/Buenos_Aires
+    locale: es-AR
+  account.turn-timeout: 2s
+  search:
+    max-results: 20
+    max-query-length: 50
+  orders.page:
+    default-size: 20
+    max-size: 100
+  # An order equal to another accepted one of the user, this recent and with another client order
+  # id, is refused as a possible duplicate (RFC 5.5). Zero turns the check off
+  orders.duplicates.window: 5s
+springdoc:
+  # Set both to false (or protect them) if the API is ever exposed publicly (ADR 0008)
+  api-docs.enabled: true
+  swagger-ui.enabled: true
