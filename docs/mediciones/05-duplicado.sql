@@ -9,8 +9,9 @@
 \pset tuples_only on
 \pset format unaligned
 
--- Lee las páginas una vez antes de medir, para que las dos formas las encuentren en memoria.
-select count(*) from orders where userid = 10005 \g /dev/null
+-- Lee las órdenes del usuario una vez antes de medir, para que las tres formas encuentren sus páginas en memoria.
+-- Cuenta una columna que no está en el índice: así lee también las filas de la tabla.
+select count(requestfingerprint) from orders where userid = 10005 \g /dev/null
 
 \echo == A. Con clock_timestamp(), que es volátil
 explain (analyze, buffers, costs off, timing off)
@@ -34,3 +35,18 @@ where userid = 10005
   and status in ('FILLED', 'NEW')
 order by datetime desc, id desc
 limit 1;
+
+\echo
+\echo == C. La forma B con el plan genérico, el que Postgres puede elegir cuando una consulta preparada se repite
+prepare lookup(bigint, bigint, text, uuid, text, text) as
+  select id from orders
+  where userid = $1
+    and datetime > statement_timestamp() - $2 * interval '1 millisecond'
+    and requestfingerprint = $3
+    and clientorderid <> $4
+    and status in ($5, $6)
+  order by datetime desc, id desc
+  limit 1;
+set plan_cache_mode = force_generic_plan;
+explain (analyze, buffers, costs off, timing off)
+execute lookup(10005, 5000, repeat('a', 64), '00000000-0000-4000-8000-000000000000', 'FILLED', 'NEW');

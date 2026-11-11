@@ -29,8 +29,13 @@ Es el caso normal: el de una orden que no es un duplicado.
 
 | "Ahora" de la ventana | Cómo usa el índice | Filas leídas y descartadas | Páginas leídas | Tiempo en la base |
 |---|---|---|---|---|
-| `clock_timestamp()` | busca solo por usuario; la hora se revisa después, fila por fila | 10.000 | 271 | 1,2 a 1,4 ms |
-| `statement_timestamp()`, la que usa la API | busca por usuario y por hora | 0 | 3 | 0,011 ms |
+| A. `clock_timestamp()` | busca solo por usuario; la hora se revisa después, fila por fila | 10.000 | 271 | 1,2 a 1,9 ms |
+| B. `statement_timestamp()`, la que usa la API | busca por usuario y por hora | 0 | 3 | 0,01 a 0,02 ms |
+| C. La forma B, con el plan genérico | busca por usuario y por hora | 0 | 6 | 0,02 a 0,03 ms |
+
+**La forma C** es la misma consulta de la API, preparada y con el plan genérico: el que Postgres puede elegir cuando una
+consulta preparada se repite muchas veces, sin mirar los valores de cada pedido. También ahí la hora entra en la
+condición del índice.
 
 **Por qué pasa.** `clock_timestamp()` es volátil: puede dar otro valor cada vez que se la llama, también dentro de una
 misma consulta. Postgres no puede usar un valor que cambia como límite del recorrido de un índice, así que lo deja
@@ -40,8 +45,13 @@ durante toda la consulta, y entonces sí entra en la condición del índice (`In
 **Por qué empeoraba tanto el envío.** La consulta corre dentro del turno del usuario (RFC, sección 5.2), y la corrida le
 manda al pesado 20 órdenes por segundo. Cada milisegundo de más con el turno tomado lo esperan las que vienen atrás.
 
-La salida es de la tercera de tres corridas seguidas. El tiempo de la forma A fue de 1,201, 1,382 y 1,423 ms; el de la B,
-de 0,011, 0,010 y 0,011 ms.
+La salida es de la tercera de tres corridas seguidas, con las páginas ya en memoria. Los tiempos de las tres:
+
+| Forma | Corrida 1 | Corrida 2 | Corrida 3 |
+|---|---|---|---|
+| A | 1,890 ms | 1,178 ms | 1,167 ms |
+| B | 0,022 ms | 0,008 ms | 0,008 ms |
+| C | 0,033 ms | 0,022 ms | 0,020 ms |
 
 ```text
 == A. Con clock_timestamp(), que es volátil
@@ -54,9 +64,9 @@ Limit (actual rows=0.00 loops=1)
         Index Searches: 1
         Buffers: shared hit=271
 Planning:
-  Buffers: shared hit=131
-Planning Time: 0.185 ms
-Execution Time: 1.201 ms
+  Buffers: shared hit=102
+Planning Time: 0.131 ms
+Execution Time: 1.167 ms
 
 == B. Con statement_timestamp(), que es estable: la que usa la API
 Limit (actual rows=0.00 loops=1)
@@ -68,8 +78,21 @@ Limit (actual rows=0.00 loops=1)
         Buffers: shared hit=3
 Planning:
   Buffers: shared hit=5
-Planning Time: 0.054 ms
-Execution Time: 0.011 ms
+Planning Time: 0.049 ms
+Execution Time: 0.008 ms
+
+== C. La forma B con el plan genérico, el que Postgres puede elegir cuando una consulta preparada se repite
+Limit (actual rows=0.00 loops=1)
+  Buffers: shared hit=6
+  ->  Index Scan Backward using orders_user_datetime_idx on orders (actual rows=0.00 loops=1)
+        Index Cond: ((userid = $1) AND (datetime > (statement_timestamp() - (($2)::double precision * '00:00:00.001'::interval))))
+        Filter: ((clientorderid <> $4) AND ((status)::text = ANY ((ARRAY[($5)::character varying, ($6)::character varying])::text[])) AND ((requestfingerprint)::text = $3))
+        Index Searches: 1
+        Buffers: shared hit=6
+Planning:
+  Buffers: shared hit=5
+Planning Time: 0.059 ms
+Execution Time: 0.020 ms
 ```
 
 ## Cómo quedó cuidado

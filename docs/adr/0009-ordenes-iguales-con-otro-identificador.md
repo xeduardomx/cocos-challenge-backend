@@ -51,7 +51,7 @@ Lo que se toma de ahí:
 | A. No construir nada y dejarlo documentado | cero código | el duplicado pasa siempre |
 | B. Un cache en la memoria de la API: usuario y huella, con vencimiento | no toca la base | con dos instancias de la API no funciona, porque cada una tiene su memoria. Hay que cuidar a mano dos pedidos simultáneos y no anotar una orden cuya transacción se deshizo. Suma código: el vencimiento y la limpieza |
 | C. Un almacén compartido con vencimiento, como Redis | funciona con varias instancias y antes de llegar a la base | una pieza más para levantar, operar y probar. Sigue separado de la transacción: una orden anotada puede no haberse grabado |
-| **D. Una consulta a `orders`, dentro del turno** | funciona con varias instancias, porque el dato está en la base. No hay carrera: el turno hace que la segunda siempre vea a la primera. Usa la huella y el índice que ya existen. Es una consulta y un `if` | una consulta más por orden aceptada: 0,011 ms en la base para un usuario de 10.000 órdenes (medido, en "Consecuencias") |
+| **D. Una consulta a `orders`, dentro del turno** | funciona con varias instancias, porque el dato está en la base. No hay carrera: el turno hace que la segunda siempre vea a la primera. Usa la huella y el índice que ya existen. Es una consulta y un `if` | una consulta más por orden aceptada: unos 0,01 ms en la base para un usuario de 10.000 órdenes (medido, en "Consecuencias") |
 
 **Qué se hace con la orden parecida**
 
@@ -99,7 +99,7 @@ en un minuto una persona sí decide repetir una compra.
 - **Responde 409,** con el tipo `/problems/possible-duplicate-order` y el número de la orden anterior en
   `existingOrderId`. No graba nada, así que no gasta el identificador: el mismo pedido se puede reenviar tal cual.
 - **La ventana es configurable** (`cocos.orders.duplicates.window`, 5 segundos por defecto). Con 0, el control queda
-  apagado, y un valor negativo no deja arrancar la API. En el `docker compose` se cambia con `DUPLICATE_ORDER_WINDOW`.
+  apagado, y un valor negativo no deja arrancar la API. En el `docker compose` se cambia con `API_DUPLICATE_ORDER_WINDOW`.
 
 ```sql
 select id from orders
@@ -131,6 +131,10 @@ limit 1
   los 30 segundos con otro identificador sigue pasando: contra eso, la app tiene que repetir el identificador (ADR 0005).
 - **La app tiene que mostrar el aviso y no reenviar sola.** Si ante un 409 espera y reenvía por su cuenta, el duplicado
   entra igual, 5 segundos más tarde.
+- **Un 409 que se pierde tampoco queda guardado.** Como el pedido frenado no se graba, su identificador sigue libre. Si
+  la respuesta 409 no le llega a la app y la app reintenta con ese mismo identificador pasados los 5 segundos, la orden
+  entra. Hacen falta dos fallas juntas, y es el costo de no gastar el identificador: guardarlo pediría una tabla de
+  pedidos frenados.
 - **Una orden legítima igual a otra espera unos segundos.** Para una persona es casi imposible repetir una orden en
   menos de 5 segundos a propósito. Una cuenta que opere con algoritmos sí lo haría: ahí se cambia la ventana, o se la
   apaga con 0.
@@ -144,8 +148,8 @@ limit 1
 
   | Reloj | Filas leídas y descartadas | Páginas leídas | Tiempo en la base |
   |---|---|---|---|
-  | `clock_timestamp()` | 10.000 | 271 | 1,2 a 1,4 ms |
-  | `statement_timestamp()` | 0 | 3 | 0,011 ms |
+  | `clock_timestamp()` | 10.000 | 271 | 1,2 a 1,9 ms |
+  | `statement_timestamp()` | 0 | 3 | 0,01 a 0,02 ms |
 
   El detalle está en [`mediciones/05-duplicado-resultados.md`](../mediciones/05-duplicado-resultados.md). Un test lo
   cuida: cuenta las filas que la consulta trae de la tabla, y tienen que ser 0.

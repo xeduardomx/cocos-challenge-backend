@@ -902,11 +902,13 @@ sequenceDiagram
   (5.3). Dentro del turno nunca aparece, porque la búsqueda por identificador va antes. En el camino sin turno que
   cubre la regla de unicidad sí: sin esa condición, el test de ese camino recibía un 409 en vez de reintentar.
 - **Cuánto cuesta.** Una consulta más por orden aceptada, que usa el índice por (usuario, fecha, id) de la sección 3.5
-  y lee solo las órdenes de ese usuario de los últimos 5 segundos: 3 páginas y 0,011 ms en la base para el usuario de
+  y lee solo las órdenes de ese usuario de los últimos 5 segundos: 3 páginas y unos 0,01 ms en la base para el usuario de
   10.000 órdenes (medido).
 - **Lo que no frena.** Un reintento con otro identificador que llega pasados los 5 segundos: la API no lo puede
   distinguir de una orden nueva. Contra eso la app tiene que repetir el identificador (5.3). Y si la app, ante el 409,
-  espera y reenvía sola, el duplicado entra igual: tiene que mostrarle el aviso a la persona.
+  espera y reenvía sola, el duplicado entra igual: tiene que mostrarle el aviso a la persona. Lo mismo si el 409 se
+  pierde y la app reintenta con ese identificador pasados los 5 segundos: el pedido frenado no se graba, así que su
+  identificador sigue libre.
 
 **Alternativas evaluadas**
 
@@ -1553,8 +1555,8 @@ entorno: la base (sección 9), si migra al arrancar (sección 3.6) y los número
 Spring: una sola configuración, y las variables la pisan. Para apuntar a Neon, `scripts/run-on-neon.sh` llena las variables de
 la base desde `.env`, que nunca se sube al repo.
 
-El compose también deja cambiar la ventana del posible duplicado (sección 5.5), con `DUPLICATE_ORDER_WINDOW`: por
-ejemplo, `DUPLICATE_ORDER_WINDOW=0s docker compose up --build` apaga el control. Un valor negativo no deja arrancar la
+El compose también deja cambiar la ventana del posible duplicado (sección 5.5), con `API_DUPLICATE_ORDER_WINDOW`: por
+ejemplo, `API_DUPLICATE_ORDER_WINDOW=0s docker compose up --build` apaga el control. Un valor negativo no deja arrancar la
 API (agregado en la fase 8).
 
 ### 11.5 La colección de Postman

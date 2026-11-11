@@ -98,8 +98,8 @@ es la orden que ya entró ([RFC 5.5](../03-rfc.md#55-la-misma-orden-con-otro-ide
 - **Si se repite mucho,** la app está generando un identificador nuevo en cada reintento: tiene que repetir el mismo
   ([RFC 5.3](../03-rfc.md#53-reintentos)). Cuántas veces pasa se ve en Prometheus:
   `http_server_requests_seconds_count{uri="/users/{userId}/orders",method="POST",status="409"}`.
-- **Para cambiar la ventana,** o apagar el control con 0, está la variable `DUPLICATE_ORDER_WINDOW`:
-  `DUPLICATE_ORDER_WINDOW=0s docker compose up --build`.
+- **Para cambiar la ventana,** o apagar el control con 0, está la variable `API_DUPLICATE_ORDER_WINDOW`:
+  `API_DUPLICATE_ORDER_WINDOW=0s docker compose up --build`.
 
 ### Una orden queda `REJECTED`
 
