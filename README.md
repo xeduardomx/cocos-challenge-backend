@@ -33,6 +33,11 @@ Para bajar todo: `docker compose down`.
 - **Neon:** ya tiene aplicadas las migraciones, y sus datos no cambiaron
   ([cómo se hizo](docs/mediciones/08-migracion-neon.md)). Cada orden que se le mande se graba ahí, así que la colección de
   Postman y la prueba de carga van contra la copia local.
+- **Contra Neon los pedidos tardan más,** y no es la API: es la distancia. Esa base es remota, y cada consulta viaja
+  por internet hasta su servidor y vuelve. El portfolio, por ejemplo, hace cuatro consultas, una atrás de la otra. En
+  la prueba del autor, las lecturas tardaron unos 800 ms. El objetivo de tiempo de respuesta, un percentil 95 por
+  debajo de 100 ms, se midió con la API y la base en la misma máquina
+  ([medición](docs/mediciones/06-tiempo-de-respuesta.md)).
 - **La copia local:** se arma con `docs/00-fuentes/database.sql` y las migraciones de la API, y vive en memoria. Cada
   `docker compose up` arranca con los datos originales, y nunca usa la base de Neon.
 - **Los puertos** se abren solo en tu máquina (`127.0.0.1`). Si alguno está ocupado, se mueve con una variable:
