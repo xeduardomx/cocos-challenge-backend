@@ -77,8 +77,8 @@ Otra operación tiene el turno de ese usuario desde hace más de 2 segundos. La 
 reintentar con el mismo `clientOrderId` es seguro: no compra dos veces
 ([RFC 5.3](../03-rfc.md#53-reintentos)).
 
-Si se repite, el panel "Espera del turno" de Grafana muestra cuánto están esperando los envíos, y esta consulta muestra
-qué transacciones están abiertas y desde cuándo:
+Si se repite, el panel "Errores del servidor" de Grafana cuenta los 503, el panel "Espera del turno" muestra cuánto
+están esperando los envíos, y esta consulta muestra qué transacciones están abiertas y desde cuándo:
 
 ```bash
 docker compose exec -T postgres psql -U postgres -X -c "select pid, state, now() - xact_start as en_curso, left(query, 50) as consulta from pg_stat_activity where datname = current_database() and xact_start is not null and pid <> pg_backend_pid();"
@@ -96,8 +96,8 @@ es la orden que ya entró ([RFC 5.5](../03-rfc.md#55-la-misma-orden-con-otro-ide
 
 - **Si la segunda orden era a propósito,** se espera unos segundos y se manda de nuevo, tal cual.
 - **Si se repite mucho,** la app está generando un identificador nuevo en cada reintento: tiene que repetir el mismo
-  ([RFC 5.3](../03-rfc.md#53-reintentos)). Cuántas veces pasa se ve en Prometheus:
-  `http_server_requests_seconds_count{uri="/users/{userId}/orders",method="POST",status="409"}`.
+  ([RFC 5.3](../03-rfc.md#53-reintentos)). Cuántas veces pasó se ve en Grafana, en el panel "Errores del cliente": es
+  la barra `409 · POST /users/{userId}/orders`.
 - **Para cambiar la ventana,** o apagar el control con 0, está la variable `API_DUPLICATE_ORDER_WINDOW`:
   `API_DUPLICATE_ORDER_WINDOW=0s docker compose up --build`.
 
@@ -110,8 +110,8 @@ No es un error: la orden se grabó, rechazada, y responde 201. El campo `rejecti
 
 ### Una respuesta da 500 `/problems/internal-error`
 
-La respuesta trae el `requestId`, y con él se encuentra el error en los logs. El stack trace completo está en
-`error.stack_trace`:
+Es una falla de la API, y el panel "Errores del servidor" de Grafana la cuenta. La respuesta trae el `requestId`, y con
+él se encuentra el error en los logs. El stack trace completo está en `error.stack_trace`:
 
 ```bash
 docker compose logs api --no-log-prefix | grep EL_REQUEST_ID | jq -c 'select(.log.level == "ERROR") | {message, problemType, httpStatus, error: .error.type}'
@@ -134,10 +134,25 @@ docker compose up --build -d
 migraciones, que la API aplica solo al arrancar. El portfolio funciona, pero la búsqueda, el envío, el listado y la
 cancelación dan 500.
 
-### Grafana no muestra la latencia o los errores
+### Grafana no muestra la latencia
 
-No es una falla. Las órdenes y la espera del turno se ven desde el primer pedido. La latencia y los errores de cada
-función aparecen desde el segundo, con al menos 15 segundos entre los dos, porque Prometheus necesita dos lecturas.
+No es una falla. Las órdenes, los rechazos y los errores se ven desde el primero. Los dos gráficos de líneas necesitan
+dos lecturas de Prometheus, que lee cada 15 segundos: la latencia de cada función aparece desde su segundo pedido, con
+al menos 15 segundos entre los dos, y la espera del turno, con el primer envío que llega después de la primera lectura.
+Y la línea se corta cuando pasan 5 minutos sin pedidos.
+
+### El panel de latencia muestra un ícono azul de información
+
+No es una falla. Es un aviso de Prometheus: al sumar los conteos de varias series para calcular el percentil apareció
+una diferencia mínima entre ellos, y la corrigió solo ("input to histogram_quantile needed to be fixed for
+monotonicity"). El número del panel vale. En las pruebas apareció una vez, con muchos pedidos justo después de
+reiniciar la API.
+
+### El panel de errores del servidor dice "Sin datos: la API no responde"
+
+Prometheus no está pudiendo leer la API. El panel no muestra un 0 en ese caso, para que una API caída no parezca una
+API sin errores. `docker compose ps` muestra si la API está corriendo, y <http://localhost:9090/targets>, qué error le
+da a Prometheus. Recién levantada, dura hasta la primera lectura: 15 segundos como mucho.
 
 ### La colección de Postman falla en la segunda corrida
 
