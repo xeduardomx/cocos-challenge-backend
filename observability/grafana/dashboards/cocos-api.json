@@ -16,7 +16,8 @@
     {
       "id": 1,
       "type": "bargauge",
-      "title": "Órdenes por estado, tipo y lado (en el rango)",
+      "title": "Órdenes por estado, tipo y lado (desde el arranque)",
+      "description": "Cuántas órdenes grabó la API desde que arrancó, según cómo quedaron: FILLED (ejecutada), NEW (pendiente) o REJECTED (rechazada). No cuenta las órdenes que ya estaban en la base.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -33,7 +34,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (status, type, side) (increase(orders_recorded_total[$__range])) > 0",
+          "expr": "sum by (status, type, side) (orders_recorded_total) > 0",
           "legendFormat": "{{status}} · {{type}} · {{side}}",
           "instant": true,
           "range": false,
@@ -47,7 +48,9 @@
             "fixedColor": "blue"
           },
           "decimals": 0,
+          "displayName": "${__series.name}",
           "min": 0,
+          "noValue": "Sin órdenes todavía",
           "unit": "short"
         },
         "overrides": []
@@ -67,7 +70,8 @@
     {
       "id": 2,
       "type": "bargauge",
-      "title": "Rechazos por motivo (en el rango)",
+      "title": "Rechazos por motivo (desde el arranque)",
+      "description": "Por qué quedaron REJECTED las órdenes que grabó la API desde que arrancó: no alcanzan los pesos, no alcanzan las acciones o el activo no cotiza. Un rechazo no es un error: la orden se graba y la API responde 201.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -84,7 +88,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (reason) (increase(orders_recorded_total{status=\"REJECTED\"}[$__range]))",
+          "expr": "sum by (reason) (orders_recorded_total{status=\"REJECTED\"})",
           "legendFormat": "{{reason}}",
           "instant": true,
           "range": false,
@@ -98,7 +102,9 @@
             "fixedColor": "blue"
           },
           "decimals": 0,
+          "displayName": "${__series.name}",
           "min": 0,
+          "noValue": "Sin rechazos todavía",
           "unit": "short"
         },
         "overrides": []
